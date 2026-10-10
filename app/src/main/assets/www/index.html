@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif;background:#fafafa}img{max-width:100%}[hidden]{display:none!important}</style>
+<meta name="theme-color" content="#E8820C">
+<meta name="description" content="Nirog: find doctors, labs and hospitals, and book appointments.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nirog">
 <title>Nirog</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -253,6 +261,12 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}
 .lab .tests{display:flex;flex-wrap:wrap;gap:6px}
 .lab .tests span{font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:3px 8px}
 .lab .tests b{font-variant-numeric:tabular-nums}
+.bell{position:relative;display:inline-grid;place-items:center;width:36px;height:36px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--brand)}
+.bell i{position:absolute;top:-4px;right:-4px;background:var(--accent);color:var(--surface);border-radius:999px;font-style:normal;font-size:11px;min-width:18px;height:18px;display:grid;place-items:center;padding:0 4px;font-weight:700}
+.topr{display:flex;align-items:center;gap:8px}
+.ntoast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);z-index:60;background:var(--accent);color:#fff;border-radius:12px;padding:10px 14px;font-size:14px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:92vw}
+.ntoast button{background:none;border:0;color:#fff;text-decoration:underline;font-weight:700;margin-left:8px}
+.nitem{border-bottom:1px solid var(--line);padding:12px 0;font-size:14px}.nitem.un{font-weight:600}.nitem small{display:block;color:var(--muted,#777);font-weight:400;margin-top:2px}
 </style>
 </head>
 <body>
@@ -452,8 +466,52 @@ function isOff(doc,k){return (doc.off||[]).indexOf(k)>-1}
 function worksDay(doc,k){return doc.days.indexOf(fromKey(k).getDay())>-1}
 function works(doc,k){return worksDay(doc,k)&&!isOff(doc,k)}
 function bookedKey(id,k,t){return id+"|"+k+"|"+t}
+/* ---------- in-app notifications ---------- */
+var NOTIF=(function(){try{var r=JSON.parse(localStorage.getItem("nirog-notif-v1"));if(Array.isArray(r))return r}catch(e){}return []})();
+function saveNotif(){try{localStorage.setItem("nirog-notif-v1",JSON.stringify(NOTIF.slice(-300)))}catch(e){}}
+function notify(to,text){NOTIF.push({id:"n"+Date.now()+Math.floor(Math.random()*1e4),to:to,text:text,ts:Date.now(),read:false});saveNotif()}
+function notifKey(){
+  if(state.staff){var u=getUser(state.staff);if(!u)return null;return u.role==="doctor"?"d:"+u.docId:u.role==="facility"?"f:"+u.id:u.role==="admin"?"admin":"u:"+u.id}
+  return state.pat?"p:"+state.pat.phone:null;
+}
+function unreadN(){var k=notifKey();return k?NOTIF.filter(function(n){return n.to===k&&!n.read}).length:0}
+function hasLogin(d){return staffData.users.some(function(u){return u.role==="doctor"&&u.docId===d.id})}
+function bellBtn(){
+  var k=notifKey();if(!k)return "";var n=unreadN();
+  return '<button class="bell" data-a="notif" aria-label="Notifications'+(n?', '+n+' unread':'')+'"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0112 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 21a2 2 0 004 0"/></svg>'+(n?'<i class="tnum">'+n+'</i>':'')+'</button>';
+}
+function ago(ts){var m=Math.floor((Date.now()-ts)/60000);return m<1?"Just now":m<60?m+" min ago":m<1440?Math.floor(m/60)+" h ago":Math.floor(m/1440)+" d ago"}
+function vNotif(){
+  var k=notifKey(),list=NOTIF.filter(function(n){return n.to===k}).sort(function(a,b){return b.ts-a.ts});
+  var h='<div class="top"><div class="brand">Nirog<small>Notifications</small></div><button class="btn sm ghost" data-a="nclose">Close</button></div><div class="title-block"><h1>Notifications</h1></div><div class="card">'+
+   (list.length?list.map(function(n){return '<div class="nitem'+(n.fresh?' un':'')+'">'+esc(n.text)+'<small>'+ago(n.ts)+'</small></div>'}).join(""):'<div class="empty">Nothing yet. Booking updates will show up here.</div>')+'</div>';
+  return h;
+}
+function nbHtml(){
+  if(!state.nb||state.notif)return "";var n=unreadN();if(!n)return "";
+  return '<div class="ntoast" role="status">You have '+n+' new notification'+(n>1?'s':'')+'<button data-a="notif">View</button></div>';
+}
+function openNotif(){
+  var k=notifKey();if(!k)return;
+  NOTIF.forEach(function(n){n.fresh=(n.to===k&&!n.read)});
+  NOTIF.forEach(function(n){if(n.to===k)n.read=true});saveNotif();state.notif=true;state.nb=false;render(true);
+}
+function fmtWhen(a){return longDate(a.dateKey)+", "+t12(a.time)}
+function approveAppt(id){
+  var a=null;appts.forEach(function(x){if(x.id===id)a=x});if(!a||a.status!=="pending")return;
+  var d=byId(a.docId),nt=state.atime[id];
+  if(nt&&nt!==a.time){var ok=slotsFor(d,a.dateKey).some(function(s){return s.t===nt&&s.st==="free"});if(ok)a.time=nt;a.retimed=true}
+  a.status="upcoming";delete state.atime[id];save();
+  notify("p:"+a.phone,d.name+" confirmed your appointment for "+fmtWhen(a)+(a.retimed?" (time set by the doctor)":"")+". Ref "+a.ref+".");
+}
+function rejectAppt(id){
+  var a=null;appts.forEach(function(x){if(x.id===id)a=x});if(!a||a.status!=="pending")return;
+  var d=byId(a.docId),r=(state.rrs[id]||"").trim();
+  a.status="rejected";a.rreason=r;state.rask=null;delete state.rrs[id];save();
+  notify("p:"+a.phone,d.name+" could not accept your request for "+fmtWhen(a)+(r?": "+r:".")+" You can book another time.");
+}
 function bookedSet(){
-  var s={};appts.forEach(function(a){if(a.status==="upcoming"&&a.id!==state.resched)s[bookedKey(a.docId,a.dateKey,a.time)]=1});return s;
+  var s={};appts.forEach(function(a){if((a.status==="upcoming"||a.status==="pending")&&a.id!==state.resched)s[bookedKey(a.docId,a.dateKey,a.time)]=1});return s;
 }
 function slotsFor(doc,k){
   if(!works(doc,k))return [];
@@ -489,7 +547,7 @@ var state={tab:"find",view:"list",city:loadCity(),spec:"All",q:"",docId:null,dat
   login:{email:"",pass:"",err:""},
   nlead:{name:"",phone:"",spec:SPECS[1],err:""},
   nmem:{name:"",email:"",phone:"",pass:"",target:"50000",err:""},
-  pat:loadPat(),after:null,otp:null,lmode:"email",lb:null,vchk:{},rej:{},lq:"",pf:null,prof:null,fr:null,frDone:null,nlab:null,fk:"all"};
+  pat:loadPat(),after:null,otp:null,lmode:"email",lb:null,vchk:{},rej:{},lq:"",pf:null,prof:null,nb:true,notif:false,atime:{},rrs:{},rask:null,fr:null,frDone:null,nlab:null,fk:"all"};
 var app=document.getElementById("app");
 
 /* ---------- staff: data ---------- */
@@ -574,7 +632,7 @@ function dailyBooked(uid){
 }
 function onlineStats(){
   var c=0,rev=0,pf=0;
-  appts.forEach(function(a){if(a.status!=="cancelled"){c++;var d=byId(a.docId);rev+=a.fee!=null?a.fee:visitFee(d,a.mode);pf+=a.pf||0}});
+  appts.forEach(function(a){if(a.status==="upcoming"){c++;var d=byId(a.docId);rev+=a.fee!=null?a.fee:visitFee(d,a.mode);pf+=a.pf||0}});
   return {count:c,rev:rev,pf:pf};
 }
 
@@ -584,7 +642,7 @@ function doLogin(){
   staffData.users.forEach(function(x){if(em&&x.email.toLowerCase()===em)u=x});
   if(!u||u.pass!==pw){state.login.err="Email or password is incorrect.";render();return}
   if(!u.active){state.login.err="This account is deactivated. Ask a super admin to reactivate it.";render();return}
-  state.staff=u.id;state.stab="ov";state.lf="all";state.showTable=false;state.addLead=false;state.login={email:"",pass:"",err:""};
+  state.nb=true;state.staff=u.id;state.stab="ov";state.lf="all";state.showTable=false;state.addLead=false;state.login={email:"",pass:"",err:""};
   render(true);
 }
 function sLead(v){
@@ -735,12 +793,13 @@ function vStaff(){
     else{title="My leads";body=salesLeads(u)}
   }
   var pendN=DOCS.filter(function(x){return x.status==="pending"}).length,pendF=LABS.filter(function(x){return x.registered&&x.status==="pending"}).length;
+  var pendA=isDoc?appts.filter(function(a){return a.docId===u.docId&&a.status==="pending"}).length:0;
   var newN=admin?0:staffData.leads.filter(function(l){return l.owner===u.id&&l.status==="new"}).length;
-  return '<div class="top"><div class="brand">Nirog<small>'+(admin?"Super admin":isFac?"Facility":isDoc?"Doctor":"Sales team")+'</small></div><button class="btn sm ghost" data-a="logout">Sign out</button></div>'+
+  return '<div class="top"><div class="brand">Nirog<small>'+(admin?"Super admin":isFac?"Facility":isDoc?"Doctor":"Sales team")+'</small></div><div class="topr">'+bellBtn()+'<button class="btn sm ghost" data-a="logout">Sign out</button></div></div>'+
    '<div class="title-block" style="padding-bottom:12px"><h1>'+title+'</h1><p>Signed in as '+esc(u.name)+'</p></div>'+
    '<div class="stack">'+body+'</div>'+
    '<nav class="nav stick" style="grid-template-columns:repeat('+tabs.length+',1fr)" aria-label="Staff">'+tabs.map(function(t){
-     return '<button data-a="stab" data-v="'+t[0]+'" '+(state.stab===t[0]?'aria-current="page"':'')+'>'+t[2]+t[1]+(t[0]==="leads"&&newN?'<span class="badge tnum">'+newN+'</span>':(t[0]==="doc"&&pendN?'<span class="badge tnum">'+pendN+'</span>':(t[0]==="labs"&&pendF?'<span class="badge tnum">'+pendF+'</span>':'')))+'</button>';
+     return '<button data-a="stab" data-v="'+t[0]+'" '+(state.stab===t[0]?'aria-current="page"':'')+'>'+t[2]+t[1]+(t[0]==="leads"&&newN?'<span class="badge tnum">'+newN+'</span>':(t[0]==="appt"&&isDoc&&pendA?'<span class="badge tnum">'+pendA+'</span>':t[0]==="doc"&&pendN?'<span class="badge tnum">'+pendN+'</span>':(t[0]==="labs"&&pendF?'<span class="badge tnum">'+pendF+'</span>':'')))+'</button>';
    }).join("")+'</nav>';
 }
 
@@ -837,13 +896,13 @@ function adminBook(){
   var list=appts.slice().sort(function(a,b){return (a.dateKey+a.time)<(b.dateKey+b.time)?1:-1});
   if(!list.length)return '<div class="empty">No bookings yet. Appointments made in the patient app appear here.</div>';
   return '<div class="list" style="padding-top:0">'+list.map(function(a){
-    var d=byId(a.docId),up=a.status==="upcoming",fee=a.mode==="video"?d.vfee:d.fee,acts="";
+    var d=byId(a.docId),up=a.status==="upcoming"||a.status==="pending",fee=a.mode==="video"?d.vfee:d.fee,acts="";
     if(up){
       acts=state.ask===a.id?
         '<div class="confirm"><div>Cancel this booking? The slot will be released.</div><div class="acts"><button class="btn sm danger" data-a="cancel" data-v="'+a.id+'">Yes, cancel</button><button class="btn sm ghost" data-a="keep">Keep it</button></div></div>':
         '<div class="acts"><button class="btn sm ghost" data-a="ask" data-v="'+a.id+'" style="color:var(--bad)">Cancel booking</button></div>';
     }
-    return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">with '+esc(d.name)+' · '+esc(d.spec)+' · '+esc(d.city)+'</div></div><span class="pill'+(up?'':' bad')+'">'+(up?"Upcoming":"Cancelled")+'</span></div>'+
+    return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">with '+esc(d.name)+' · '+esc(d.spec)+' · '+esc(d.city)+'</div></div><span class="pill'+(up&&a.status!=="pending"?'':a.status==="pending"?' warn':' bad')+'">'+({upcoming:"Confirmed",pending:"Waiting for doctor",rejected:"Rejected by doctor",cancelled:"Cancelled"}[a.status]||a.status)+'</span></div>'+
      '<div class="when tnum">'+longDate(a.dateKey)+', '+t12(a.time)+'</div>'+
      '<div class="tiny tnum">Mobile <span class="sel">'+esc(a.phone)+'</span>'+who(a)+' · Ref '+esc(a.ref)+' · '+(a.mode==="video"?"Video":"Clinic")+' · '+money(fee)+(a.sample?' · <span class="pill warn">Example</span>':'')+'</div>'+acts+'</div>';
   }).join("")+'</div>';
@@ -1123,14 +1182,26 @@ function docBanner(d){
   if(d.status==="rejected")return '<div class="callout" style="background:var(--bad-soft)"><span>You are not listed right now.'+(d.reason?' Reason: '+esc(d.reason)+'.':'')+' Contact the super admin to be listed again.</span></div>';
   return '';
 }
+function dApptCard(a,pend){
+  var d=byId(a.docId),h='<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">'+(a.mode==="video"?"Video consult":"In-clinic visit")+'</div></div><span class="pill'+(pend?' warn':'')+'">'+(pend?"Needs your approval":"Confirmed")+'</span></div>'+
+   '<div class="when tnum">'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+(a.retimed?' · time set by you':'')+'</div>'+
+   '<div class="tiny tnum">Mobile <span class="sel">'+esc(a.phone)+'</span>'+who(a)+' · Ref '+esc(a.ref)+(a.reason?' · '+esc(a.reason):'')+'</div>';
+  if(pend){
+    var cur=state.atime[a.id]||a.time,opts=slotsFor(d,a.dateKey).filter(function(x){return x.st==="free"||x.t===a.time}).map(function(x){return x.t});
+    if(opts.indexOf(a.time)<0)opts.unshift(a.time);
+    h+='<div class="field" style="margin-top:8px"><label for="at-'+a.id+'">Give a time for this visit</label><select id="at-'+a.id+'">'+opts.map(function(t){return '<option value="'+t+'"'+(t===cur?' selected':'')+'>'+t12(t)+(t===a.time?' (requested)':'')+'</option>'}).join("")+'</select></div>';
+    if(state.rask===a.id)h+='<div class="confirm"><div class="field"><label for="rr-'+a.id+'">Reason for the patient (optional)</label><input id="rr-'+a.id+'" maxlength="140" value="'+esc(state.rrs[a.id]||"")+'" placeholder="e.g. Not available that day"></div><div class="acts"><button class="btn sm danger" data-a="rejgo" data-v="'+a.id+'">Reject request</button><button class="btn sm ghost" data-a="rejno">Back</button></div></div>';
+    else h+='<div class="acts"><button class="btn sm" data-a="approve" data-v="'+a.id+'">Approve</button><button class="btn sm ghost" data-a="rejask" data-v="'+a.id+'" style="color:var(--bad)">Reject</button></div>';
+  }
+  return h+'</div>';
+}
 function docAppts(d){
-  var list=appts.filter(function(a){return a.docId===d.id&&a.status==="upcoming"}).sort(function(a,b){return (a.dateKey+a.time)<(b.dateKey+b.time)?-1:1});
-  if(!list.length)return '<div class="empty">No upcoming bookings. Patients book the open slots you set under Schedule and Slots.</div>';
-  return '<div class="list" style="padding-top:0">'+list.map(function(a){
-    return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">'+(a.mode==="video"?"Video consult":"In-clinic visit")+'</div></div><span class="pill">Upcoming</span></div>'+
-     '<div class="when tnum">'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+'</div>'+
-     '<div class="tiny tnum">Mobile <span class="sel">'+esc(a.phone)+'</span>'+who(a)+' · Ref '+esc(a.ref)+(a.reason?' · '+esc(a.reason):'')+'</div></div>';
-  }).join("")+'</div>';
+  var srt=function(a,b){return (a.dateKey+a.time)<(b.dateKey+b.time)?-1:1};
+  var pend=appts.filter(function(a){return a.docId===d.id&&a.status==="pending"}).sort(srt),
+      conf=appts.filter(function(a){return a.docId===d.id&&a.status==="upcoming"}).sort(srt);
+  if(!pend.length&&!conf.length)return '<div class="empty">No bookings yet. New requests appear here for you to approve or reject.</div>';
+  return '<div class="list" style="padding-top:0">'+(pend.length?'<div class="sec">Waiting for your approval ('+pend.length+')</div>'+pend.map(function(a){return dApptCard(a,true)}).join(""):'')+
+   (conf.length?'<div class="sec">Confirmed</div>'+conf.map(function(a){return dApptCard(a,false)}).join(""):'')+'</div>';
 }
 function docSched(d){
   if(state.schedFor!==d.id||!state.sched){state.sched=modelFromDoc(d);state.schedFor=d.id}
@@ -1157,7 +1228,7 @@ function docSlots(d){
   }else{
     var slots=slotsFor(d,k),c={free:0,busy:0,blocked:0,past:0},who={};
     slots.forEach(function(s){c[s.st]++});
-    appts.forEach(function(a){if(a.docId===d.id&&a.dateKey===k&&a.status==="upcoming")who[a.time]=a});
+    appts.forEach(function(a){if(a.docId===d.id&&a.dateKey===k&&(a.status==="upcoming"||a.status==="pending"))who[a.time]=a});
     var grid=slots.map(function(s){
       if(s.st==="free")return '<button class="slot tnum" data-a="blk" data-v="'+s.t+'" aria-label="'+t12(s.t)+', open. Tap to block">'+t12(s.t)+'</button>';
       if(s.st==="blocked")return '<button class="slot blocked tnum" data-a="unblk" data-v="'+s.t+'" aria-label="'+t12(s.t)+', blocked. Tap to open">'+t12(s.t)+'</button>';
@@ -1593,6 +1664,9 @@ function patAvatar(sz){
 }
 function profBtn(){
   if(!state.pat)return '<button class="btn sm" data-a="psignin">Sign in</button>';
+  return '<div class="topr">'+bellBtn()+profBtn0()+'</div>';
+}
+function profBtn0(){
   var first=String(state.pat.name).trim().split(/\s+/)[0];
   return '<button class="pbtn" data-a="profile" aria-label="My profile">'+patAvatar(32)+'<span>'+esc(first)+'</span></button>';
 }
@@ -1692,7 +1766,7 @@ function otpVerify(){
     var nm=o.needName?o.name.trim():knownName(o.phone);
     if(nm.length<2){o.err="Enter your name to finish.";render();return}
     rememberName(o.phone,nm);
-    state.pat={phone:o.phone,name:nm};savePat();
+    state.pat={phone:o.phone,name:nm};state.nb=true;savePat();
     var af=o.after,ph=o.phone;
     state.otp=null;
     if(af==="confirm"&&state.docId&&state.dateKey&&state.time){state.form.name=nm;state.form.phone=ph;state.errors={};state.view="confirm";state.tab="find"}
@@ -1703,7 +1777,7 @@ function otpVerify(){
   }
   var su=staffByPhone(o.phone);
   if(!su||!su.active){o.err="This account cannot sign in.";render();return}
-  state.staff=su.id;state.stab="ov";state.lf="all";state.showTable=false;state.addLead=false;
+  state.nb=true;state.staff=su.id;state.stab="ov";state.lf="all";state.showTable=false;state.addLead=false;
   state.otp=null;state.lmode="email";state.login={email:"",pass:"",err:""};
   render(true);
 }
@@ -1826,8 +1900,8 @@ function vConfirm(){
 }
 function vDone(){
   var a=state.last,d=byId(a.docId);
-  return '<div class="done"><div class="tick">'+ic.check+'</div><h1 style="font-size:26px">'+(state.resched===null&&a.rebooked?'Appointment rescheduled':'You are booked')+'</h1>'+
-   '<p class="muted" style="margin:8px 0 0">'+esc(d.name)+' will see you on</p>'+
+  return '<div class="done"><div class="tick">'+ic.check+'</div><h1 style="font-size:26px">'+(a.status==="pending"?'Request sent':state.resched===null&&a.rebooked?'Appointment rescheduled':'You are booked')+'</h1>'+
+   '<p class="muted" style="margin:8px 0 0">'+(a.status==="pending"?'Waiting for '+esc(d.name)+' to approve. The doctor may adjust the time. You will get a notification. Requested for':esc(d.name)+' will see you on')+'</p>'+
    '<p style="font-family:var(--font-display);font-weight:700;font-size:20px;margin:4px 0 0" class="tnum">'+longDate(a.dateKey)+', '+t12(a.time)+'</p>'+
    '<div class="ref tnum">'+esc(a.ref)+'</div>'+
    '<p class="hint" style="margin-top:10px">Note this reference. Carry it, and any earlier reports, to the visit.</p></div>'+
@@ -1839,7 +1913,7 @@ function vDone(){
    '<div class="stick" style="display:flex;flex-direction:column;gap:8px"><button class="btn" data-a="mine">View my appointments</button><button class="btn ghost" data-a="home">Book another</button></div>';
 }
 function apptCard(a){
-  var d=byId(a.docId),up=a.status==="upcoming";
+  var d=byId(a.docId),conf=a.status==="upcoming",up=conf||a.status==="pending";
   var acts="";
   if(up){
     if(state.ask===a.id){
@@ -1849,31 +1923,34 @@ function apptCard(a){
     }
   }
   return '<div class="appt"'+(up?'':' style="opacity:.7"')+'><div class="appt-head">'+avatar(d)+'<div style="min-width:0;flex:1"><div class="doc-name">'+esc(d.name)+'</div><div class="doc-sub">'+esc(d.spec)+'</div></div>'+
-   (up?'<span class="pill">Upcoming</span>':'<span class="pill bad">Cancelled</span>')+'</div>'+
+   (conf?'<span class="pill">Confirmed</span>':a.status==="pending"?'<span class="pill warn">Waiting for doctor</span>':'<span class="pill bad">'+(a.status==="rejected"?"Rejected":"Cancelled")+'</span>')+'</div>'+
    '<div class="when tnum">'+ic.cal.replace('width="22" height="22"','width="18" height="18"')+'<span>'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+'</span></div>'+
    '<div class="doc-sub">'+(a.mode==="video"?'Video consult':esc(d.clinic)+', '+esc(d.city))+' · For '+esc(a.name)+(a.reason?' · '+esc(a.reason):'')+'</div>'+
-   (a.mode==="clinic"&&up?'<div>'+mapLink(siteDir(d),"Get directions on Google Maps","maplink")+'</div>':'')+
+   (a.status==="rejected"?'<div class="doc-sub" style="color:var(--bad)">The doctor could not accept this request'+(a.rreason?': '+esc(a.rreason):'.')+' Please book another time.</div>':'')+
+   (a.mode==="clinic"&&conf?'<div>'+mapLink(siteDir(d),"Get directions on Google Maps","maplink")+'</div>':'')+
    '<div class="row"><span class="hint tnum">Ref '+esc(a.ref)+' · '+money(a.fee!=null?a.fee:visitFee(d,a.mode))+(a.pf?' + '+money(a.pf)+' platform fee':'')+'</span>'+(a.sample?'<span class="pill warn">Example</span>':'')+'</div>'+acts+'</div>';
 }
 function vAppts(){
   var mineA=myAppts();
-  var up=mineA.filter(function(a){return a.status==="upcoming"}).sort(function(x,y){return (x.dateKey+x.time)<(y.dateKey+y.time)?-1:1});
-  var cx=mineA.filter(function(a){return a.status==="cancelled"});
+  var up=mineA.filter(function(a){return a.status==="upcoming"||a.status==="pending"}).sort(function(x,y){return (x.dateKey+x.time)<(y.dateKey+y.time)?-1:1});
+  var cx=mineA.filter(function(a){return a.status==="cancelled"||a.status==="rejected"});
   return '<div class="top"><div class="brand">Nirog<small>My appointments</small></div>'+profBtn()+'</div>'+
    '<div class="title-block"><h1>Your appointments</h1>'+(state.pat?'<div class="tiny" style="margin-top:8px">'+patLine()+'</div>':'')+'</div>'+
    (up.length?up.map(apptCard).join(""):'<div class="empty">No upcoming appointments. Book a doctor from the first tab and it will show up here.</div>')+
-   (cx.length?'<div class="sec">Cancelled</div>'+cx.map(apptCard).join(""):'')+
+   (cx.length?'<div class="sec">Cancelled or rejected</div>'+cx.map(apptCard).join(""):'')+
    '<div style="height:16px"></div>';
 }
 function nav(){
-  var n=myAppts().filter(function(a){return a.status==="upcoming"}).length;
+  var n=myAppts().filter(function(a){return a.status==="upcoming"||a.status==="pending"}).length;
   return '<nav class="nav stick" style="padding-top:6px" aria-label="Main"><button data-a="tab" data-v="find" '+(state.tab==="find"?'aria-current="page"':'')+'>'+ic.plus+'Find doctors</button>'+
    '<button data-a="tab" data-v="labs" '+(state.tab==="labs"?'aria-current="page"':'')+'>'+ic2.slots+'Facilities</button>'+
    '<button data-a="tab" data-v="appts" '+(state.tab==="appts"?'aria-current="page"':'')+'>'+ic.cal+'Appointments'+(n?'<span class="badge tnum">'+n+'</span>':'')+'</button></nav>';
 }
 function render(scroll){
   var h,showNav=false;
-  if(state.staff){app.innerHTML=vStaff()+lbHtml();if(scroll)window.scrollTo(0,0);return}
+  if(state.notif&&notifKey()){app.innerHTML=vNotif();if(scroll)window.scrollTo(0,0);return}
+  state.notif=false;
+  if(state.staff){app.innerHTML=nbHtml()+vStaff()+lbHtml();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="login"){app.innerHTML=vLogin();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="profile"&&state.pat&&state.prof){app.innerHTML=vProfile();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="freg"){app.innerHTML=vFreg();if(scroll)window.scrollTo(0,0);return}
@@ -1885,7 +1962,7 @@ function render(scroll){
   else if(state.view==="doctor")h=vDoctor();
   else if(state.view==="confirm")h=vConfirm();
   else h=vDone();
-  app.innerHTML=h+(showNav?nav():"")+lbHtml();
+  app.innerHTML=nbHtml()+h+(showNav?nav():"")+lbHtml();
   if(scroll)window.scrollTo(0,0);
 }
 
@@ -1901,17 +1978,24 @@ function book(){
   if(state.pat&&f.name.trim().toLowerCase()===state.pat.name.toLowerCase()){var pr0=getProf(state.pat.phone)||{};pr0.name=state.pat.name;pr0.age=+f.age;pr0.sex=f.sex;putProf(state.pat.phone,pr0)}
   if(state.resched){
     a=null;appts.forEach(function(x){if(x.id===state.resched)a=x});
-    if(a){a.dateKey=state.dateKey;a.time=state.time;a.docId=state.docId;a.mode=state.mode;a.fee=visitFee(d,state.mode);a.pf=platFee(a.fee);a.age=+f.age;a.sex=f.sex;a.name=f.name.trim();a.phone=f.phone;a.reason=f.reason.trim();a.sample=false;a.rebooked=true;state.last=a;state.resched=null;save();state.view="done";render(true);return}
+    if(a){a.dateKey=state.dateKey;a.time=state.time;a.docId=state.docId;a.mode=state.mode;a.fee=visitFee(d,state.mode);a.pf=platFee(a.fee);a.age=+f.age;a.sex=f.sex;a.name=f.name.trim();a.phone=f.phone;a.reason=f.reason.trim();a.sample=false;a.rebooked=true;a.status=hasLogin(d)?"pending":"upcoming";delete a.rreason;if(a.status==="pending")notify("d:"+d.id,"Rescheduled request from "+a.name+" for "+fmtWhen(a)+". Please approve or reject.");state.last=a;state.resched=null;save();state.view="done";render(true);return}
   }
   var chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",r="";
   for(var i=0;i<5;i++)r+=chars[Math.floor(Math.random()*chars.length)];
-  a={id:"a"+Date.now(),ref:"NR-"+r,docId:d.id,dateKey:state.dateKey,time:state.time,mode:state.mode,age:+f.age,sex:f.sex,fee:visitFee(d,state.mode),pf:platFee(visitFee(d,state.mode)),name:f.name.trim(),phone:f.phone,reason:f.reason.trim(),status:"upcoming"};
-  appts.push(a);state.last=a;save();state.view="done";render(true);
+  a={id:"a"+Date.now(),ref:"NR-"+r,docId:d.id,dateKey:state.dateKey,time:state.time,mode:state.mode,age:+f.age,sex:f.sex,fee:visitFee(d,state.mode),pf:platFee(visitFee(d,state.mode)),name:f.name.trim(),phone:f.phone,reason:f.reason.trim(),status:hasLogin(d)?"pending":"upcoming"};
+  appts.push(a);state.last=a;save();if(a.status==="pending"){notify("d:"+d.id,"New booking request from "+a.name+" for "+fmtWhen(a)+". Please approve or reject.");notify("p:"+a.phone,"Request sent to "+d.name+" for "+fmtWhen(a)+". Waiting for approval.")}else notify("p:"+a.phone,"Booked with "+d.name+" for "+fmtWhen(a)+". Ref "+a.ref+".");state.view="done";render(true);
 }
 app.addEventListener("click",function(ev){
   var b=ev.target.closest("[data-a]");if(!b||b.disabled)return;
   var a=b.getAttribute("data-a"),v=b.getAttribute("data-v");
+  if(a!=="notif")state.nb=false;
   switch(a){
+    case "notif":openNotif();break;
+    case "nclose":state.notif=false;render(true);break;
+    case "approve":approveAppt(v);render();break;
+    case "rejask":state.rask=v;render();break;
+    case "rejno":state.rask=null;render();break;
+    case "rejgo":rejectAppt(v);render();break;
     case "regdoc":state.view="register";state.reg=newReg();state.regDone=null;state.tab="find";render(true);break;
     case "rgday":toggleDay("reg",+v);break;
     case "scday":toggleDay("sched",+v);break;
@@ -1948,7 +2032,7 @@ app.addEventListener("click",function(ev){
     case "rmlab":(function(){var me=getUser(state.staff);if(!me||me.role!=="admin")return;LABS=LABS.filter(function(l){return l.sample||l.id!==v});saveLabs();render()})();break;
     case "staff":state.view="login";state.login={email:"",pass:"",err:""};render(true);break;
     case "fill":state.login=v==="admin"?{email:"admin@nirog.demo",pass:"Admin@123",err:""}:v==="doctor"?{email:"anjali@nirog.demo",pass:"Doctor@123",err:""}:{email:"riya@nirog.demo",pass:"Sales@123",err:""};render();break;
-    case "logout":state.staff=null;state.view="list";state.tab="find";state.ask=null;render(true);break;
+    case "logout":state.notif=false;state.staff=null;state.view="list";state.tab="find";state.ask=null;render(true);break;
     case "stab":state.stab=v;state.ask=null;state.addLead=false;schedMsg="";render(true);break;
     case "lf":state.lf=v;render();break;
     case "lead":sLead(v);break;
@@ -1969,7 +2053,7 @@ app.addEventListener("click",function(ev){
       }
       break;
     case "psignin":openOtp("patient",null);break;
-    case "psignout":state.pat=null;savePat();state.tab="find";state.view="list";render(true);break;
+    case "psignout":state.notif=false;state.pat=null;savePat();state.tab="find";state.view="list";render(true);break;
     case "otpsend":otpSend(false);break;
     case "otpresend":otpSend(true);break;
     case "otpchange":state.otp=newOtp(state.otp?state.otp.kind:"patient",state.otp?state.otp.after:null);render();break;
@@ -1982,7 +2066,7 @@ app.addEventListener("click",function(ev){
     case "mine":state.tab="appts";state.view="list";render(true);break;
     case "ask":state.ask=v;render();break;
     case "keep":state.ask=null;render();break;
-    case "cancel":appts.forEach(function(x){if(x.id===v)x.status="cancelled"});state.ask=null;save();render();break;
+    case "cancel":appts.forEach(function(x){if(x.id===v){var wasS=x.status;x.status="cancelled";var dd=byId(x.docId);if(state.staff){notify("p:"+x.phone,"Your appointment with "+dd.name+" for "+fmtWhen(x)+" was cancelled by Nirog support.")}else notify("d:"+x.docId,x.name+" cancelled the appointment for "+fmtWhen(x)+".")}});state.ask=null;save();render();break;
     case "resched":
       var ap=null;appts.forEach(function(x){if(x.id===v)ap=x});
       if(ap){state.resched=ap.id;state.docId=ap.docId;state.mode=ap.mode;state.dateKey=null;state.time=null;
@@ -2005,6 +2089,7 @@ app.addEventListener("input",function(ev){
   else if(t.id==="city"){state.city=t.value;saveCity(t.value);var cbox=document.getElementById("docs");if(cbox)cbox.innerHTML=docListHtml();var lbx=document.getElementById("labs");if(lbx)lbx.innerHTML=labsListHtml()}
   else if(t.id==="lq"){state.lq=t.value;var lb2=document.getElementById("labs");if(lb2)lb2.innerHTML=labsListHtml()}
   else if(t.id==="pf-value"&&state.pf){state.pf.value=t.value.replace(/[^\d.]/g,"").slice(0,6);t.value=state.pf.value;state.pf.ok="";state.pf.err="";var pfx=document.getElementById("pf-ex");if(pfx){var pv=+state.pf.value||0,pe=state.pf.type==="flat"?Math.round(pv):Math.round(500*pv/100);pfx.innerHTML="Example: on a ₹500 visit the patient sees ₹500 doctor fee + "+money(state.pf.on?pe:0)+" platform fee = <b>"+money(500+(state.pf.on?pe:0))+"</b>."}}
+  else if(t.id&&t.id.indexOf("rr-")===0){state.rrs[t.id.slice(3)]=t.value}
   else if(t.id&&t.id.indexOf("rj-")===0){state.rej[t.id.slice(3)]=t.value}
   else if(t.id&&t.id.indexOf("fj-")===0){state.rej["f"+t.id.slice(3)]=t.value}
   else if(t.id&&t.id.indexOf("fr-")===0&&state.fr){
@@ -2044,6 +2129,7 @@ app.addEventListener("input",function(ev){
 });
 app.addEventListener("change",function(ev){
   var t=ev.target;
+  if(t&&t.id&&t.id.indexOf("at-")===0){state.atime[t.id.slice(3)]=t.value}
   if(t&&t.type==="file"&&t.id&&t.id.indexOf("up-")===0){onUpload(t.id,t.files)}
   if(t&&t.type==="file"&&t.id&&t.id.indexOf("fu-")===0){onFacUpload(t.id,t.files)}
   if(t&&t.type==="file"&&t.id==="pu-photo"){onProfPhoto(t.files)}
@@ -2107,5 +2193,8 @@ render();
 })();
 </script>
 
+<script>
+if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol)){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
+</script>
 </body>
 </html>
