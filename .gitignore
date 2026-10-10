@@ -9,3 +9,7 @@ captures/
 ios/Nirog/Web/
 ios/*.xcodeproj/
 ios/build/
+
+.env
+.env.*
+!.env.example

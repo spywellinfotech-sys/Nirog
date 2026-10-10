@@ -1,0 +1,24 @@
+name: Database tests
+
+on:
+  push:
+    paths:
+      - "supabase/**"
+      - "scripts/**"
+      - ".github/workflows/db-tests.yml"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No server secrets in the repository
+        run: scripts/check-no-secrets.sh
+      - name: Install PostgreSQL 16
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-16 postgresql-client-16
+      - name: Run migrations and SQL tests (roles, RLS, double booking, concurrency)
+        run: sudo bash supabase/run_tests.sh

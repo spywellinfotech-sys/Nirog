@@ -21,6 +21,14 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # Public client configuration only (anon key). Empty secrets build a local demo-mode app.
+      - name: Write public config
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: scripts/make-config.sh
+
       # The GitHub runner image already includes the Android SDK, so no separate SDK setup step is needed.
       - name: Build debug APK
         run: |
