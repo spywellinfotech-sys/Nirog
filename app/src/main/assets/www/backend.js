@@ -62,8 +62,8 @@ BE.rpc=rpc;BE.sel=sel;BE.friendly=friendly;
 /* ---------- auth ---------- */
 BE.signedIn=function(){return !!BE.sess};
 BE.userId=function(){return BE.sess?BE.sess.user.id:null};
-BE.sendOtp=function(phone10){return rawFetch("/auth/v1/otp",{method:"POST",body:{phone:"+91"+phone10,create_user:true}}).then(function(){return true})};
-BE.verifyOtp=function(phone10,code){return rawFetch("/auth/v1/verify",{method:"POST",body:{type:"sms",phone:"+91"+phone10,token:code}}).then(function(j){if(!j||!j.access_token)throw BEErr("invalid_otp",400);saveSess(j);return j})};
+BE.sendOtp=function(email){return rawFetch("/auth/v1/otp",{method:"POST",body:{email:email,create_user:true}}).then(function(){return true})};
+BE.verifyOtp=function(email,code){return rawFetch("/auth/v1/verify",{method:"POST",body:{type:"email",email:email,token:code}}).then(function(j){if(!j||!j.access_token)throw BEErr("invalid_otp",400);saveSess(j);return j})};
 BE.signInPassword=function(email,pw){return rawFetch("/auth/v1/token?grant_type=password",{method:"POST",body:{email:email,password:pw}}).then(function(j){saveSess(j);return j})};
 BE.signUpPassword=function(email,pw){return rawFetch("/auth/v1/signup",{method:"POST",body:{email:email,password:pw}}).then(function(j){if(j&&j.access_token){saveSess(j);return j}throw BEErr("confirm_email",400)})};
 BE.signOut=function(){var t=BE.sess&&BE.sess.access_token;saveSess(null);if(t)return rawFetch("/auth/v1/logout",{method:"POST"},t).catch(function(){});return Promise.resolve()};

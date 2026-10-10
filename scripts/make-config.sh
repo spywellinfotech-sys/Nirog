@@ -28,5 +28,6 @@ BODY="window.NIROG_CONFIG = {
   supabaseAnonKey: \"$(esc "$KEY")\",
   googleMapsKey: \"$(esc "$MAPS")\"
 };"
+if [[ -z "$URL" || -z "$KEY" ]]; then echo "No Supabase values supplied: keeping the committed config.js unchanged."; exit 0; fi
 for d in app/src/main/assets/www web; do printf '%s\n' "$BODY" > "$d/config.js"; done
-if [[ -z "$URL" || -z "$KEY" ]]; then echo "config.js written with EMPTY Supabase values: the app will run in local demo mode."; else echo "config.js written for $URL"; fi
+echo "config.js written for $URL"

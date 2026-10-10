@@ -22,12 +22,12 @@ const db={users:{},profiles:{},doctors:[{id:7,name:"Dr. Test Doc",spec:"Cardiolo
 const mkSess=(id,extra)=>({access_token:"tok-"+id,refresh_token:"r-"+id,expires_at:Math.floor(Date.now()/1000)+3600,user:Object.assign({id},extra)});
 function who(h){const t=(h.Authorization||"").replace("Bearer ","");return t.startsWith("tok-")?t.slice(4):null}
 function reply(status,body){return Promise.resolve({ok:status<300,status,text:()=>Promise.resolve(body==null?"":JSON.stringify(body))})}
-const uid2={ "+919811100001":"pat1","+919811100002":"pat2"};
+const uid2={"p1@x.in":"pat1","p2@x.in":"pat2"};
 global.fetch=(url,o)=>{
   const u=new URL(url),p=u.pathname,q=u.searchParams,m=o.method||"GET",h=o.headers||{},me=who(h),b=o.body?JSON.parse(o.body):null;
   db.log.push(m+" "+p);
   if(p==="/auth/v1/otp")return reply(200,{});
-  if(p==="/auth/v1/verify"){if(b.token!=="123456")return reply(400,{error_code:"otp_expired",msg:"Token has expired or is invalid"});const id=uid2[b.phone];db.profiles[id]=db.profiles[id]||{id,role:"patient",full_name:"",phone:b.phone,email:null};return reply(200,mkSess(id,{phone:b.phone}))}
+  if(p==="/auth/v1/verify"){if(b.token!=="123456")return reply(400,{error_code:"otp_expired",msg:"Token has expired or is invalid"});const id=uid2[b.email];db.profiles[id]=db.profiles[id]||{id,role:"patient",full_name:"",phone:null,email:b.email};return reply(200,mkSess(id,{email:b.email}))}
   if(p==="/auth/v1/token"){if(b.password!=="docpass12")return reply(400,{error_code:"invalid_credentials",msg:"Invalid login credentials"});db.profiles.doc1={id:"doc1",role:"doctor",full_name:"Dr. Test Doc",phone:null,email:b.email};return reply(200,mkSess("doc1",{email:b.email}))}
   if(p==="/rest/v1/doctors")return reply(200,db.doctors);
   if(p==="/rest/v1/clinic_locations")return reply(200,db.loc);
@@ -74,15 +74,15 @@ const day=d=>{const x=new Date();x.setDate(x.getDate()+d);return x.getFullYear()
   ok(db.log.some(l=>l.includes("rpc/open_slots")),"slots fetched from the server");
   click("date",day(1));await wait(60);
   click("slot","10:00");click("cont");
-  ok(app.innerHTML.includes("Verify your number")||app.innerHTML.includes("Sign in with your mobile number"),"booking asks for phone sign-in");
-  input("o-phone","9811100001");submit("otpForm");await wait();
-  ok(app.innerHTML.includes("We sent a 6-digit code by SMS")&&!app.innerHTML.includes("Demo mode"),"real OTP screen, no demo code shown");
+  ok(app.innerHTML.includes("Verify your email")||app.innerHTML.includes("Sign in with your email"),"booking asks for phone sign-in");
+  input("o-email","p1@x.in");submit("otpForm");await wait();
+  ok(app.innerHTML.includes("We emailed a code")&&!app.innerHTML.includes("Demo mode"),"real OTP screen, no demo code shown");
   input("o-code","000000");input("o-name","Pat One");submit("otpForm");await wait();
   ok(app.innerHTML.includes("not right")||app.innerHTML.includes("expired"),"wrong code rejected by server");
   input("o-code","123456");submit("otpForm");await wait(80);
   ok(app.innerHTML.includes("Confirm your visit"),"signed in, lands on confirm screen");
   ok(db.profiles.pat1.full_name==="Pat One","name stored in profile");
-  input("f-age","30");input("f-sex","Female");submit("bookForm");await wait(80);
+  input("f-phone","9811100001");input("f-age","30");input("f-sex","Female");submit("bookForm");await wait(80);
   ok(app.innerHTML.includes("Request sent"),"booking created as a pending request");
   ok(db.bookings.length===1&&db.bookings[0].status==="pending","one pending booking on the server");
   ok(!Object.keys(store).some(k=>/appts|pat-v1/.test(k)),"no booking or patient data kept in localStorage");
@@ -90,7 +90,7 @@ const day=d=>{const x=new Date();x.setDate(x.getDate()+d);return x.getFullYear()
   click("logout");await wait();
   click("open","7");await wait(60);click("date",day(1));await wait(60);
   ok(!/data-v="10:00" disabled/.test(app.innerHTML)===false||true,"(slot list refreshed)");
-  click("tab","appts");input("o-phone","9811100002");submit("otpForm");await wait();input("o-code","123456");input("o-name","Pat Two");submit("otpForm");await wait(80);
+  click("tab","appts");input("o-email","p2@x.in");submit("otpForm");await wait();input("o-code","123456");input("o-name","Pat Two");submit("otpForm");await wait(80);
   // force a stale-cache double book
   const r=await window.NirogBE.createBooking({docId:7,dateKey:day(1),time:"10:00",mode:"clinic",name:"Pat Two",age:20,sex:"Male",phone:"9811100002",reason:""}).catch(e=>e);
   ok(r&&r.code==="slot_taken"&&/Someone just booked/.test(r.message),"double booking refused with a friendly message");
@@ -106,7 +106,7 @@ const day=d=>{const x=new Date();x.setDate(x.getDate()+d);return x.getFullYear()
   ok(app.innerHTML.includes("Confirmed"),"doctor view updates");
   // patient sees it
   click("logout");await wait();
-  click("tab","appts");input("o-phone","9811100001");submit("otpForm");await wait();input("o-code","123456");submit("otpForm");await wait(100);
+  click("tab","appts");input("o-email","p1@x.in");submit("otpForm");await wait();input("o-code","123456");submit("otpForm");await wait(100);
   ok(app.innerHTML.includes("Your appointments")&&!app.innerHTML.includes("No upcoming"),"patient sees the confirmed booking after signing in again");
-  console.log(fails?"\n"+fails+" FAILED":"\nall passed");
+  console.log(fails?"\n"+fails+" FAILED":"\nall passed");process.exit(fails?1:0);
 })();
