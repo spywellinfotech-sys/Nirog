@@ -1,0 +1,189 @@
+/* Nirog backend client. Talks to Supabase over plain fetch (GoTrue + PostgREST), so no vendor library is needed.
+   Only the public URL and the publishable (anon) key are used here. Row Level Security decides what each user may do.
+   Exposes window.NirogBE. Inactive (BE.on === false) when config.js has no URL or key. */
+(function(root){
+"use strict";
+var C=(root.NIROG_CONFIG||{});
+var URL_=String(C.supabaseUrl||"").replace(/\/+$/,""),KEY_=String(C.supabaseAnonKey||"");
+var SKEY="nirog-sb-session-v1";
+var BE={on:!!(URL_&&KEY_&&/^https:\/\//.test(URL_)&&KEY_.indexOf("service_role")<0),sess:null,doctors:[],settings:null};
+if(KEY_&&/^eyJ/.test(KEY_)){try{var pl=JSON.parse(atob(KEY_.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));if(pl.role==="service_role")BE.on=false}catch(e){}}
+
+function ls(op,k,v){try{if(op==="g")return root.localStorage.getItem(k);if(op==="s")root.localStorage.setItem(k,v);else root.localStorage.removeItem(k)}catch(e){}return null}
+function loadSess(){try{var s=JSON.parse(ls("g",SKEY));if(s&&s.access_token&&s.user)BE.sess=s}catch(e){}}
+function saveSess(s){BE.sess=s;if(s)ls("s",SKEY,JSON.stringify({access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at,user:{id:s.user.id,email:s.user.email,phone:s.user.phone}}));else ls("r",SKEY)}
+loadSess();
+
+function friendly(code,status){
+  var m={slot_taken:"Someone just booked that time. Please pick another slot.",slot_unavailable:"That time is not available any more.",doctor_unavailable:"This doctor is not taking bookings right now.",
+    not_authenticated:"Please sign in again.",patients_only:"Only patient accounts can book appointments.",too_many_active_bookings:"You have too many active bookings. Cancel one first.",
+    not_pending:"This request was already handled.",not_cancellable:"This appointment can no longer be cancelled.",booking_not_found:"Appointment not found.",admins_only:"Only admins can do this.",
+    doctors_only:"Only doctors can do this.",already_registered:"This account is already registered as a doctor, facility or staff member.",account_has_bookings:"This account already has bookings, so it cannot become a doctor or facility. Use a different number or email.",
+    user_already_exists:"That email already has an account.",email_exists:"That email already has an account.",confirm_email:"Check your email to confirm your address, then register again.",invalid_credentials:"Email or password is incorrect.",invalid_otp:"That code is not right or has expired.",otp_expired:"That code has expired. Send a new one.",over_sms_send_rate_limit:"Too many codes requested. Wait a minute and try again.",upload_failed:"A file could not be uploaded. Try a smaller file.",invalid_name:"Enter a valid name.",invalid_phone:"Enter a valid 10-digit mobile number.",invalid_age:"Enter a valid age.",invalid_sex:"Choose a sex.",invalid_mode:"Choose clinic or video.",invalid_days:"Choose at least one working day.",invalid_sessions:"Add one to three sessions."};
+  if(m[code])return m[code];
+  if(status===0)return "You look offline. Check your connection and try again.";
+  if(status===401||status===403)return "Please sign in again.";
+  if(status===429)return "Too many attempts. Wait a minute and try again.";
+  return "Something went wrong. Please try again.";
+}
+function BEErr(code,status,raw){var e=new Error(friendly(code,status));e.code=code;e.status=status;e.raw=raw;return e}
+
+function rawFetch(path,opt,tok){
+  opt=opt||{};
+  var h={"apikey":KEY_,"Content-Type":"application/json"};
+  h.Authorization="Bearer "+(tok||KEY_);
+  if(opt.prefer)h.Prefer=opt.prefer;
+  var f=root.fetch;
+  if(!f)return Promise.reject(BEErr("offline",0));
+  return f(URL_+path,{method:opt.method||"GET",headers:h,body:opt.body===undefined?undefined:JSON.stringify(opt.body)}).then(function(r){
+    return r.text().then(function(t){
+      var j=null;try{j=t?JSON.parse(t):null}catch(e){}
+      if(!r.ok){
+        var msg=j&&(j.message||j.msg||j.error_description||j.error)||"";
+        var code=String(msg);
+        var m=/^[a-z_]+$/.exec(code);
+        throw BEErr(m?code:(j&&j.error_code)||"http_"+r.status,r.status,j);
+      }
+      return j;
+    });
+  },function(){throw BEErr("offline",0)});
+}
+function token(){
+  var s=BE.sess;if(!s)return Promise.resolve(null);
+  var now=Math.floor(Date.now()/1000);
+  if(s.expires_at&&s.expires_at-now>30)return Promise.resolve(s.access_token);
+  return rawFetch("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:{refresh_token:s.refresh_token}}).then(function(j){saveSess(j);return j.access_token},function(e){if(e.status===400||e.status===401){saveSess(null)}throw e});
+}
+function api(path,opt){return token().then(function(t){return rawFetch(path,opt,t)})}
+function rpc(name,args){return api("/rest/v1/rpc/"+name,{method:"POST",body:args||{}})}
+function sel(table,qs){return api("/rest/v1/"+table+(qs?"?"+qs:""))}
+BE.rpc=rpc;BE.sel=sel;BE.friendly=friendly;
+
+/* ---------- auth ---------- */
+BE.signedIn=function(){return !!BE.sess};
+BE.userId=function(){return BE.sess?BE.sess.user.id:null};
+BE.sendOtp=function(phone10){return rawFetch("/auth/v1/otp",{method:"POST",body:{phone:"+91"+phone10,create_user:true}}).then(function(){return true})};
+BE.verifyOtp=function(phone10,code){return rawFetch("/auth/v1/verify",{method:"POST",body:{type:"sms",phone:"+91"+phone10,token:code}}).then(function(j){if(!j||!j.access_token)throw BEErr("invalid_otp",400);saveSess(j);return j})};
+BE.signInPassword=function(email,pw){return rawFetch("/auth/v1/token?grant_type=password",{method:"POST",body:{email:email,password:pw}}).then(function(j){saveSess(j);return j})};
+BE.signUpPassword=function(email,pw){return rawFetch("/auth/v1/signup",{method:"POST",body:{email:email,password:pw}}).then(function(j){if(j&&j.access_token){saveSess(j);return j}throw BEErr("confirm_email",400)})};
+BE.signOut=function(){var t=BE.sess&&BE.sess.access_token;saveSess(null);if(t)return rawFetch("/auth/v1/logout",{method:"POST"},t).catch(function(){});return Promise.resolve()};
+BE.me=function(){
+  var id=BE.userId();if(!id)return Promise.resolve(null);
+  return sel("profiles","id=eq."+id+"&select=id,role,full_name,phone,email").then(function(r){return r&&r[0]||null});
+};
+BE.setName=function(name){var id=BE.userId();return api("/rest/v1/profiles?id=eq."+id,{method:"PATCH",body:{full_name:name}})};
+
+/* ---------- directory ---------- */
+function hm(t){return String(t).slice(0,5)}
+function mins(t){var p=String(t).split(":");return +p[0]*60+ +p[1]}
+function mapDocs(docs,locs,avs){
+  var loc={},av={};
+  locs.forEach(function(l){if(!loc[l.doctor_id])loc[l.doctor_id]=l});
+  avs.forEach(function(a){(av[a.doctor_id]=av[a.doctor_id]||[]).push(a)});
+  return docs.map(function(d){
+    var l=loc[d.id]||{},a=av[d.id]||[],days=[],hours=[],step=20;
+    a.forEach(function(x){if(days.indexOf(x.weekday)<0)days.push(x.weekday);var b=[x.start_min,x.end_min];if(!hours.some(function(h){return h[0]===b[0]&&h[1]===b[1]}))hours.push(b);step=x.step_min});
+    days.sort();
+    return {id:d.id,name:d.name,spec:d.spec,exp:d.exp_years,qual:d.qual,fee:d.fee_inr,vfee:d.video_fee_inr,video:!!d.video,rating:0,reviews:0,lang:d.languages,
+      clinic:d.clinic||l.name||"",city:d.city,address:l.address||"",pin:l.pin||"",mapUrl:l.map_url||"",lat:l.lat,lng:l.lng,about:d.about,days:days,hours:hours,step:step,off:[],blocked:[],
+      status:d.status||"approved",reason:d.review_reason||"",ref:d.ref||"",registered:true,managed:true,verified:!!d.verified,photo:d.photo_path?URL_+"/storage/v1/object/public/doctor-media/"+d.photo_path:"",photoPath:d.photo_path||"",wa:d.wa||"",cloud:true};
+  });
+}
+var DCOLS="id,name,spec,qual,exp_years,fee_inr,video_fee_inr,video,languages,about,clinic,city,photo_path,wa,status,verified,review_reason,ref";
+BE.loadDirectory=function(){
+  return Promise.all([
+    sel("doctors","select="+DCOLS+"&status=eq.approved&order=id"),
+    sel("clinic_locations","select=id,doctor_id,name,address,city,pin,map_url,lat,lng"),
+    sel("doctor_availability","select=doctor_id,weekday,start_min,end_min,step_min&order=start_min"),
+    sel("platform_settings","select=*")
+  ]).then(function(r){
+    BE.settings=r[3]&&r[3][0]||null;
+    BE.doctors=mapDocs(r[0],r[1],r[2]);
+    return BE.doctors;
+  });
+};
+/* The signed-in doctor's own record, whatever its review status, with their day-offs and blocked slots. */
+BE.loadMine=function(id){
+  return Promise.all([
+    sel("doctors","select="+DCOLS+"&id=eq."+id),
+    sel("clinic_locations","select=id,doctor_id,name,address,city,pin,map_url,lat,lng&doctor_id=eq."+id),
+    sel("doctor_availability","select=doctor_id,weekday,start_min,end_min,step_min&doctor_id=eq."+id+"&order=start_min"),
+    sel("doctor_exceptions","select=day,slot_time&doctor_id=eq."+id)
+  ]).then(function(r){
+    var d=mapDocs(r[0],r[1],r[2])[0];if(!d)return null;
+    r[3].forEach(function(x){if(x.slot_time==null)d.off.push(x.day);else d.blocked.push(x.day+"|"+hm(x.slot_time))});
+    return d;
+  });
+};
+/* Admin: everything pending review plus the registration details. */
+BE.adminDoctors=function(){
+  return Promise.all([
+    sel("doctors","select="+DCOLS+"&order=id.desc&limit=200"),
+    sel("doctor_verification","select=doctor_id,council,reg_no,reg_year"),
+    sel("doctor_documents","select=doctor_id,kind,storage_path,file_name")
+  ]).then(function(r){
+    return r[0].map(function(d){
+      d.ver=r[1].filter(function(v){return v.doctor_id===d.id})[0]||null;
+      d.docs=r[2].filter(function(x){return x.doctor_id===d.id});return d;
+    });
+  });
+};
+BE.reviewDoctor=function(id,decision,reason){return rpc("admin_review_doctor",{p_doctor:id,p_decision:decision,p_verified:decision==="approve",p_reason:reason||null})};
+BE.signedUrl=function(bucket,path){
+  return api("/storage/v1/object/sign/"+bucket+"/"+path,{method:"POST",body:{expiresIn:300}}).then(function(j){return URL_+"/storage/v1"+j.signedURL});
+};
+BE.setPhone=function(phone10){var id=BE.userId();return api("/rest/v1/profiles?id=eq."+id,{method:"PATCH",body:{phone:"+91"+phone10}}).catch(function(){})};
+/* Slots for one doctor and day, straight from the database. Returns [{t:"09:00",st:"free"|"busy"|"past"|"blocked"}]. */
+BE.openSlots=function(docId,dateKey){
+  return rpc("open_slots",{p_doctor:docId,p_day:dateKey}).then(function(rows){
+    return (rows||[]).map(function(r){var s=r.state;return {t:hm(r.slot_time),st:s==="free"?"free":s==="booked"||s==="busy"?"busy":s==="past"?"past":s==="blocked"?"blocked":"busy"}});
+  });
+};
+
+/* ---------- bookings ---------- */
+var ST={pending:"pending",confirmed:"upcoming",rejected:"rejected",cancelled:"cancelled",completed:"upcoming"};
+function toAppt(b){
+  return {id:b.id,ref:b.ref,docId:b.doctor_id,dateKey:b.slot_date,time:hm(b.slot_time),mode:b.mode,age:b.patient_age,sex:b.patient_sex,fee:b.doctor_fee,pf:b.platform_fee,
+    name:b.patient_name,phone:b.patient_phone,reason:b.reason||"",status:ST[b.status]||b.status,rreason:b.decision_reason||"",retimed:!!b.retimed,cloud:true};
+}
+BE.toAppt=toAppt;
+BE.myBookings=function(){return sel("bookings","select=*&order=slot_date.desc,slot_time.desc&limit=200").then(function(r){return (r||[]).map(toAppt)})};
+BE.createBooking=function(o){
+  return rpc("create_booking",{p_doctor:o.docId,p_day:o.dateKey,p_time:o.time,p_mode:o.mode,p_name:o.name,p_age:o.age,p_sex:o.sex,p_phone:o.phone,p_reason:o.reason||""}).then(toAppt);
+};
+BE.decide=function(id,decision,time,reason){return rpc("doctor_decide_booking",{p_booking:id,p_decision:decision,p_time:time||null,p_reason:reason||null}).then(toAppt)};
+BE.cancel=function(id){return rpc("cancel_booking",{p_booking:id}).then(toAppt)};
+BE.reschedule=function(id,dateKey,time){return rpc("reschedule_booking",{p_booking:id,p_day:dateKey,p_time:time}).then(toAppt)};
+
+/* ---------- notifications ---------- */
+BE.notifications=function(){return sel("notifications","select=id,body,created_at,read_at&order=created_at.desc&limit=100")};
+BE.markRead=function(){return rpc("mark_notifications_read")};
+
+/* ---------- doctor self-service ---------- */
+BE.registerDoctor=function(p){return rpc("register_doctor",p)};
+function dataBlob(u){var m=/^data:([^;]+);base64,(.*)$/.exec(u||"");if(!m)return null;var b=atob(m[2]),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return new Blob([a],{type:m[1]})}
+BE.upload=function(bucket,path,dataUrl){
+  var blob=dataBlob(dataUrl);if(!blob)return Promise.reject(BEErr("invalid_file",400));
+  return token().then(function(t){
+    return root.fetch(URL_+"/storage/v1/object/"+bucket+"/"+path,{method:"POST",headers:{apikey:KEY_,Authorization:"Bearer "+t,"Content-Type":blob.type,"x-upsert":"true"},body:blob}).then(function(r){if(!r.ok)throw BEErr("upload_failed",r.status);return path},function(){throw BEErr("offline",0)});
+  });
+};
+BE.addDocRow=function(docId,kind,path,name){return api("/rest/v1/doctor_documents",{method:"POST",body:{doctor_id:docId,kind:kind,storage_path:path,file_name:name||""}})};
+BE.setDoctorPhoto=function(docId,path){return api("/rest/v1/doctors?id=eq."+docId,{method:"PATCH",body:{photo_path:path}})};
+BE.registerFacility=function(p){return rpc("register_facility",p)};
+BE.myDoctor=function(){return rpc("my_doctor_id")};
+BE.saveSchedule=function(docId,days,sessions,step,offDays,blocked){
+  /* replace weekly sessions and exceptions for this doctor */
+  var rows=[];days.forEach(function(d){sessions.forEach(function(s){rows.push({doctor_id:docId,weekday:d,start_min:s[0],end_min:s[1],step_min:step})})});
+  var exc=[];(offDays||[]).forEach(function(k){exc.push({doctor_id:docId,day:k,slot_time:null})});
+  (blocked||[]).forEach(function(b){var p=b.split("|");exc.push({doctor_id:docId,day:p[0],slot_time:p[1]})});
+  return api("/rest/v1/doctor_availability?doctor_id=eq."+docId,{method:"DELETE"}).then(function(){
+    return rows.length?api("/rest/v1/doctor_availability",{method:"POST",body:rows}):null;
+  }).then(function(){return api("/rest/v1/doctor_exceptions?doctor_id=eq."+docId,{method:"DELETE"})}).then(function(){
+    return exc.length?api("/rest/v1/doctor_exceptions",{method:"POST",body:exc}):null;
+  });
+};
+BE.loadExceptions=function(docId){return sel("doctor_exceptions","select=day,slot_time&doctor_id=eq."+docId)};
+
+root.NirogBE=BE;
+})(typeof window!=="undefined"?window:globalThis);

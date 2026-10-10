@@ -272,8 +272,11 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}
 <body>
 <div id="app"></div>
 
+<script src="config.js"></script>
+<script src="backend.js"></script>
 <script>
 (function(){
+var BE=(window.NirogBE&&window.NirogBE.on)?window.NirogBE:null,CLOUD=!!BE;
 "use strict";
 var ic={
  back:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
@@ -412,6 +415,7 @@ var SCKEY="nirog-sched-v1";
   }catch(e){}
 })();
 function saveRegistered(){
+  if(CLOUD)return;
   try{
     try{localStorage.setItem(RKEY,JSON.stringify(DOCS.filter(function(d){return d.registered})))}
     catch(e1){
@@ -449,8 +453,8 @@ function longDate(k){var a=fromKey(k);return DAY[a.getDay()]+", "+a.getDate()+" 
 
 /* ---------- storage (per-device convenience; page works without it) ---------- */
 var KEY="nirog-appts-v1";
-function load(){try{var r=localStorage.getItem(KEY);if(r){var a=JSON.parse(r);if(Array.isArray(a))return a}}catch(e){}return null}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(appts))}catch(e){}}
+function load(){if(CLOUD)return [];try{var r=localStorage.getItem(KEY);if(r){var a=JSON.parse(r);if(Array.isArray(a))return a}}catch(e){}return null}
+function save(){if(CLOUD)return;try{localStorage.setItem(KEY,JSON.stringify(appts))}catch(e){}}
 
 /* ---------- slots ---------- */
 /* Doctors set their own hours: doc.days (weekdays), doc.hours (sessions in minutes since midnight), doc.step (minutes per visit),
@@ -502,8 +506,8 @@ function saveSupForm(){
   SUP.email=em;SUP.wa=wa;saveSup();f.ok="Saved.";render();
 }
 /* ---------- in-app notifications ---------- */
-var NOTIF=(function(){try{var r=JSON.parse(localStorage.getItem("nirog-notif-v1"));if(Array.isArray(r))return r}catch(e){}return []})();
-function saveNotif(){try{localStorage.setItem("nirog-notif-v1",JSON.stringify(NOTIF.slice(-300)))}catch(e){}}
+var NOTIF=(function(){if(CLOUD)return [];try{var r=JSON.parse(localStorage.getItem("nirog-notif-v1"));if(Array.isArray(r))return r}catch(e){}return []})();
+function saveNotif(){if(CLOUD)return;try{localStorage.setItem("nirog-notif-v1",JSON.stringify(NOTIF.slice(-300)))}catch(e){}}
 function notify(to,text){NOTIF.push({id:"n"+Date.now()+Math.floor(Math.random()*1e4),to:to,text:text,ts:Date.now(),read:false});saveNotif()}
 function notifKey(){
   if(state.staff){var u=getUser(state.staff);if(!u)return null;return u.role==="doctor"?"d:"+u.docId:u.role==="facility"?"f:"+u.id:u.role==="admin"?"admin":"u:"+u.id}
@@ -529,10 +533,11 @@ function nbHtml(){
 function openNotif(){
   var k=notifKey();if(!k)return;
   NOTIF.forEach(function(n){n.fresh=(n.to===k&&!n.read)});
-  NOTIF.forEach(function(n){if(n.to===k)n.read=true});saveNotif();state.notif=true;state.nb=false;render(true);
+  NOTIF.forEach(function(n){if(n.to===k)n.read=true});saveNotif();if(CLOUD)BE.markRead().catch(function(){});state.notif=true;state.nb=false;render(true);
 }
 function fmtWhen(a){return longDate(a.dateKey)+", "+t12(a.time)}
 function approveAppt(id){
+  if(CLOUD){cloudDecide(id,"confirm");return}
   var a=null;appts.forEach(function(x){if(x.id===id)a=x});if(!a||a.status!=="pending")return;
   var d=byId(a.docId),nt=state.atime[id];
   if(nt&&nt!==a.time){var ok=slotsFor(d,a.dateKey).some(function(s){return s.t===nt&&s.st==="free"});if(ok)a.time=nt;a.retimed=true}
@@ -540,6 +545,7 @@ function approveAppt(id){
   notify("p:"+a.phone,d.name+" confirmed your appointment for "+fmtWhen(a)+(a.retimed?" (time set by the doctor)":"")+". Ref "+a.ref+".");
 }
 function rejectAppt(id){
+  if(CLOUD){cloudDecide(id,"reject");return}
   var a=null;appts.forEach(function(x){if(x.id===id)a=x});if(!a||a.status!=="pending")return;
   var d=byId(a.docId),r=(state.rrs[id]||"").trim();
   a.status="rejected";a.rreason=r;state.rask=null;delete state.rrs[id];save();
@@ -549,6 +555,7 @@ function bookedSet(){
   var s={};appts.forEach(function(a){if((a.status==="upcoming"||a.status==="pending")&&a.id!==state.resched)s[bookedKey(a.docId,a.dateKey,a.time)]=1});return s;
 }
 function slotsFor(doc,k){
+  if(CLOUD&&doc.cloud){var cs=cloud.sc[doc.id+"|"+k];if(cs)return cs.s.map(function(x){return {t:x.t,st:x.st}})}
   if(!works(doc,k))return [];
   var now=new Date(),isToday=k===dkey(now),mine=bookedSet();
   return allTimes(doc).map(function(t){
@@ -570,6 +577,7 @@ function nextFree(doc){
 }
 
 /* ---------- state ---------- */
+if(CLOUD){DOCS.length=0}
 var appts=load();
 if(!appts){
   var d1=byId(1),k=null,i=2;
@@ -643,8 +651,8 @@ function loadStaff(){
   }catch(e){}
   return seedStaff();
 }
-var staffData=loadStaff();
-function saveStaff(){try{localStorage.setItem(SKEY,JSON.stringify(staffData))}catch(e){}}
+var staffData=CLOUD?{users:[],leads:[]}:loadStaff();
+function saveStaff(){if(CLOUD)return;try{localStorage.setItem(SKEY,JSON.stringify(staffData))}catch(e){}}
 function getUser(id){for(var i=0;i<staffData.users.length;i++)if(staffData.users[i].id===id)return staffData.users[i];return null}
 function salesUsers(){return staffData.users.filter(function(u){return u.role==="sales"})}
 
@@ -673,6 +681,7 @@ function onlineStats(){
 
 /* ---------- staff: actions ---------- */
 function doLogin(){
+  if(CLOUD){cloudStaffLogin();return}
   var em=state.login.email.trim().toLowerCase(),pw=state.login.pass,u=null;
   staffData.users.forEach(function(x){if(em&&x.email.toLowerCase()===em)u=x});
   if(!u||u.pass!==pw){state.login.err="Email or password is incorrect.";render();return}
@@ -790,18 +799,18 @@ function vLogin(){
    '<div class="title-block" style="padding-top:2px"><h1>Staff and doctor sign in</h1><p>For doctors, the sales team and super admins.</p></div>'+
    '<div class="seg" style="margin:0 16px 12px" role="group" aria-label="Sign-in method">'+
    '<button type="button" data-a="lmode" data-v="email" aria-pressed="'+(state.lmode!=="otp")+'">Email and password</button>'+
-   '<button type="button" data-a="lmode" data-v="otp" aria-pressed="'+(state.lmode==="otp")+'">Mobile and OTP</button></div>'+
-   (state.lmode==="otp"?staffOtpForm():
+   (CLOUD?'':'<button type="button" data-a="lmode" data-v="otp" aria-pressed="'+(state.lmode==="otp")+'">Mobile and OTP</button>')+'</div>'+
+   (state.lmode==="otp"&&!CLOUD?staffOtpForm():
    '<form id="loginForm" novalidate><div class="card">'+
    '<div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="username" value="'+esc(l.email)+'" placeholder="you@nirog.demo"></div>'+
    '<div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password" value="'+esc(l.pass)+'" placeholder="Password"></div>'+
    (l.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(l.err)+'</div>':'')+
-   '<button class="btn" type="submit">Sign in</button></div></form>')+
-   '<div class="sec">Demo accounts</div><div class="card">'+
+   '<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Signing in...':'Sign in')+'</button></div></form>')+
+   (CLOUD?'<div class="foot" style="text-align:left">Doctors use the email and password they registered with. Admin accounts are created by the Nirog team.</div>':'<div class="sec">Demo accounts</div><div class="card">'+
    '<div class="who sumrow"><div><b>Super admin</b><div class="tiny tnum sel">admin@nirog.demo<br>Admin@123<br>Mobile 9000000001</div></div><button class="btn sm ghost" data-a="fill" data-v="admin">Use</button></div>'+
    '<div class="who sumrow"><div><b>Sales team</b><div class="tiny tnum sel">riya@nirog.demo<br>Sales@123<br>Mobile 9000000002</div></div><button class="btn sm ghost" data-a="fill" data-v="sales">Use</button></div>'+
    '<div class="who sumrow"><div><b>Doctor</b><div class="tiny tnum sel">anjali@nirog.demo<br>Doctor@123<br>Mobile 9000000005</div></div><button class="btn sm ghost" data-a="fill" data-v="doctor">Use</button></div></div>'+
-   '<div class="foot" style="text-align:left">Demo only. Accounts and passwords are stored in this browser, not on a server, so this sign-in does not protect real data. A live version needs server-side authentication and a real SMS service for one-time codes.</div>';
+   '<div class="foot" style="text-align:left">Demo only. Accounts and passwords are stored in this browser, not on a server, so this sign-in does not protect real data. A live version needs server-side authentication and a real SMS service for one-time codes.</div>');
 }
 function vStaff(){
   var u=getUser(state.staff),admin=u.role==="admin",isDoc=u.role==="doctor",isFac=u.role==="facility",tabs=admin?
@@ -1070,7 +1079,7 @@ function vRegister(){
    fld("wa","WhatsApp number for patients (optional)",'<input id="rg-wa" inputmode="numeric" maxlength="10" autocomplete="off" value="'+esc(r.wa)+'">',"Patients can message you on WhatsApp from your profile. Leave empty to hide it.")+
    fld("email","Email (your login)",'<input id="rg-email" type="email" autocomplete="username" value="'+esc(r.email)+'">')+
    '<div class="field" style="margin-bottom:0"><label for="rg-pass">Password</label><input id="rg-pass" type="password" autocomplete="new-password" value="'+esc(r.pass)+'">'+(e.pass?'<div class="err">'+e.pass+'</div>':'<div class="hint">At least 8 characters. Demo only: stored in this browser.</div>')+'</div></div>'+
-   '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">Submit for review</button></div></form>';
+   (r.sendErr?'<div class="err" role="alert" style="margin:12px 16px 0">'+esc(r.sendErr)+'</div>':'')+'<div style="height:16px"></div><div class="stick"><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Submitting...':'Submit for review')+'</button></div></form>';
 }
 
 /* ---------- uploads (registration) ---------- */
@@ -1191,6 +1200,7 @@ function submitReg(){
     council:r.council.trim(),regno:r.regno.trim(),ryear:yr,verified:false,photo:r.photo,gallery:r.gallery.slice(),
     vdocs:[["reg","Registration certificate"],["id","Government photo ID"],["deg","Degree certificate"]].filter(function(x){return r.docs[x[0]]}).map(function(x){var f=r.docs[x[0]];return {key:x[0],label:x[1],name:f.name,type:f.type,data:f.data}})};
   if(isNum(mp.lat)){doc.lat=mp.lat;doc.lng=mp.lng}
+  if(CLOUD){cloudSubmitReg(doc,r,mp,yr,em);return}
   DOCS.push(doc);
   staffData.users.push({id:"u"+Date.now(),name:doc.name,email:em,phone:r.phone,pass:r.pass,role:"doctor",docId:id,active:true,target:0});
   saveStaff();saveRegistered();
@@ -1236,8 +1246,9 @@ function docAppts(d){
   var srt=function(a,b){return (a.dateKey+a.time)<(b.dateKey+b.time)?-1:1};
   var pend=appts.filter(function(a){return a.docId===d.id&&a.status==="pending"}).sort(srt),
       conf=appts.filter(function(a){return a.docId===d.id&&a.status==="upcoming"}).sort(srt);
-  if(!pend.length&&!conf.length)return '<div class="empty">No bookings yet. New requests appear here for you to approve or reject.</div>';
-  return '<div class="list" style="padding-top:0">'+(pend.length?'<div class="sec">Waiting for your approval ('+pend.length+')</div>'+pend.map(function(a){return dApptCard(a,true)}).join(""):'')+
+  var dm=state.dmsg?'<div class="err" role="alert" style="margin:0 16px 10px">'+esc(state.dmsg)+'</div>':'';
+  if(!pend.length&&!conf.length)return dm+'<div class="empty">No bookings yet. New requests appear here for you to approve or reject.</div>';
+  return dm+'<div class="list" style="padding-top:0">'+(pend.length?'<div class="sec">Waiting for your approval ('+pend.length+')</div>'+pend.map(function(a){return dApptCard(a,true)}).join(""):'')+
    (conf.length?'<div class="sec">Confirmed</div>'+conf.map(function(a){return dApptCard(a,false)}).join(""):'')+'</div>';
 }
 function docSched(d){
@@ -1289,7 +1300,7 @@ function dSlot(t,add){
   var i=d.blocked.indexOf(key);
   if(add&&i<0)d.blocked.push(key);
   if(!add&&i>-1)d.blocked.splice(i,1);
-  d.touched=true;saveRegistered();render();
+  d.touched=true;saveRegistered();render();if(CLOUD)cloudExc(d);
 }
 function dOff(k,add){
   var d=myDoc();if(!d)return;
@@ -1301,9 +1312,10 @@ function dOff(k,add){
   }else{
     var i=d.off.indexOf(k);if(i>-1)d.off.splice(i,1);
   }
-  d.touched=true;saveRegistered();render();
+  d.touched=true;saveRegistered();render();if(CLOUD)cloudExc(d);
 }
 function saveSched(){
+  if(CLOUD){cloudSaveSched();return}
   var d=myDoc(),m=state.sched;if(!d||!m)return;
   m.errs=checkSched(m);
   if(Object.keys(m.errs).length){schedMsg="";render();return}
@@ -1403,7 +1415,9 @@ LABS.forEach(function(l){l.sample=true});
 (function(){
   try{var r=localStorage.getItem(LKEY);if(r){var a=JSON.parse(r);if(Array.isArray(a))a.forEach(function(l){if(l&&l.id&&l.name&&Array.isArray(l.tests)&&CITIES.indexOf(l.city)>-1){l.sample=false;if(!l.kind)l.kind="lab";if(l.registered&&["pending","approved","rejected"].indexOf(l.status)<0)l.status="pending";LABS.push(l)}})}}catch(e){}
 })();
+if(CLOUD)LABS.length=0;
 function saveLabs(){
+  if(CLOUD)return;
   var mine=LABS.filter(function(l){return !l.sample});
   try{localStorage.setItem(LKEY,JSON.stringify(mine))}
   catch(e1){
@@ -1579,6 +1593,7 @@ function frRemove(v){
   render();
 }
 function submitFreg(){
+  if(CLOUD){state.fr.errs={name:"Lab and hospital registration is not connected to the live backend yet."};render();return}
   var r=state.fr,e={},em=r.email.trim().toLowerCase(),dup=false,hosp=r.kind==="hospital",oth=r.kind==="other",t=parseTests(r.tests),mp=parseMap(r.map);
   staffData.users.forEach(function(u){if(u.email&&u.email.toLowerCase()===em)dup=true});
   if(r.name.trim().length<3)e.name="Enter the facility name.";
@@ -1767,8 +1782,8 @@ function who(a){return a.age!=null?' · '+a.age+' yrs'+(a.sex&&a.sex!=="Prefer n
    with a call that checks the code on the server. */
 var PKEY="nirog-pat-v1",PNKEY="nirog-patients-v1",OTP_TTL=300000,OTP_WAIT=30000,OTP_TRIES=5;
 /* literal keys here: loadPat() runs while the state object is built, before the var below is assigned */
-function loadPat(){try{var r=localStorage.getItem("nirog-pat-v1");if(r){var p=JSON.parse(r);if(p&&/^[6-9]\d{9}$/.test(p.phone)&&p.name)return {phone:p.phone,name:String(p.name)}}}catch(e){}return null}
-function savePat(){try{if(state.pat)localStorage.setItem("nirog-pat-v1",JSON.stringify(state.pat));else localStorage.removeItem("nirog-pat-v1")}catch(e){}}
+function loadPat(){if(CLOUD)return null;try{var r=localStorage.getItem("nirog-pat-v1");if(r){var p=JSON.parse(r);if(p&&/^[6-9]\d{9}$/.test(p.phone)&&p.name)return {phone:p.phone,name:String(p.name)}}}catch(e){}return null}
+function savePat(){if(CLOUD)return;try{if(state.pat)localStorage.setItem("nirog-pat-v1",JSON.stringify(state.pat));else localStorage.removeItem("nirog-pat-v1")}catch(e){}}
 function knownName(ph){try{var r=localStorage.getItem(PNKEY);if(r){var m=JSON.parse(r);if(m&&m[ph])return String(m[ph])}}catch(e){}return ""}
 function rememberName(ph,n){try{var r=localStorage.getItem(PNKEY),m=r?JSON.parse(r):{};m[ph]=n;localStorage.setItem(PNKEY,JSON.stringify(m))}catch(e){}}
 function genCode(){
@@ -1778,10 +1793,11 @@ function genCode(){
 }
 function maskPhone(p){return "+91 "+p.slice(0,5)+" "+p.slice(5)}
 function staffByPhone(ph){for(var i=0;i<staffData.users.length;i++)if(staffData.users[i].phone===ph)return staffData.users[i];return null}
-function myAppts(){return state.pat?appts.filter(function(a){return a.phone===state.pat.phone}):[]}
+function myAppts(){if(CLOUD)return state.pat?appts:[];return state.pat?appts.filter(function(a){return a.phone===state.pat.phone}):[]}
 function newOtp(kind,after){return {kind:kind,after:after||null,stage:"phone",phone:"",code:"",sent:"",exp:0,at:0,tries:0,name:"",err:"",needName:false}}
 function openOtp(kind,after){state.otp=newOtp(kind,after);state.view="otp";render(true)}
 function otpSend(resend){
+  if(CLOUD){cloudOtpSend(resend);return}
   var o=state.otp;if(!o)return;
   if(!/^[6-9]\d{9}$/.test(o.phone)){o.err="Enter a valid 10-digit mobile number.";render();return}
   if(o.kind==="staff"){
@@ -1796,6 +1812,7 @@ function otpSend(resend){
   render();
 }
 function otpVerify(){
+  if(CLOUD){cloudOtpVerify();return}
   var o=state.otp;if(!o)return;
   var now=Date.now();
   if(now>o.exp){o.err="This code has expired. Send a new one.";render();return}
@@ -1825,13 +1842,13 @@ function otpPanel(o){
   var err=o.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(o.err)+'</div>':'';
   if(o.stage==="phone"){
     return '<div class="field"><label for="o-phone">Mobile number</label><div class="phoneio"><span class="cc">+91</span><input id="o-phone" inputmode="numeric" maxlength="10" autocomplete="tel-national" value="'+esc(o.phone)+'" placeholder="10-digit number"></div>'+
-      '<div class="hint">We will send a 6-digit one-time code to this number.</div></div>'+err+'<button class="btn" type="submit">Send code</button>';
+      '<div class="hint">We will send a 6-digit one-time code to this number.</div></div>'+err+'<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Sending...':'Send code')+'</button>';
   }
-  return '<div class="demo-note" role="status"><b>Demo mode.</b> This prototype cannot send SMS, so your code is shown here: <span class="code tnum">'+esc(o.sent)+'</span></div>'+
+  return (CLOUD?'<div class="demo-note" role="status">We sent a 6-digit code by SMS.</div>':'<div class="demo-note" role="status"><b>Demo mode.</b> This prototype cannot send SMS, so your code is shown here: <span class="code tnum">'+esc(o.sent)+'</span></div>')+
     '<div class="tiny" style="margin-bottom:10px">Code for '+esc(maskPhone(o.phone))+'. It works for 5 minutes.</div>'+
     '<div class="field"><label for="o-code">6-digit code</label><input id="o-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="'+esc(o.code)+'" placeholder="______"></div>'+
     (o.needName?'<div class="field"><label for="o-name">Your name</label><input id="o-name" autocomplete="name" value="'+esc(o.name)+'" placeholder="Full name"><div class="hint">First time here. We use it on your bookings.</div></div>':'')+
-    err+'<button class="btn" type="submit">Verify and continue</button>'+
+    err+'<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Checking...':'Verify and continue')+'</button>'+
     '<div class="acts" style="margin-top:12px"><button type="button" class="btn sm ghost" data-a="otpresend">Send a new code</button><button type="button" class="btn sm ghost" data-a="otpchange">Change number</button></div>';
 }
 function staffOtpForm(){
@@ -1844,7 +1861,7 @@ function vOtp(){
   return '<div class="bar"><button class="back" data-a="home">'+ic.back+'Doctors</button></div>'+
    '<div class="title-block" style="padding-top:2px"><h1>'+t+'</h1><p>'+sub+'</p></div>'+
    '<form id="otpForm" novalidate><div class="card">'+otpPanel(o)+'</div></form>'+
-   '<div class="foot" style="text-align:left">Demo only. Try 9876543210 to see the example appointment. A live version sends the code by SMS.</div>';
+   (CLOUD?'':'<div class="foot" style="text-align:left">Demo only. Try 9876543210 to see the example appointment. A live version sends the code by SMS.</div>');
 }
 
 /* ---------- views ---------- */
@@ -1904,6 +1921,7 @@ function vDoctor(){
              '<button disabled style="opacity:.5;cursor:not-allowed">Video consult<small>Not offered</small></button>')+'</div>';
   var ready=state.dateKey&&state.time;
   return '<div class="bar"><button class="back" data-a="back">'+ic.back+'Doctors</button></div>'+
+   (state.bookErr?'<div class="err" role="alert" style="margin:0 16px 10px">'+esc(state.bookErr)+'</div>':'')+
    (state.resched?'<div class="card" style="margin-bottom:10px;background:var(--accent-soft);border-color:transparent;font-size:14px">Rescheduling your appointment. Choose a new date and time.</div>':'')+
    '<div class="profile">'+avatar(d,"lg")+'<div style="min-width:0"><h1>'+esc(d.name)+'</h1><div style="margin:2px 0">'+vtag(d)+'</div><div class="doc-sub">'+esc(d.spec)+'</div><div class="doc-sub">'+esc(d.qual)+'</div></div></div>'+
    '<div class="facts"><div class="fact"><b class="tnum">'+d.exp+' yrs</b><span>Experience</span></div><div class="fact"><b class="tnum">'+(d.reviews?d.rating.toFixed(1):"New")+'</b><span>'+(d.reviews?d.reviews.toLocaleString("en-IN")+' reviews':'No reviews yet')+'</span></div><div class="fact"><b class="tnum">'+d.step+' min</b><span>Per visit</span></div></div>'+
@@ -1936,7 +1954,7 @@ function vConfirm(){
    '<div class="two"><div class="field"><label for="f-age">Age (years)</label><input id="f-age" inputmode="numeric" maxlength="3" value="'+esc(f.age)+'">'+(e.age?'<div class="err">'+e.age+'</div>':'')+'</div>'+
    '<div class="field"><label for="f-sex">Sex</label><select id="f-sex"><option value="">Select</option>'+SEXES.map(function(x){return '<option'+(f.sex===x?' selected':'')+'>'+x+'</option>'}).join("")+'</select>'+(e.sex?'<div class="err">'+e.sex+'</div>':'')+'</div></div>'+
    '<div class="field" style="margin-bottom:0"><label for="f-reason">Reason for visit <span class="muted" style="font-weight:400">(optional)</span></label><textarea id="f-reason" name="reason" placeholder="For example: fever for two days">'+esc(f.reason)+'</textarea></div></div>'+
-   '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">'+(state.resched?'Confirm new time':'Confirm booking')+'</button></div></form>';
+   (state.bookErr?'<div class="err" role="alert" style="margin:12px 16px 0">'+esc(state.bookErr)+'</div>':'')+'<div style="height:16px"></div><div class="stick"><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Please wait...':state.resched?'Confirm new time':'Confirm booking')+'</button></div></form>';
 }
 function vDone(){
   var a=state.last,d=byId(a.docId);
@@ -1975,7 +1993,7 @@ function vAppts(){
   var up=mineA.filter(function(a){return a.status==="upcoming"||a.status==="pending"}).sort(function(x,y){return (x.dateKey+x.time)<(y.dateKey+y.time)?-1:1});
   var cx=mineA.filter(function(a){return a.status==="cancelled"||a.status==="rejected"});
   return '<div class="top"><div class="brand">Nirog<small>My appointments</small></div>'+profBtn()+'</div>'+
-   '<div class="title-block"><h1>Your appointments</h1>'+(state.pat?'<div class="tiny" style="margin-top:8px">'+patLine()+'</div>':'')+'</div>'+
+   (state.dmsg?'<div class="err" role="alert" style="margin:0 16px 10px">'+esc(state.dmsg)+'</div>':'')+'<div class="title-block"><h1>Your appointments</h1>'+(state.pat?'<div class="tiny" style="margin-top:8px">'+patLine()+'</div>':'')+'</div>'+
    (up.length?up.map(apptCard).join(""):'<div class="empty">No upcoming appointments. Book a doctor from the first tab and it will show up here.</div>')+
    (cx.length?'<div class="sec">Cancelled or rejected</div>'+cx.map(apptCard).join(""):'')+
    '<div style="height:16px"></div>';
@@ -1986,12 +2004,256 @@ function nav(){
    '<button data-a="tab" data-v="labs" '+(state.tab==="labs"?'aria-current="page"':'')+'>'+ic2.slots+'Facilities</button>'+
    '<button data-a="tab" data-v="appts" '+(state.tab==="appts"?'aria-current="page"':'')+'>'+ic.cal+'Appointments'+(n?'<span class="badge tnum">'+n+'</span>':'')+'</button></nav>';
 }
+/* ---------- cloud mode (Supabase backend) ----------
+   Active only when config.js holds a project URL and publishable key. Otherwise the app runs on local demo data as before.
+   Nothing about patients is kept in localStorage in cloud mode; the database (with Row Level Security) is the source of truth. */
+var cloud={ready:!CLOUD,err:"",busy:false,sc:{},hash:"",admin:null,adminErr:"",adminMsg:"",timer:null};
+function last10(p){return String(p||"").replace(/\D/g,"").slice(-10)}
+function vCloudWait(){
+  return '<div class="top"><div class="brand">Nirog</div></div><div class="title-block"><h1>'+(cloud.err?'Cannot connect':'Loading doctors')+'</h1>'+
+   '<p>'+(cloud.err?esc(cloud.err):'Please wait a moment.')+'</p></div>'+(cloud.err?'<div class="stick"><button class="btn" data-a="cretry">Try again</button></div>':'');
+}
+function cloudApplySettings(){
+  var s=BE.settings;if(!s)return;
+  PLAT.on=!!s.fee_on;PLAT.type=s.fee_type;PLAT.value=+s.fee_value;
+  SUP.email=s.support_email||"";SUP.wa=s.support_whatsapp||"";
+}
+function cloudLoadDir(){
+  cloud.err="";cloud.ready=false;render();
+  return BE.loadDirectory().then(function(list){
+    var mine=DOCS.filter(function(d){return d.mine});
+    DOCS.length=0;list.forEach(function(d){if(CITIES.indexOf(d.city)>-1)DOCS.push(d)});
+    mine.forEach(function(m){var i=-1;DOCS.forEach(function(d,j){if(d.id===m.id)i=j});if(i<0)DOCS.push(m);else{m.mine=true;DOCS[i]=m}});
+    cloudApplySettings();cloud.ready=true;
+  }).catch(function(e){cloud.err=e.message}).then(function(){render()});
+}
+function cloudWho(pf,name){
+  /* Turns a signed-in profile into the app's patient or staff state. Resolves to an error message or "". */
+  var r=pf.role;
+  cloud.sc={};
+  if(r==="patient"){
+    state.staff=null;staffData.users=[];
+    state.pat={phone:last10(pf.phone)||last10(BE.sess&&BE.sess.user.phone),name:pf.full_name||name||"Patient"};state.nb=true;
+    return Promise.resolve("");
+  }
+  if(r==="doctor"){
+    return BE.myDoctor().then(function(id){return BE.loadMine(id)}).then(function(d){
+      if(!d)return "Your doctor profile could not be found.";
+      d.mine=true;var i=-1;DOCS.forEach(function(x,j){if(x.id===d.id)i=j});if(i<0)DOCS.push(d);else DOCS[i]=d;
+      staffData.users=[{id:"cloud",name:d.name,email:pf.email||"",role:"doctor",docId:d.id,active:true}];
+      state.pat=null;state.staff="cloud";state.nb=true;state.stab="appt";return "";
+    });
+  }
+  if(r==="admin"||r==="sales"){
+    staffData.users=[{id:"cloud",name:pf.full_name||pf.email||"Staff",email:pf.email||"",role:r,active:true}];
+    state.pat=null;state.staff="cloud";state.nb=true;state.stab="ov";return Promise.resolve("");
+  }
+  return BE.signOut().then(function(){return "Lab and hospital sign-in is not available in the app yet."});
+}
+function cloudRestore(){
+  if(!BE.signedIn())return Promise.resolve();
+  return BE.me().then(function(pf){if(!pf)throw new Error("x");return cloudWho(pf,"")}).then(function(m){if(!m){cloudSync(true)}}).catch(function(e){if(e&&e.status!==0)BE.signOut()}).then(function(){render()});
+}
+function cloudSig(){return JSON.stringify(appts.map(function(a){return [a.id,a.status,a.time,a.dateKey]}))+"|"+NOTIF.length+"|"+NOTIF.filter(function(n){return !n.read}).length}
+function cloudSync(force){
+  if(!CLOUD||!BE.signedIn())return Promise.resolve();
+  var key=notifKey();
+  return Promise.all([BE.myBookings(),BE.notifications()]).then(function(r){
+    appts=r[0];
+    var k=notifKey();
+    NOTIF=r[1].map(function(n){return {id:"n"+n.id,to:k,text:n.body,ts:Date.parse(n.created_at),read:!!n.read_at}});
+    var h=cloudSig(),ae=document.activeElement,typing=ae&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName);
+    if(force||(h!==cloud.hash&&!typing)){cloud.hash=h;render()}
+    cloud.hash=h;
+    if(state.staff&&getUser(state.staff)&&getUser(state.staff).role==="doctor"){
+      appts.filter(function(a){return a.status==="pending"}).forEach(function(a){var d=byId(a.docId);if(d)ensureSlots(d,[a.dateKey])});
+    }
+  }).catch(function(e){if(e&&(e.status===401||e.status===403)){cloudLogout(true)}});
+}
+function cloudStartPoll(){
+  if(cloud.timer)return;
+  cloud.timer=setInterval(function(){if(!document.hidden)cloudSync(false)},30000);
+  try{document.addEventListener("visibilitychange",function(){if(!document.hidden)cloudSync(false)});window.addEventListener("online",function(){cloudSync(false)})}catch(e){}
+}
+function cloudLogout(expired){
+  var p=BE.signOut();
+  state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;
+  DOCS.forEach(function(d){d.mine=false});
+  state.view="list";state.tab="find";state.notif=false;state.help=false;state.ask=null;render(true);
+  return p;
+}
+/* Slots come from the database (open_slots) so what you see is what the server will accept. */
+function ensureSlots(d,keys){
+  if(!CLOUD||!d||!d.cloud)return Promise.resolve();
+  var now=Date.now(),todo=keys.filter(function(k){var c=cloud.sc[d.id+"|"+k];return !c||now-c.at>60000});
+  if(!todo.length)return Promise.resolve();
+  return Promise.all(todo.map(function(k){return BE.openSlots(d.id,k).then(function(r){cloud.sc[d.id+"|"+k]={at:Date.now(),s:r}},function(){})})).then(function(){
+    if(state.view==="doctor"&&state.docId===d.id&&!state.time){var c=state.dateKey&&freeCount(d,state.dateKey);if(!c){var f=firstDate(d);if(f)state.dateKey=f}}
+    render();
+  });
+}
+function week(){var o=[],t=new Date();for(var i=0;i<7;i++)o.push(dkey(addDays(t,i)));return o}
+function cloudBook(){
+  if(cloud.busy)return;
+  var f=state.form,d=byId(state.docId),rs=null;
+  if(state.resched)appts.forEach(function(x){if(x.id===state.resched)rs=x});
+  cloud.busy=true;state.bookErr="";render();
+  var p=rs?BE.reschedule(rs.id,state.dateKey,state.time):BE.createBooking({docId:d.id,dateKey:state.dateKey,time:state.time,mode:state.mode,name:f.name.trim(),age:+f.age,sex:f.sex,phone:f.phone,reason:f.reason.trim()});
+  p.then(function(a){
+    if(rs)a.rebooked=true;
+    state.last=a;state.resched=null;state.view="done";
+    var pf=getProf(state.pat.phone)||{};pf.name=state.pat.name;pf.age=+f.age;pf.sex=f.sex;putProf(state.pat.phone,pf);
+    delete cloud.sc[d.id+"|"+a.dateKey];
+    cloud.busy=false;cloudSync(true);render(true);
+  },function(e){
+    cloud.busy=false;state.bookErr=e.message;
+    if(e.code==="slot_taken"||e.code==="slot_unavailable"||e.code==="doctor_unavailable"){state.time=null;state.view="doctor";delete cloud.sc[d.id+"|"+state.dateKey];ensureSlots(d,[state.dateKey])}
+    render(true);
+  });
+}
+function cloudDecide(id,decision){
+  if(cloud.busy)return;
+  var a=null;appts.forEach(function(x){if(x.id===id)a=x});if(!a||a.status!=="pending")return;
+  var time=decision==="confirm"?(state.atime[id]||a.time):null,reason=decision==="reject"?(state.rrs[id]||"").trim():null;
+  cloud.busy=true;state.dmsg="";render();
+  BE.decide(id,decision,time,reason).then(function(){
+    delete state.atime[id];delete state.rrs[id];state.rask=null;cloud.busy=false;delete cloud.sc[a.docId+"|"+a.dateKey];cloudSync(true);
+  },function(e){cloud.busy=false;state.dmsg=e.message;cloudSync(true)});
+}
+function cloudCancel(id){
+  if(cloud.busy)return;cloud.busy=true;state.dmsg="";render();
+  BE.cancel(id).then(function(a){cloud.busy=false;state.ask=null;delete cloud.sc[a.docId+"|"+a.dateKey];cloudSync(true)},function(e){cloud.busy=false;state.ask=null;state.dmsg=e.message;cloudSync(true)});
+}
+function cloudSaveSched(){
+  var d=myDoc(),m=state.sched;if(!d||!m)return;
+  m.errs=checkSched(m);
+  if(Object.keys(m.errs).length){schedMsg="";render();return}
+  var days=m.days.slice().sort(),hours=hoursFromModel(m),step=+m.step;
+  schedMsg="Saving...";render();
+  BE.saveSchedule(d.id,days,hours,step,d.off||[],d.blocked||[]).then(function(){
+    d.days=days;d.hours=hours;d.step=step;schedMsg="Saved. Patients now see your new slots.";
+    Object.keys(cloud.sc).forEach(function(k){if(k.indexOf(d.id+"|")===0)delete cloud.sc[k]});render();
+  },function(e){schedMsg="Not saved: "+e.message;render()});
+}
+function cloudExc(d){
+  /* push day-offs and blocked slots after the doctor changes them */
+  BE.saveSchedule(d.id,d.days,d.hours,d.step,d.off||[],d.blocked||[]).then(function(){
+    Object.keys(cloud.sc).forEach(function(k){if(k.indexOf(d.id+"|")===0)delete cloud.sc[k]});render();
+  },function(e){schedMsg="Not saved: "+e.message;render()});
+}
+function cloudStaffLogin(){
+  var em=state.login.email.trim().toLowerCase(),pw=state.login.pass;
+  if(cloud.busy)return;
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)||!pw){state.login.err="Enter your email and password.";render();return}
+  cloud.busy=true;state.login.err="";render();
+  BE.signInPassword(em,pw).then(function(){return BE.me()}).then(function(pf){
+    if(!pf||pf.role==="patient"){return BE.signOut().then(function(){return "No doctor or staff account uses this email."})}
+    return cloudWho(pf,"");
+  }).then(function(msg){
+    cloud.busy=false;
+    if(msg){state.login.err=msg;render();return}
+    state.login={email:"",pass:"",err:""};state.lf="all";state.showTable=false;state.addLead=false;
+    cloudSync(true);cloudStartPoll();render(true);
+  },function(e){cloud.busy=false;state.login.err=e.message;render()});
+}
+function cloudOtpSend(resend){
+  var o=state.otp;if(!o||cloud.busy)return;
+  if(!/^[6-9]\d{9}$/.test(o.phone)){o.err="Enter a valid 10-digit mobile number.";render();return}
+  if(o.kind==="staff"){o.err="Doctors and staff sign in with email and password.";render();return}
+  var now=Date.now();
+  if(resend&&now-o.at<OTP_WAIT){o.err="Wait "+Math.ceil((OTP_WAIT-(now-o.at))/1000)+" seconds before asking for a new code.";render();return}
+  cloud.busy=true;o.err="";render();
+  BE.sendOtp(o.phone).then(function(){
+    cloud.busy=false;o.at=Date.now();o.exp=o.at+OTP_TTL;o.tries=0;o.code="";o.stage="code";o.needName=!knownName(o.phone);render();
+  },function(e){cloud.busy=false;o.err=(e.status===0||e.status===429)?e.message:"We could not send the code. SMS sign-in may not be switched on yet. Please try again later.";render()});
+}
+function cloudOtpVerify(){
+  var o=state.otp;if(!o||cloud.busy)return;
+  if(!/^\d{6}$/.test(o.code)){o.err="Enter the 6-digit code.";render();return}
+  var nm=(o.needName?o.name.trim():knownName(o.phone))||"";
+  cloud.busy=true;o.err="";render();
+  BE.verifyOtp(o.phone,o.code).then(function(){return BE.me()}).then(function(pf){
+    if(!pf)throw new Error("Could not load your account.");
+    var fresh=!pf.full_name&&nm.length>=2?BE.setName(nm).then(function(){pf.full_name=nm}):Promise.resolve();
+    return fresh.then(function(){pf.phone=pf.phone||("+91"+o.phone);return cloudWho(pf,nm)});
+  }).then(function(msg){
+    cloud.busy=false;
+    if(msg){o.err=msg;render();return}
+    if(state.pat){state.pat.phone=o.phone;rememberName(o.phone,state.pat.name)}
+    var af=o.after,ph=o.phone;state.otp=null;
+    if(state.staff){state.view="list";cloudSync(true);cloudStartPoll();render(true);return}
+    if(af==="confirm"&&state.docId&&state.dateKey&&state.time){state.form.name=state.pat.name;state.form.phone=ph;state.errors={};state.view="confirm";state.tab="find"}
+    else if(af==="appts"){state.tab="appts";state.view="list"}
+    else{state.view="list";state.tab="find"}
+    cloudSync(true);cloudStartPoll();render(true);
+  },function(e){cloud.busy=false;o.err=e.message||"Could not verify the code.";render()});
+}
+function cloudSubmitReg(doc,r,mp,yr,em){
+  if(cloud.busy)return;cloud.busy=true;r.errs={};r.sendErr="";render();
+  var uid=null,ext=function(t){return /pdf/.test(t)?"pdf":/png/.test(t)?"png":/webp/.test(t)?"webp":"jpg"};
+  var ups=[];
+  var auth=BE.signUpPassword(em,r.pass).catch(function(e){
+    if(e.code==="user_already_exists"||e.code==="email_exists")return BE.signInPassword(em,r.pass).catch(function(){throw new Error("That email already has an account. Sign in, or use a different email.")});
+    throw e;
+  });
+  auth.then(function(){
+    uid=BE.userId();var t=Date.now();
+    if(r.photo)ups.push(["doctor-media",uid+"/photo-"+t+".jpg",r.photo,"photo","photo"]);
+    r.gallery.forEach(function(g,i){ups.push(["doctor-media",uid+"/clinic-"+t+"-"+i+".jpg",g,"clinic","clinic"+i])});
+    ["reg","id","deg"].forEach(function(k){var f=r.docs[k];if(f&&f.data){var ty=(/^data:([^;]+)/.exec(f.data)||[])[1]||"image/jpeg";ups.push(["verification-docs",uid+"/"+k+"-"+t+"."+ext(ty),f.data,k,f.name])}});
+    return ups.reduce(function(p,u){return p.then(function(){return BE.upload(u[0],u[1],u[2])})},Promise.resolve());
+  }).then(function(){
+    return BE.registerDoctor({name:doc.name,spec:doc.spec,qual:doc.qual,exp_years:doc.exp,fee_inr:doc.fee,video_fee_inr:doc.vfee,languages:doc.lang,about:r.about.trim(),clinic:doc.clinic,city:doc.city,wa:doc.wa||"",
+      council:doc.council,reg_no:doc.regno,reg_year:yr,address:doc.address,pin:doc.pin,map_url:mp.url,lat:isNum(mp.lat)?mp.lat:null,lng:isNum(mp.lat)?mp.lng:null,days:doc.days,sessions:doc.hours.map(function(h){return {s:h[0],e:h[1]}}),step:doc.step});
+  }).then(function(row){
+    doc.id=row.id;doc.ref=row.ref;
+    return Promise.all(ups.map(function(u){return BE.addDocRow(row.id,u[3].indexOf("clinic")===0?"clinic":u[3],u[1],u[4])})).then(function(){
+      var ph=ups.filter(function(u){return u[3]==="photo"})[0];return ph?BE.setDoctorPhoto(row.id,ph[1]):null;
+    });
+  }).then(function(){
+    return BE.setPhone(r.phone);
+  }).then(function(){
+    cloud.busy=false;state.regDone=doc;BE.signOut();cloud.sc={};render(true);
+  },function(e){cloud.busy=false;r.sendErr=e.message||"Could not submit. Try again.";render()});
+}
+function cloudAdminLoad(){
+  cloud.adminErr="";
+  return BE.adminDoctors().then(function(l){cloud.admin=l;render()},function(e){cloud.adminErr=e.message;cloud.admin=cloud.admin||[];render()});
+}
+function cloudReview(id,decision){
+  if(cloud.busy)return;cloud.busy=true;cloud.adminMsg="";render();
+  var reason=decision==="reject"?(state.rej&&state.rej[id]||REJ[0]):null;
+  BE.reviewDoctor(id,decision,reason).then(function(){cloud.busy=false;cloud.adminMsg=decision==="approve"?"Doctor approved and now listed.":"Doctor rejected.";return cloudAdminLoad()},function(e){cloud.busy=false;cloud.adminMsg=e.message;render()});
+}
+function cloudViewDoc(path,bucket){
+  BE.signedUrl(bucket,path).then(function(u){if(/\.pdf(\?|$)/i.test(path)){window.open(u,"_blank")}else{state.lb=u;render()}},function(e){cloud.adminMsg=e.message;render()});
+}
+function vCloudAdmin(){
+  var u=getUser(state.staff),L=cloud.admin;
+  if(u.role!=="admin")return '<div class="top"><div class="brand">Nirog<small>Sales</small></div><button class="btn sm ghost" data-a="logout">Sign out</button></div><div class="title-block"><h1>Sales dashboard</h1></div><div class="empty">The sales dashboard is not connected to the live backend yet. Your account works, but there is nothing to show here in this version.</div>';
+  if(L===null){cloud.admin=[];cloudAdminLoad()}
+  var pend=(L||[]).filter(function(d){return d.status==="pending"}),oth=(L||[]).filter(function(d){return d.status!=="pending"});
+  function card(d){
+    var docs=(d.docs||[]).map(function(x){return '<button class="btn sm ghost" data-a="cdoc" data-v="'+esc((x.kind==="photo"||x.kind==="clinic"?"doctor-media":"verification-docs")+"|"+x.storage_path)+'">View '+esc(x.kind)+'</button>'}).join("");
+    return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(d.name)+'</div><div class="tiny">'+esc(d.spec)+' · '+esc(d.city)+' · '+esc(d.ref)+'</div></div><span class="pill'+(d.status==="pending"?' warn':'')+'">'+esc(d.status)+'</span></div>'+
+     '<div class="tiny">'+esc(d.qual)+' · '+d.exp_years+' yrs · Fee '+money(d.fee_inr)+'</div>'+
+     (d.ver?'<div class="tiny">Council: '+esc(d.ver.council)+' · Reg no '+esc(d.ver.reg_no)+' ('+d.ver.reg_year+')</div>':'')+
+     (docs?'<div class="acts" style="margin-top:8px;flex-wrap:wrap">'+docs+'</div>':'')+
+     '<div class="acts"><button class="btn sm" data-a="capprove" data-v="'+d.id+'">Approve</button><button class="btn sm ghost" data-a="creject" data-v="'+d.id+'" style="color:var(--bad)">Reject</button></div></div>';
+  }
+  return '<div class="top"><div class="brand">Nirog<small>Admin</small></div><button class="btn sm ghost" data-a="logout">Sign out</button></div>'+
+   '<div class="title-block"><h1>Doctor reviews</h1><p>Check the certificate and ID before approving.</p></div>'+
+   (cloud.adminMsg?'<div class="status-line" role="status" style="margin:0 16px 10px">'+esc(cloud.adminMsg)+'</div>':'')+(cloud.adminErr?'<div class="err" style="margin:0 16px 10px">'+esc(cloud.adminErr)+'</div>':'')+
+   '<div class="sec">Waiting for review ('+pend.length+')</div>'+(pend.length?pend.map(card).join(""):'<div class="empty">No doctors waiting.</div>')+
+   (oth.length?'<div class="sec">Reviewed</div>'+oth.map(card).join(""):'')+'<div class="foot" style="text-align:left">Labs, hospitals, leads, team and platform fee screens are not connected to the live backend yet.</div>';
+}
 function render(scroll){
   var h,showNav=false;
+  if(CLOUD&&!cloud.ready){app.innerHTML=vCloudWait();return}
   if(state.notif&&notifKey()){app.innerHTML=vNotif();if(scroll)window.scrollTo(0,0);return}
   if(state.help){app.innerHTML=vHelp();if(scroll)window.scrollTo(0,0);return}
   state.notif=false;
-  if(state.staff){app.innerHTML=nbHtml()+vStaff()+lbHtml();if(scroll)window.scrollTo(0,0);return}
+  if(state.staff){var _su=getUser(state.staff);app.innerHTML=nbHtml()+(CLOUD&&_su&&_su.role!=="doctor"?vCloudAdmin():vStaff())+lbHtml();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="login"){app.innerHTML=vLogin();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="profile"&&state.pat&&state.prof){app.innerHTML=vProfile();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="freg"){app.innerHTML=vFreg();if(scroll)window.scrollTo(0,0);return}
@@ -2015,6 +2277,7 @@ function firstDate(d){
   return null;
 }
 function book(){
+  if(CLOUD){cloudBook();return}
   var f=state.form,d=byId(state.docId),a;
   if(state.pat&&f.name.trim().toLowerCase()===state.pat.name.toLowerCase()){var pr0=getProf(state.pat.phone)||{};pr0.name=state.pat.name;pr0.age=+f.age;pr0.sex=f.sex;putProf(state.pat.phone,pr0)}
   if(state.resched){
@@ -2034,6 +2297,10 @@ app.addEventListener("click",function(ev){
     case "help":state.help=true;render(true);break;
     case "hclose":state.help=false;render(true);break;
     case "notif":openNotif();break;
+    case "cretry":cloudLoadDir();break;
+    case "cdoc":(function(){var p=v.split("|");cloudViewDoc(p.slice(1).join("|"),p[0])})();break;
+    case "capprove":cloudReview(+v,"approve");break;
+    case "creject":cloudReview(+v,"reject");break;
     case "nclose":state.notif=false;render(true);break;
     case "approve":approveAppt(v);render();break;
     case "rejask":state.rask=v;render();break;
@@ -2075,7 +2342,7 @@ app.addEventListener("click",function(ev){
     case "rmlab":(function(){var me=getUser(state.staff);if(!me||me.role!=="admin")return;LABS=LABS.filter(function(l){return l.sample||l.id!==v});saveLabs();render()})();break;
     case "staff":state.view="login";state.login={email:"",pass:"",err:""};render(true);break;
     case "fill":state.login=v==="admin"?{email:"admin@nirog.demo",pass:"Admin@123",err:""}:v==="doctor"?{email:"anjali@nirog.demo",pass:"Doctor@123",err:""}:{email:"riya@nirog.demo",pass:"Sales@123",err:""};render();break;
-    case "logout":state.help=false;state.notif=false;state.staff=null;state.view="list";state.tab="find";state.ask=null;render(true);break;
+    case "logout":if(CLOUD){cloudLogout();break}state.help=false;state.notif=false;state.staff=null;state.view="list";state.tab="find";state.ask=null;render(true);break;
     case "stab":state.stab=v;state.ask=null;state.addLead=false;schedMsg="";render(true);break;
     case "lf":state.lf=v;render();break;
     case "lead":sLead(v);break;
@@ -2084,9 +2351,9 @@ app.addEventListener("click",function(ev){
     case "toggle":sToggle(v);break;
     case "spec":state.spec=v;render();break;
     case "open":
-      state.docId=+v;resetPick();var d=byId(state.docId);state.dateKey=firstDate(d);state.view="doctor";state.tab="find";render(true);break;
+      state.docId=+v;resetPick();var d=byId(state.docId);state.dateKey=firstDate(d);state.view="doctor";state.tab="find";state.bookErr="";render(true);if(CLOUD)ensureSlots(d,week());break;
     case "back":state.view="list";state.resched=null;render(true);break;
-    case "date":state.dateKey=v;state.time=null;render();break;
+    case "date":state.dateKey=v;state.time=null;render();if(CLOUD)ensureSlots(byId(state.docId),[v]);break;
     case "slot":state.time=v;render();break;
     case "mode":state.mode=v;render();break;
     case "cont":
@@ -2109,12 +2376,12 @@ app.addEventListener("click",function(ev){
     case "mine":state.tab="appts";state.view="list";render(true);break;
     case "ask":state.ask=v;render();break;
     case "keep":state.ask=null;render();break;
-    case "cancel":appts.forEach(function(x){if(x.id===v){var wasS=x.status;x.status="cancelled";var dd=byId(x.docId);if(state.staff){notify("p:"+x.phone,"Your appointment with "+dd.name+" for "+fmtWhen(x)+" was cancelled by Nirog support.")}else notify("d:"+x.docId,x.name+" cancelled the appointment for "+fmtWhen(x)+".")}});state.ask=null;save();render();break;
+    case "cancel":if(CLOUD){cloudCancel(v);break}appts.forEach(function(x){if(x.id===v){var wasS=x.status;x.status="cancelled";var dd=byId(x.docId);if(state.staff){notify("p:"+x.phone,"Your appointment with "+dd.name+" for "+fmtWhen(x)+" was cancelled by Nirog support.")}else notify("d:"+x.docId,x.name+" cancelled the appointment for "+fmtWhen(x)+".")}});state.ask=null;save();render();break;
     case "resched":
       var ap=null;appts.forEach(function(x){if(x.id===v)ap=x});
       if(ap){state.resched=ap.id;state.docId=ap.docId;state.mode=ap.mode;state.dateKey=null;state.time=null;
         state.form={name:ap.name,phone:ap.phone,reason:ap.reason||"",age:ap.age!=null?String(ap.age):"",sex:ap.sex||""};
-        state.dateKey=firstDate(byId(ap.docId));state.tab="find";state.view="doctor";render(true)}
+        state.dateKey=firstDate(byId(ap.docId));state.tab="find";state.view="doctor";render(true);if(CLOUD)ensureSlots(byId(ap.docId),week())}
       break;
   }
 });
@@ -2236,6 +2503,7 @@ function hashRoute(){
 try{window.addEventListener("hashchange",function(){if(hashRoute())render(true)})}catch(e){}
 hashRoute();
 render();
+if(CLOUD){cloudLoadDir().then(function(){return cloudRestore()}).then(function(){if(BE.signedIn())cloudStartPoll()})}
 })();
 </script>
 

@@ -123,7 +123,7 @@ create table public.platform_settings (
   support_whatsapp text not null default '',
   check ((fee_type = 'flat' and fee_value <= 5000) or (fee_type = 'percent' and fee_value <= 50))
 );
-insert into public.platform_settings (id) values (1);
+insert into public.platform_settings (id, support_email, support_whatsapp) values (1, 'spywellinfotech@gmail.com', '9837900303');
 
 create table public.bookings (
   id                  uuid primary key default gen_random_uuid(),
