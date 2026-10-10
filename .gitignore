@@ -5,3 +5,7 @@ local.properties
 *.iml
 captures/
 .DS_Store
+
+ios/Nirog/Web/
+ios/*.xcodeproj/
+ios/build/

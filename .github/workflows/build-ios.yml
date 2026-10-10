@@ -1,0 +1,65 @@
+name: Build iOS app
+
+# Builds an UNSIGNED .ipa on a Mac runner. Unsigned means it cannot be installed directly:
+# install it with Sideloadly or AltStore (free Apple ID, valid for 7 days), or sign it with a paid Apple Developer account.
+on:
+  push:
+    paths:
+      - "ios/**"
+      - "web/index.html"
+      - ".github/workflows/build-ios.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bundle the web app
+        run: |
+          mkdir -p ios/Nirog/Web
+          cp web/index.html ios/Nirog/Web/index.html
+          cp -r web/icons ios/Nirog/Web/icons
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build (no code signing)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project Nirog.xcodeproj -scheme Nirog -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath build/Nirog.xcarchive archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee build.log
+
+      - name: Package the .ipa
+        working-directory: ios
+        run: |
+          rm -rf Payload Nirog-unsigned.ipa
+          mkdir Payload
+          cp -R build/Nirog.xcarchive/Products/Applications/Nirog.app Payload/
+          zip -qr Nirog-unsigned.ipa Payload
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          path: ios/build.log
+
+      - name: Publish the .ipa as a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest-ios --yes --cleanup-tag 2>/dev/null || true
+          gh release create latest-ios ios/Nirog-unsigned.ipa --title "Nirog iOS app (unsigned build)" --notes "Unsigned test build. Install with Sideloadly or AltStore, or sign it with an Apple Developer account." --target "${{ github.sha }}"

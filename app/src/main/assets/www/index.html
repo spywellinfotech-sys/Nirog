@@ -44,7 +44,7 @@ h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;letter-spaci
 
 /* header */
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 16px 8px}
-.brand{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;color:var(--brand)}
+.brand{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;color:var(--brand)}
 .brand small{font-family:var(--font-body);font-weight:500;font-size:12px;color:var(--muted);letter-spacing:0;margin-left:8px}
 .title-block{padding:6px 16px 14px}
 .title-block h1{font-size:28px;line-height:1.1}
@@ -2080,6 +2080,19 @@ window.__nirogBack=function(){
   if(state.tab==="appts"||state.tab==="labs"){state.tab="find";render(true);return true}
   return false;
 };
+/* Press and hold the Nirog name for about a second to open staff sign-in. This is the way in for the Android and iOS apps, which have no address bar. */
+(function(){
+  var holdT=null;
+  function stop(){if(holdT){clearTimeout(holdT);holdT=null}}
+  app.addEventListener("pointerdown",function(ev){
+    var b=ev.target.closest&&ev.target.closest(".brand");
+    if(!b||state.staff)return;
+    stop();
+    holdT=setTimeout(function(){holdT=null;state.view="login";state.login={email:"",pass:"",err:""};render(true)},1100);
+  });
+  ["pointerup","pointercancel","pointerleave"].forEach(function(n){app.addEventListener(n,stop)});
+  app.addEventListener("contextmenu",function(ev){if(ev.target.closest&&ev.target.closest(".brand"))ev.preventDefault()});
+})();
 /* Deep links: #staff opens staff sign-in, #register the doctor sign-up, #facility the lab, centre and hospital sign-up. */
 function hashRoute(){
   var h="";try{h=location.hash}catch(e){}
