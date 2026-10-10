@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Nirog" parent="android:Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/saffron</item>
+        <item name="android:navigationBarColor">@color/cream</item>
+        <item name="android:windowBackground">@color/cream</item>
+    </style>
+</resources>

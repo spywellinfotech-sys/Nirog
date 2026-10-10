@@ -1,0 +1,2098 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif;background:#fafafa}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Nirog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one phone-width column, centered on larger screens. Doctor list -> doctor + slot picker -> confirm -> appointments tab. */
+:root{
+  --font-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --font-body:"Figtree","Segoe UI",system-ui,sans-serif;
+  /* saffron: deep saffron for text and buttons, bright saffron (#FF9933 family) for fills and charts, green as the flag counterpart */
+  --bg:#FFF7EC; --surface:#FFFFFF; --line:#F0DCC2; --ink:#3A2312; --muted:#7A5E47;
+  --brand:#A94B00; --brand-ink:#FFFFFF; --soft:#FFE6C8; --accent:#9A5B00; --accent-soft:#FFF0C2;
+  --bright:#E8820C; --on-bright:#2A1600; --green:#1B7F5C; --green-soft:#DDF1E7;
+  --bad:#B3261E; --bad-soft:#FBE4E1; --busy:#F3E8D8;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17110A; --surface:#231A10; --line:#3A2B1B; --ink:#F7EADB; --muted:#C2A78C;
+  --brand:#FFA94D; --brand-ink:#2A1600; --soft:#3A2812; --accent:#FFC857; --accent-soft:#3A2E0E;
+  --bright:#FFA94D; --on-bright:#2A1600; --green:#5FD3A0; --green-soft:#14301F;
+  --bad:#FF8B80; --bad-soft:#3A1B18; --busy:#2E2215; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#17110A; --surface:#231A10; --line:#3A2B1B; --ink:#F7EADB; --muted:#C2A78C;
+  --brand:#FFA94D; --brand-ink:#2A1600; --soft:#3A2812; --accent:#FFC857; --accent-soft:#3A2E0E;
+  --bright:#FFA94D; --on-bright:#2A1600; --green:#5FD3A0; --green-soft:#14301F;
+  --bad:#FF8B80; --bad-soft:#3A1B18; --busy:#2E2215; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+#app{border-top:5px solid var(--bright);max-width:480px;min-height:100%;margin:0 auto;display:flex;flex-direction:column;background:var(--bg)}
+.pad{padding-inline:16px}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.muted{color:var(--muted)}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 16px 8px}
+.brand{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;color:var(--brand)}
+.brand small{font-family:var(--font-body);font-weight:500;font-size:12px;color:var(--muted);letter-spacing:0;margin-left:8px}
+.title-block{padding:6px 16px 14px}
+.title-block h1{font-size:28px;line-height:1.1}
+.title-block p{margin:6px 0 0;color:var(--muted)}
+
+/* search + chips */
+.search{margin:0 16px;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 14px;min-width:0}
+.search input{flex:1;min-width:0;border:0;background:transparent;padding:13px 0;outline:none}
+.search:focus-within{border-color:var(--brand)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:14px 16px 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-weight:500;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+
+/* doctor cards */
+.list{display:flex;flex-direction:column;gap:10px;padding:12px 16px 24px}
+.count{padding:10px 16px 0;font-size:13px;color:var(--muted)}
+.doc{display:flex;gap:12px;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+.doc:hover{border-color:var(--brand)}
+.av{flex:none;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-display);font-weight:700;font-size:18px;background:var(--soft);color:var(--brand)}
+.av.lg{width:64px;height:64px;font-size:22px}
+.doc-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.doc-name{font-weight:700;font-size:16px}
+.doc-sub{color:var(--muted);font-size:13.5px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rate{display:inline-flex;align-items:center;gap:4px;font-weight:600;font-size:13px}
+.rate svg{color:var(--bright)}
+.next{margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px dashed var(--line);padding-top:8px;font-size:13px}
+.next b{color:var(--brand)}
+.fee{font-weight:700;white-space:nowrap}
+
+/* doctor detail */
+.bar{display:flex;align-items:center;gap:8px;padding:14px 16px 6px}
+.back{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;font-weight:600;color:var(--brand);padding:6px 8px 6px 0}
+.profile{display:flex;gap:14px;padding:8px 16px 4px;align-items:center}
+.profile h1{font-size:23px;line-height:1.15}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px 4px}
+.fact{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center;min-width:0}
+.fact b{display:block;font-family:var(--font-display);font-size:18px}
+.fact span{font-size:12px;color:var(--muted)}
+.about{padding:10px 16px 0;color:var(--muted);font-size:14px}
+.sec{padding:20px 16px 8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.seg{margin:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.seg button{border:0;background:transparent;border-radius:9px;padding:10px 6px;font-weight:600;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:0}
+.seg button small{font-weight:500;color:var(--muted);font-size:12px}
+.seg button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink)}
+.seg button[aria-pressed="true"] small{color:var(--brand-ink);opacity:.85}
+.dates{display:flex;gap:8px;overflow-x:auto;padding:0 16px 6px;scrollbar-width:none}
+.dates::-webkit-scrollbar{display:none}
+.date{flex:none;width:58px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 0;display:flex;flex-direction:column;align-items:center;gap:1px}
+.date .d{font-size:12px;color:var(--muted);font-weight:500}
+.date .n{font-family:var(--font-display);font-weight:700;font-size:20px;line-height:1.1}
+.date .c{font-size:11px;color:var(--muted)}
+.date[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.date[aria-pressed="true"] .d,.date[aria-pressed="true"] .c{color:var(--brand-ink);opacity:.85}
+.date:disabled{opacity:.45;cursor:not-allowed}
+.period{padding:10px 16px 0}
+.period h3{font-size:14px;font-family:var(--font-body);font-weight:600;color:var(--muted);margin-bottom:8px}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.slot{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 0;font-weight:600;font-size:14px;min-width:0}
+.slot:hover:not(:disabled){border-color:var(--brand)}
+.slot[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.slot.blocked{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.slot.booked:disabled{background:var(--soft);color:var(--brand);text-decoration:none;border-color:transparent;font-weight:700}
+.slot:disabled{background:var(--busy);color:var(--muted);text-decoration:line-through;cursor:not-allowed;border-color:transparent;font-weight:500}
+.empty{margin:14px 16px;padding:16px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);text-align:center}
+.legend{padding:12px 16px 0;font-size:12px;color:var(--muted)}
+
+/* sticky bars */
+.stick{position:sticky;bottom:0;margin-top:auto;background:var(--surface);border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}
+.cta-sum{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:10px}
+.cta-sum b{font-weight:700}
+.btn{width:100%;border:0;border-radius:12px;background:var(--brand);color:var(--brand-ink);font-weight:700;padding:14px;font-size:16px}
+.btn:disabled{background:var(--busy);color:var(--muted);cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--brand);border:1px solid var(--line)}
+.btn.sm{width:auto;padding:9px 14px;font-size:14px;border-radius:10px}
+.btn.danger{background:var(--bad);color:var(--surface)}
+.nav{display:grid;grid-template-columns:repeat(3,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
+.nav button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;font-size:12px;font-weight:600;color:var(--muted);position:relative}
+.nav button[aria-current="page"]{color:var(--brand)}
+.badge{position:absolute;top:2px;left:calc(50% + 8px);background:var(--accent);color:var(--surface);border-radius:999px;font-size:11px;min-width:18px;height:18px;display:grid;place-items:center;padding:0 5px}
+
+/* form */
+.card{margin:0 16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.sumrow{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.sumrow:last-child{border-bottom:0}
+.sumrow span:first-child{color:var(--muted)}
+.sumrow span:last-child{text-align:right;font-weight:600;min-width:0}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-weight:600;font-size:14px}
+.field input,.field textarea{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;width:100%;min-width:0}
+.field textarea{resize:vertical;min-height:80px}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--brand)}
+.err{color:var(--bad);font-size:13px}
+.hint{color:var(--muted);font-size:12.5px}
+
+/* done + appointments */
+.done{padding:28px 16px 8px;text-align:center}
+.tick{width:64px;height:64px;border-radius:50%;background:var(--soft);color:var(--brand);display:grid;place-items:center;margin:0 auto 14px}
+.ref{display:inline-block;margin-top:10px;font-weight:700;letter-spacing:.06em;background:var(--soft);color:var(--brand);padding:6px 12px;border-radius:8px}
+.appt{margin:0 16px 10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.appt-head{display:flex;gap:12px;align-items:center;min-width:0}
+.when{display:flex;gap:10px;align-items:center;background:var(--bg);border-radius:10px;padding:10px 12px;font-weight:600;flex-wrap:wrap}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:var(--soft);color:var(--brand);letter-spacing:.02em}
+.pill.warn{background:var(--accent-soft);color:var(--accent)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.confirm{background:var(--bad-soft);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;font-size:14px}
+.foot{padding:4px 16px 24px;font-size:12px;color:var(--muted);text-align:center}
+.phoneio{display:flex;border:1px solid var(--line);border-radius:10px;background:var(--bg);overflow:hidden}
+.phoneio:focus-within{border-color:var(--brand)}
+.phoneio .cc{padding:12px;background:var(--soft);font-weight:700;color:var(--brand)}
+.field .phoneio input{border:0;border-radius:0;flex:1;min-width:0}
+.demo-note{background:var(--accent-soft);border-radius:10px;padding:12px;font-size:14px;margin-bottom:14px}
+.demo-note .code{display:inline-block;font-family:var(--font-display);font-weight:800;font-size:20px;letter-spacing:.14em;margin-left:4px}
+a.btn{display:block;text-align:center;text-decoration:none}
+a.btn.sm{display:inline-block}
+.maplink{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--brand);text-decoration:none;font-size:14px}
+.maplink:hover{text-decoration:underline}
+.locrow{display:flex;gap:12px;align-items:flex-start}
+.pinbox{flex:none;width:44px;height:44px;border-radius:12px;background:var(--soft);color:var(--brand);display:grid;place-items:center}
+.days{display:flex;flex-wrap:wrap;gap:8px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mapfind{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.status-line{font-size:13px;font-weight:600;color:var(--brand);min-height:1em}
+.loc{display:flex;align-items:center;gap:8px;margin:0 16px 10px;color:var(--brand)}
+.loc label{font-size:13px;font-weight:600;color:var(--muted)}
+.loc select{flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-weight:600;color:var(--ink)}
+.loc select:focus{outline:none;border-color:var(--brand)}
+/* staff area */
+.stack{display:flex;flex-direction:column;gap:14px;padding-bottom:20px}
+.list .appt{margin:0}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kl{font-size:12px;color:var(--muted);font-weight:600}
+.kpi b{font-family:var(--font-display);font-size:24px;line-height:1.15;overflow-wrap:anywhere}
+.ks{font-size:12px;color:var(--muted)}
+.track{height:10px;border-radius:5px;background:var(--busy);overflow:hidden;margin:10px 0 8px}
+.track i{display:block;height:100%;background:var(--bright);border-radius:5px}
+.chart{width:100%;height:auto;display:block}
+.chart .gl{stroke:var(--line);stroke-width:1;stroke-dasharray:2 3}
+.chart .ax{fill:var(--muted);font-size:10px;font-family:var(--font-body)}
+.chart .bar{fill:var(--bright);pointer-events:none}
+.chart .val{fill:var(--ink);font-size:11px;font-weight:700;font-family:var(--font-body)}
+.chart .hit{fill:transparent}
+.chart .hit:hover{fill:var(--soft)}
+.tip{position:fixed;z-index:20;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;font-weight:600;padding:6px 9px;border-radius:8px;max-width:220px}
+.cardhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.cardhead h2{font-size:16px}
+.link{border:0;background:transparent;color:var(--brand);font-weight:600;font-size:13px;padding:4px 0}
+.rep{margin-bottom:14px}
+.rep:last-child{margin-bottom:0}
+.rep-h{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;margin-bottom:6px;flex-wrap:wrap}
+.rn{font-weight:600}
+.rtrack{position:relative;height:10px;background:var(--busy);border-radius:5px}
+.rtrack i{position:absolute;left:0;top:0;bottom:0;background:var(--bright);border-radius:5px}
+.rtrack u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--green);text-decoration:none}
+.lb{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.lb:last-child{border-bottom:0}
+.rank{width:22px;text-align:center;font-family:var(--font-display);font-weight:700;color:var(--muted)}
+.lb.me{font-weight:700}
+.lb .nm{flex:1;min-width:0;overflow-wrap:anywhere}
+.fr{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13.5px}
+.fr:last-child{margin-bottom:0}
+.fr .fl{width:84px;flex:none}
+.fr .ft{flex:1;height:10px;background:var(--busy);border-radius:5px;min-width:0}
+.fr .ft i{display:block;height:100%;background:var(--bright);border-radius:5px}
+.fr .fv{width:28px;text-align:right;font-weight:600}
+.callout{margin:0 16px;padding:12px 14px;background:var(--accent-soft);border-radius:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px}
+.field select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;width:100%;min-width:0}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+.t th,.t td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
+.t td:last-child,.t th:last-child{text-align:right}
+.scroll-x{overflow-x:auto}
+.who{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.who>div{min-width:0}
+.tiny{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.sel{user-select:all}
+.legend-line{display:inline-block;width:2px;height:10px;background:var(--green);vertical-align:-1px;margin-right:6px}
+@media (prefers-reduced-motion:no-preference){.doc,.slot,.date,.chip,.btn{transition:border-color .12s,background-color .12s}}
+
+.pbtn{display:inline-flex;align-items:center;gap:6px;max-width:48%;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 12px 3px 3px;font-weight:600;font-size:14px;color:var(--brand)}.pbtn .av{margin:0!important}.pbtn span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av{overflow:hidden}.av img{width:100%;height:100%;object-fit:cover;display:block}
+.vtag{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:var(--green-soft,#DDF3EA);color:var(--green)}
+.vtag svg{width:12px;height:12px}
+.upl{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.upl>b{font-size:14px}
+.pick{position:relative;display:inline-flex;align-items:center;justify-content:center;align-self:flex-start;min-height:40px;padding:0 14px;border:1px solid var(--brand);border-radius:10px;color:var(--brand);font-weight:700;font-size:14px;cursor:pointer;background:var(--surface)}
+.pick input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap}
+.thumb{position:relative;width:84px;height:84px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--soft);display:grid;place-items:center;font-size:11px;color:var(--muted);text-align:center;padding:0}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .x{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;border:0;font-size:14px;line-height:1;cursor:pointer;padding:0}
+.filechip{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;background:var(--bg)}
+.filechip span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gal{display:flex;gap:8px;overflow-x:auto;padding:0 16px 4px}
+.gal button{flex:none;width:132px;height:96px;border-radius:12px;overflow:hidden;border:1px solid var(--line);padding:0;background:var(--soft);cursor:pointer}
+.gal img{width:100%;height:100%;object-fit:cover;display:block}
+.lb{position:fixed;inset:0;z-index:50;background:rgba(20,10,0,.88);display:grid;place-items:center;padding:16px;border:0;width:100%;cursor:zoom-out}
+.lb img{max-width:100%;max-height:100%;border-radius:8px}
+.chk{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13.5px;cursor:pointer;color:var(--ink)}
+.chk i{flex:none;width:20px;height:20px;border-radius:6px;border:2px solid var(--brand);display:grid;place-items:center;color:#fff;font-style:normal;font-size:13px}
+.chk[aria-pressed="true"] i{background:var(--green);border-color:var(--green)}
+.vbox{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.vbox select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0;max-width:100%}
+.lab .tests{display:flex;flex-wrap:wrap;gap:6px}
+.lab .tests span{font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:3px 8px}
+.lab .tests b{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function(){
+"use strict";
+var ic={
+ back:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+ star:'<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6.9 7.5.7-5.6 5 1.7 7.4L12 18l-6.6 4 1.7-7.4-5.6-5L9 8.9z"/></svg>',
+ search:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+ cal:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+ plus:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
+ check:'<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+};
+
+/* Sample doctors. days = weekdays worked (0=Sun), hours = [start,end) blocks, step = minutes per slot */
+var DOCS=[
+ {id:1,name:"Dr. Anjali Verma",spec:"General Physician",exp:14,qual:"MBBS, MD (Medicine)",fee:500,vfee:350,rating:4.8,reviews:1240,lang:"Hindi, English",clinic:"Shanti Health Clinic",about:"Fever, infections, diabetes and blood pressure care, plus routine health check-ups for the whole family.",days:[1,2,3,4,5,6],hours:[[9,13],[17,20]],step:20,video:true},
+ {id:2,name:"Dr. Rohit Malhotra",spec:"Cardiologist",exp:18,qual:"MBBS, DM (Cardiology)",fee:900,vfee:700,rating:4.9,reviews:860,lang:"Hindi, English",clinic:"Hridaya Heart Centre",about:"Chest pain, palpitations, hypertension and follow-up after heart procedures. Bring previous ECG and reports.",days:[1,2,3,4,5],hours:[[10,14],[16,18]],step:30,video:true},
+ {id:3,name:"Dr. Sana Qureshi",spec:"Dermatologist",exp:9,qual:"MBBS, MD (Dermatology)",fee:700,vfee:500,rating:4.7,reviews:640,lang:"Hindi, English, Urdu",clinic:"Twacha Skin Clinic",about:"Acne, eczema, hair fall, pigmentation and fungal infections. Clear photos help during video consults.",days:[1,2,4,5,6],hours:[[11,15],[17,19]],step:15,video:true},
+ {id:4,name:"Dr. Vikram Singh",spec:"Orthopaedic Surgeon",exp:21,qual:"MBBS, MS (Orthopaedics)",fee:800,vfee:600,rating:4.8,reviews:970,lang:"Hindi, English",clinic:"Asthi Bone & Joint Clinic",about:"Joint pain, fractures, sports injuries, back and knee problems. Carry X-rays or MRI films if you have them.",days:[1,3,4,5,6],hours:[[9,13],[16,19]],step:20,video:false},
+ {id:5,name:"Dr. Meera Nair",spec:"Paediatrician",exp:12,qual:"MBBS, MD (Paediatrics)",fee:600,vfee:400,rating:4.9,reviews:1510,lang:"Hindi, English, Malayalam",clinic:"Bal Care Children's Clinic",about:"Newborn and child health, vaccinations, growth and nutrition, and common childhood illnesses.",days:[1,2,3,4,5,6,0],hours:[[10,13],[17,20]],step:15,video:true},
+ {id:6,name:"Dr. Pooja Agarwal",spec:"Gynaecologist",exp:16,qual:"MBBS, MS (Obstetrics & Gynaecology)",fee:800,vfee:600,rating:4.8,reviews:1120,lang:"Hindi, English",clinic:"Matri Women's Clinic",about:"Pregnancy care, PCOS, menstrual concerns and women's wellness check-ups.",days:[1,2,3,5,6],hours:[[10,14],[17,19]],step:30,video:true},
+ {id:7,name:"Dr. Imran Khan",spec:"ENT Specialist",exp:11,qual:"MBBS, MS (ENT)",fee:600,vfee:450,rating:4.6,reviews:530,lang:"Hindi, English, Urdu",clinic:"Shruti ENT Clinic",about:"Ear pain, sinus, throat infections, hearing and snoring concerns.",days:[2,3,4,5,6],hours:[[9,12],[16,20]],step:20,video:true},
+ {id:8,name:"Dr. Deepak Joshi",spec:"Dentist",exp:8,qual:"BDS, MDS (Endodontics)",fee:400,vfee:250,rating:4.7,reviews:780,lang:"Hindi, English",clinic:"Muskaan Dental Care",about:"Check-ups, cleaning, root canal, fillings and braces consultation.",days:[1,2,3,4,5,6],hours:[[10,14],[16,20]],step:30,video:false}
+];
+DOCS.push(
+ {id:9,name:"Dr. Neelam Bhatia",spec:"General Physician",exp:10,qual:"MBBS, DNB (Family Medicine)",fee:450,vfee:300,rating:4.7,reviews:690,lang:"Hindi, English, Marathi",clinic:"Arogya Family Clinic",about:"Everyday illness, thyroid and diabetes follow-up, vaccinations and annual health check-ups.",days:[1,2,3,4,5,6],hours:[[9,13],[17,20]],step:20,video:true},
+ {id:10,name:"Dr. Arvind Rao",spec:"Cardiologist",exp:15,qual:"MBBS, DM (Cardiology)",fee:850,vfee:650,rating:4.8,reviews:710,lang:"Telugu, Hindi, English",clinic:"Care Heart Institute",about:"Heart rhythm problems, high cholesterol, blood pressure and cardiac risk screening.",days:[1,2,3,4,5],hours:[[10,14],[16,19]],step:30,video:true},
+ {id:11,name:"Dr. Farah Siddiqui",spec:"Dermatologist",exp:12,qual:"MBBS, MD (Dermatology)",fee:750,vfee:550,rating:4.8,reviews:820,lang:"Hindi, English, Urdu",clinic:"Chamak Skin & Hair Clinic",about:"Acne scars, hair loss, psoriasis and allergic skin reactions. Laser and peel consultations.",days:[1,3,4,5,6],hours:[[11,15],[17,20]],step:15,video:true},
+ {id:12,name:"Dr. Suresh Pillai",spec:"Paediatrician",exp:17,qual:"MBBS, MD (Paediatrics)",fee:650,vfee:450,rating:4.9,reviews:1340,lang:"Kannada, English, Hindi",clinic:"Nanha Kids Clinic",about:"Infant feeding, childhood allergies, asthma and development checks for children up to 16 years.",days:[1,2,3,4,5,6],hours:[[10,13],[16,19]],step:15,video:true}
+);
+DOCS.push(
+ {id:13,name:"Dr. Kavita Deshmukh",spec:"Homeopath",exp:13,qual:"BHMS, MD (Homeopathy)",fee:500,vfee:350,rating:4.7,reviews:420,lang:"Hindi, English, Marathi",clinic:"Sanjeevani Homeopathy Clinic",about:"Constitutional treatment for allergies, skin problems, migraine, thyroid and long-standing complaints. Bring earlier reports.",days:[1,2,3,4,5,6],hours:[[10,13],[17,20]],step:20,video:true},
+ {id:14,name:"Dr. Ramesh Iyer",spec:"Ayurvedic Doctor",exp:16,qual:"BAMS, MD (Ayurveda)",fee:450,vfee:300,rating:4.8,reviews:610,lang:"Hindi, English, Malayalam",clinic:"Aryavaidya Ayurveda Clinic",about:"Digestive problems, joint pain, lifestyle disorders and Panchakarma therapy planning.",days:[1,2,3,4,5,6],hours:[[9,13],[16,19]],step:30,video:true},
+ {id:15,name:"Dr. Hakim Zaheer Ahmed",spec:"Unani Doctor",exp:20,qual:"BUMS, MD (Unani)",fee:400,vfee:300,rating:4.6,reviews:350,lang:"Urdu, Hindi, English",clinic:"Shifa Unani Clinic",about:"Skin diseases, joint and digestive complaints, and Hijama and regimenal therapy consultations.",days:[1,2,3,4,6],hours:[[10,14],[17,20]],step:20,video:true},
+ {id:16,name:"Dr. Lakshmi Narayanan",spec:"Siddha Doctor",exp:11,qual:"BSMS, MD (Siddha)",fee:400,vfee:280,rating:4.6,reviews:260,lang:"Tamil, English, Hindi",clinic:"Agasthiyar Siddha Clinic",about:"Chronic pain, skin problems, respiratory complaints and varma therapy.",days:[1,2,3,5,6],hours:[[10,13],[16,19]],step:30,video:true},
+ {id:17,name:"Dr. Neha Kulkarni",spec:"Naturopathy & Yoga",exp:9,qual:"BNYS (Naturopathy and Yogic Sciences)",fee:400,vfee:250,rating:4.7,reviews:300,lang:"Hindi, English, Marathi",clinic:"Prakriti Naturopathy and Yoga Centre",about:"Lifestyle and stress management, diet planning, yoga therapy and hydrotherapy.",days:[1,2,3,4,5,6],hours:[[7,11],[17,19]],step:30,video:true},
+ {id:18,name:"Dr. Anil Chawla",spec:"Acupuncturist",exp:14,qual:"Diploma in Acupuncture, MBBS",fee:600,vfee:450,rating:4.5,reviews:210,lang:"Hindi, English, Punjabi",clinic:"Sujok and Acupuncture Wellness Clinic",about:"Pain management, migraine, sciatica and stress, using acupuncture and acupressure.",days:[1,2,4,5,6],hours:[[11,14],[16,19]],step:30,video:false},
+ {id:19,name:"Dr. Priya Menon",spec:"Physiotherapist",exp:8,qual:"BPT, MPT (Orthopaedics)",fee:500,vfee:350,rating:4.8,reviews:520,lang:"Hindi, English, Malayalam",clinic:"MoveWell Physiotherapy Clinic",about:"Back and neck pain, knee and shoulder rehabilitation, post-surgery and sports injury physiotherapy.",days:[1,2,3,4,5,6],hours:[[8,12],[16,20]],step:45,video:true},
+ {id:20,name:"Dr. Sandeep Rao",spec:"Chiropractor",exp:10,qual:"Certified in Chiropractic care",fee:700,vfee:500,rating:4.5,reviews:180,lang:"Telugu, Hindi, English",clinic:"Spine Align Chiropractic",about:"Spinal alignment, posture and neck and back pain care. Bring X-rays or MRI if you have them.",days:[2,3,4,5,6],hours:[[10,13],[16,19]],step:30,video:false},
+ {id:21,name:"Dr. Farhan Ali",spec:"Osteopath",exp:12,qual:"Diploma in Osteopathy (D.O.)",fee:700,vfee:500,rating:4.6,reviews:190,lang:"English, Hindi, Urdu",clinic:"OsteoCare Clinic",about:"Hands-on treatment for joint, spine and muscle problems, headaches and sports injuries.",days:[1,2,3,5,6],hours:[[10,14],[16,19]],step:30,video:false}
+);
+var CITY_OF={1:"Delhi",2:"Mumbai",3:"Bengaluru",4:"Hyderabad",5:"Delhi",6:"Mumbai",7:"Bengaluru",8:"Hyderabad",9:"Mumbai",10:"Hyderabad",11:"Delhi",12:"Bengaluru",13:"Mumbai",14:"Bengaluru",15:"Hyderabad",16:"Bengaluru",17:"Delhi",18:"Delhi",19:"Mumbai",20:"Hyderabad",21:"Bengaluru"};
+DOCS.forEach(function(d){d.city=CITY_OF[d.id]});
+var CITIES=["Delhi","Mumbai","Bengaluru","Hyderabad"];
+var ALL_CITIES="All cities";
+var SPECS=["All"];
+DOCS.forEach(function(d){if(SPECS.indexOf(d.spec)<0)SPECS.push(d.spec)});
+function loadCity(){try{var c=localStorage.getItem("nirog-city");if(c&&CITIES.indexOf(c)>-1)return c}catch(e){}return ALL_CITIES}
+function saveCity(c){try{localStorage.setItem("nirog-city",c)}catch(e){}}
+
+/* Sample clinic sites: [address, PIN, latitude, longitude]. Points are neighbourhood-level, not real clinics. */
+var SITE={
+ 1:["Shop 12, M Block Market, Greater Kailash I","110048",28.5494,77.2430],
+ 5:["B-24, Sector 7 Main Road, Dwarka","110075",28.5921,77.0460],
+ 11:["3rd Floor, Arya Samaj Road, Karol Bagh","110005",28.6517,77.1907],
+ 2:["Ground Floor, Hill Road, Bandra West","400050",19.0596,72.8295],
+ 6:["Lokhandwala Complex, Andheri West","400053",19.1364,72.8296],
+ 9:["Hiranandani Gardens, Powai","400076",19.1176,72.9060],
+ 3:["100 Feet Road, Indiranagar","560038",12.9719,77.6412],
+ 7:["5th Block, Koramangala","560095",12.9352,77.6245],
+ 12:["4th Block, Jayanagar","560011",12.9308,77.5838],
+ 13:["Dadar West, Shivaji Park","400028",19.027,72.838],
+ 14:["8th Cross, Malleshwaram","560003",13.0035,77.57],
+ 15:["Charminar Road, Old City","500002",17.3616,78.4747],
+ 16:["Jayanagar 9th Block","560069",12.925,77.593],
+ 17:["Vasant Vihar Main Road","110057",28.559,77.159],
+ 18:["Rajouri Garden Main Market","110027",28.649,77.121],
+ 19:["Powai Lake Road","400076",19.125,72.905],
+ 20:["Jubilee Hills Road No. 36","500033",17.432,78.407],
+ 21:["Whitefield Main Road","560066",12.9698,77.75],
+ 4:["Road No. 12, Banjara Hills","500034",17.4156,78.4347],
+ 8:["HITEC City Road, Madhapur","500081",17.4486,78.3908],
+ 10:["KPHB Colony, Kukatpally","500072",17.4948,78.3996]
+};
+DOCS.forEach(function(d){var s=SITE[d.id];if(s){d.address=s[0];d.pin=s[1];d.lat=s[2];d.lng=s[3]}});
+/* Sample sessions were written in hours; doctors now keep them in minutes. Doctor 1 has a demo login, so her slots are real, not random. */
+DOCS.forEach(function(d){d.hours=d.hours.map(function(b){return [b[0]*60,b[1]*60]});d.off=[];d.blocked=[];d.min=true;d.verified=true;if(d.id===1)d.managed=true});
+
+/* ---------- Google Maps helpers ---------- */
+function isNum(x){return typeof x==="number"&&isFinite(x)}
+/* Accepts a Google Maps link or a "lat, lng" pair. Returns {url,lat,lng} or null. */
+function parseMap(s){
+  s=String(s||"").trim();
+  if(!s)return null;
+  var m=s.match(/^(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)$/);
+  if(m){
+    var la=+m[1],ln=+m[2];
+    if(Math.abs(la)<=90&&Math.abs(ln)<=180)return {url:"https://www.google.com/maps/search/?api=1&query="+la+","+ln,lat:la,lng:ln};
+    return null;
+  }
+  var u;
+  try{u=new URL(s)}catch(e){return null}
+  if(u.protocol!=="https:")return null;
+  var h=u.hostname.toLowerCase(),ok=false;
+  if(h==="maps.app.goo.gl")ok=true;
+  else if(h==="goo.gl"&&u.pathname.indexOf("/maps")===0)ok=true;
+  else if(/^(www\.|maps\.)?google\.(com|co\.in|in)$/.test(h)&&(u.pathname.indexOf("/maps")===0||h.indexOf("maps.")===0))ok=true;
+  if(!ok)return null;
+  var t=u.href.replace(/%2C/gi,","),c=t.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||t.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)||t.match(/[?&](?:q|query|ll|destination|daddr)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+  var out={url:u.href};
+  if(c&&Math.abs(+c[1])<=90&&Math.abs(+c[2])<=180){out.lat=+c[1];out.lng=+c[2]}
+  return out;
+}
+function siteOpen(d){
+  var p=parseMap(d.mapUrl);
+  if(p)return p.url;
+  if(isNum(d.lat)&&isNum(d.lng))return "https://www.google.com/maps/search/?api=1&query="+d.lat+","+d.lng;
+  return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent([d.clinic,d.address,d.city].filter(Boolean).join(", "));
+}
+function siteDir(d){
+  if(isNum(d.lat)&&isNum(d.lng))return "https://www.google.com/maps/dir/?api=1&destination="+d.lat+","+d.lng;
+  return siteOpen(d);
+}
+function mapLink(url,label,cls){return '<a class="'+cls+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>'}
+function mapStatus(s){
+  if(!String(s||"").trim())return "";
+  var p=parseMap(s);
+  if(!p)return "This does not look like a Google Maps link yet.";
+  return isNum(p.lat)?"Location found: "+p.lat.toFixed(5)+", "+p.lng.toFixed(5):"Google Maps link accepted.";
+}
+
+/* ---------- doctors who registered in this browser ---------- */
+var RKEY="nirog-doctors-v1";
+(function(){
+  try{
+    var r=localStorage.getItem(RKEY);
+    if(r){var a=JSON.parse(r);if(Array.isArray(a))a.forEach(function(d){if(d&&d.id&&d.name&&Array.isArray(d.days)&&Array.isArray(d.hours)&&CITIES.indexOf(d.city)>-1){d.registered=true;DOCS.push(d)}})}
+  }catch(e){}
+})();
+/* Schedule edits made by the sample doctor with a demo login are kept separately. */
+var SCKEY="nirog-sched-v1";
+(function(){
+  try{
+    var r=localStorage.getItem(SCKEY);
+    if(r){var o=JSON.parse(r);DOCS.forEach(function(d){
+      var s=o&&o[d.id];
+      if(s&&!d.registered&&Array.isArray(s.days)&&Array.isArray(s.hours)&&s.step>0){d.days=s.days;d.hours=s.hours;d.step=s.step;d.off=Array.isArray(s.off)?s.off:[];d.blocked=Array.isArray(s.blocked)?s.blocked:[];d.touched=true}
+    })}
+  }catch(e){}
+})();
+function saveRegistered(){
+  try{
+    try{localStorage.setItem(RKEY,JSON.stringify(DOCS.filter(function(d){return d.registered})))}
+    catch(e1){
+      state.storeWarn=true;
+      localStorage.setItem(RKEY,JSON.stringify(DOCS.filter(function(d){return d.registered}).map(function(d){
+        var c={};Object.keys(d).forEach(function(k){c[k]=d[k]});
+        c.gallery=(d.gallery||[]).slice(0,1);c.vdocs=(d.vdocs||[]).map(function(x){return {key:x.key,label:x.label,name:x.name,type:x.type,data:""}});return c})));
+    }
+    var o={};DOCS.forEach(function(d){if(!d.registered&&d.touched)o[d.id]={days:d.days,hours:d.hours,step:d.step,off:d.off||[],blocked:d.blocked||[]}});
+    localStorage.setItem(SCKEY,JSON.stringify(o));
+  }catch(e){}
+}
+var MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+var DAY=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function pad2(n){return n<10?"0"+n:""+n}
+function dkey(d){return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate())}
+function fromKey(k){var p=k.split("-");return new Date(+p[0],+p[1]-1,+p[2])}
+function addDays(d,n){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()+n);return x}
+function t12(t){var p=t.split(":"),h=+p[0],m=p[1];return (h%12===0?12:h%12)+":"+m+" "+(h<12?"AM":"PM")}
+function money(n){return "₹"+n.toLocaleString("en-IN")}
+function byId(id){for(var i=0;i<DOCS.length;i++)if(DOCS[i].id===id)return DOCS[i]}
+function avatar(d,cls){return '<div class="av'+(cls?' '+cls:'')+'">'+(d.photo?'<img src="'+esc(d.photo)+'" alt="">':esc(initials(d.name)))+'</div>'}
+function vtag(d){return d.verified?'<span class="vtag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Verified</span>':''}
+function initials(n){return n.replace("Dr. ","").split(" ").map(function(w){return w[0]}).join("").slice(0,2)}
+function hash(s){var h=0;for(var i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))>>>0}return h}
+function rel(k){
+  var t=new Date(),a=fromKey(k),n0=new Date(t.getFullYear(),t.getMonth(),t.getDate());
+  var diff=Math.round((a-n0)/86400000);
+  if(diff===0)return "Today";if(diff===1)return "Tomorrow";
+  return DAY[a.getDay()]+" "+a.getDate()+" "+MON[a.getMonth()];
+}
+function longDate(k){var a=fromKey(k);return DAY[a.getDay()]+", "+a.getDate()+" "+MON[a.getMonth()]}
+
+/* ---------- storage (per-device convenience; page works without it) ---------- */
+var KEY="nirog-appts-v1";
+function load(){try{var r=localStorage.getItem(KEY);if(r){var a=JSON.parse(r);if(Array.isArray(a))return a}}catch(e){}return null}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(appts))}catch(e){}}
+
+/* ---------- slots ---------- */
+/* Doctors set their own hours: doc.days (weekdays), doc.hours (sessions in minutes since midnight), doc.step (minutes per visit),
+   doc.off (days off), doc.blocked (single slots they closed, "date|time"). */
+function allTimes(doc){
+  var out=[];
+  doc.hours.forEach(function(b){
+    for(var m=b[0];m+doc.step<=b[1];m+=doc.step){out.push(pad2(Math.floor(m/60))+":"+pad2(m%60))}
+  });
+  return out;
+}
+function isOff(doc,k){return (doc.off||[]).indexOf(k)>-1}
+function worksDay(doc,k){return doc.days.indexOf(fromKey(k).getDay())>-1}
+function works(doc,k){return worksDay(doc,k)&&!isOff(doc,k)}
+function bookedKey(id,k,t){return id+"|"+k+"|"+t}
+function bookedSet(){
+  var s={};appts.forEach(function(a){if(a.status==="upcoming"&&a.id!==state.resched)s[bookedKey(a.docId,a.dateKey,a.time)]=1});return s;
+}
+function slotsFor(doc,k){
+  if(!works(doc,k))return [];
+  var now=new Date(),isToday=k===dkey(now),mine=bookedSet();
+  return allTimes(doc).map(function(t){
+    var st="free";
+    if(isToday){var p=t.split(":"),m=+p[0]*60+ +p[1];if(m<now.getHours()*60+now.getMinutes()+30)st="past"}
+    if(st==="free"&&(doc.blocked||[]).indexOf(k+"|"+t)>-1)st="blocked";
+    if(st==="free"&&((!doc.registered&&!doc.managed&&hash(doc.id+k+t)%100<34)||mine[bookedKey(doc.id,k,t)]))st="busy";
+    return {t:t,st:st};
+  });
+}
+function freeCount(doc,k){return slotsFor(doc,k).filter(function(s){return s.st==="free"}).length}
+function nextFree(doc){
+  var today=new Date();
+  for(var i=0;i<14;i++){
+    var k=dkey(addDays(today,i)),f=slotsFor(doc,k).filter(function(s){return s.st==="free"});
+    if(f.length)return {k:k,t:f[0].t};
+  }
+  return null;
+}
+
+/* ---------- state ---------- */
+var appts=load();
+if(!appts){
+  var d1=byId(1),k=null,i=2;
+  while(!k){var c=dkey(addDays(new Date(),i));if(works(d1,c))k=c;i++}
+  appts=[{id:"s1",ref:"NR-4K7Q2",docId:1,dateKey:k,time:"10:00",mode:"clinic",name:"Example patient",phone:"9876543210",reason:"Seasonal fever and cough",status:"upcoming",sample:true}];
+}
+var state={tab:"find",view:"list",city:loadCity(),spec:"All",q:"",docId:null,dateKey:null,time:null,mode:"clinic",resched:null,form:{name:"",phone:"",reason:"",age:"",sex:""},errors:{},last:null,ask:null,
+  reg:null,regDone:null,sched:null,schedFor:null,sdate:null,offDate:"",
+  staff:null,stab:"ov",lf:"all",showTable:false,addLead:false,
+  login:{email:"",pass:"",err:""},
+  nlead:{name:"",phone:"",spec:SPECS[1],err:""},
+  nmem:{name:"",email:"",phone:"",pass:"",target:"50000",err:""},
+  pat:loadPat(),after:null,otp:null,lmode:"email",lb:null,vchk:{},rej:{},lq:"",pf:null,prof:null,fr:null,frDone:null,nlab:null,fk:"all"};
+var app=document.getElementById("app");
+
+/* ---------- staff: data ---------- */
+var SKEY="nirog-staff-v1";
+var NAMES=["Aarav Sharma","Diya Patel","Kabir Mehta","Ishita Rao","Rahul Gupta","Ananya Iyer","Sanjay Reddy","Kavya Menon","Manish Tiwari","Pallavi Desai","Harsh Vora","Nisha Bansal","Yash Kulkarni","Tanvi Joshi","Gaurav Saxena","Simran Kaur","Arjun Nambiar","Rekha Pillai","Mohit Chauhan","Sneha Kapoor","Vivek Dubey","Aditi Bose","Karan Malik","Fatima Sheikh"];
+var STATUS={"new":"New",contacted:"Contacted",booked:"Booked",lost:"Lost"};
+var ic2={
+ chart:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>',
+ users:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3-5.5 6.5-5.5s6 2 6.5 5.5M16 4.5a3.5 3.5 0 010 7M18 15c2 .5 3.3 2.3 3.5 5"/></svg>'
+};
+/* ---------- platform fee: charged by Nirog on top of the doctor's fee; super admin controls it ---------- */
+var PFKEY="nirog-plat-v1";
+var PLAT={on:true,type:"flat",value:49};
+(function(){
+  try{var r=localStorage.getItem(PFKEY);if(r){var o=JSON.parse(r);
+    if(o&&(o.type==="flat"||o.type==="percent")&&isFinite(+o.value)&&+o.value>=0&&+o.value<=(o.type==="flat"?5000:50)){PLAT={on:o.on!==false,type:o.type,value:+o.value}}}}catch(e){}
+})();
+function savePlat(){try{localStorage.setItem(PFKEY,JSON.stringify(PLAT))}catch(e){}}
+function platFee(docFee){
+  if(!PLAT.on)return 0;
+  return PLAT.type==="flat"?Math.round(PLAT.value):Math.round(docFee*PLAT.value/100);
+}
+function visitFee(d,mode){return mode==="video"?d.vfee:d.fee}
+function pfLabel(){return !PLAT.on?"Off":PLAT.type==="flat"?money(PLAT.value)+" per booking":PLAT.value+"% of doctor fee"}
+function specFee(spec){for(var i=0;i<DOCS.length;i++)if(DOCS[i].spec===spec)return DOCS[i].fee;return 500}
+function seedStaff(){
+  var users=[
+   {id:"u1",name:"Nirmala Rao",email:"admin@nirog.demo",phone:"9000000001",pass:"Admin@123",role:"admin",active:true,target:0},
+   {id:"u2",name:"Riya Kapoor",email:"riya@nirog.demo",phone:"9000000002",pass:"Sales@123",role:"sales",active:true,target:6000},
+   {id:"u3",name:"Arjun Bhatt",email:"arjun@nirog.demo",phone:"9000000003",pass:"Sales@123",role:"sales",active:true,target:5000},
+   {id:"u4",name:"Neha Choudhary",email:"neha@nirog.demo",phone:"9000000004",pass:"Sales@123",role:"sales",active:true,target:4500},
+   demoDoctorUser()
+  ],leads=[],today=new Date();
+  ["u2","u3","u4"].forEach(function(uid,ui){
+    for(var i=0;i<14;i++){
+      var h=hash(uid+"-"+i),age=i*2,r=h%10,st=r<2?"new":r<4?"contacted":r<8?"booked":"lost";
+      if(age>6&&st==="new")st="contacted";
+      var spec=SPECS[1+h%(SPECS.length-1)],ago=Math.max(0,age-(h%3));
+      leads.push({id:"l"+uid+"x"+i,owner:uid,name:NAMES[(ui*7+i*3)%NAMES.length],phone:"9"+String(100000000+h%899999999),
+        spec:spec,status:st,created:dkey(addDays(today,-age)),bookedOn:st==="booked"?dkey(addDays(today,-ago)):null,value:st==="booked"?specFee(spec):0,sample:true});
+    }
+  });
+  return {users:users,leads:leads};
+}
+function demoDoctorUser(){return {id:"u5",name:"Dr. Anjali Verma",email:"anjali@nirog.demo",phone:"9000000005",pass:"Doctor@123",role:"doctor",docId:1,active:true,target:0}}
+var DEMO_PHONES={u1:"9000000001",u2:"9000000002",u3:"9000000003",u4:"9000000004",u5:"9000000005"};
+function loadStaff(){
+  try{
+    var r=localStorage.getItem(SKEY);
+    if(r){
+      var d=JSON.parse(r);
+      if(d&&Array.isArray(d.users)&&Array.isArray(d.leads)){
+        if(!d.users.some(function(u){return u.id==="u5"}))d.users.push(demoDoctorUser());
+        d.users.forEach(function(u){if(!u.phone&&DEMO_PHONES[u.id])u.phone=DEMO_PHONES[u.id]});
+        return d;
+      }
+    }
+  }catch(e){}
+  return seedStaff();
+}
+var staffData=loadStaff();
+function saveStaff(){try{localStorage.setItem(SKEY,JSON.stringify(staffData))}catch(e){}}
+function getUser(id){for(var i=0;i<staffData.users.length;i++)if(staffData.users[i].id===id)return staffData.users[i];return null}
+function salesUsers(){return staffData.users.filter(function(u){return u.role==="sales"})}
+
+/* last-30-days numbers for one rep, or the whole team when uid is null */
+function windowStats(uid){
+  var cut=dkey(addDays(new Date(),-29));
+  var ls=staffData.leads.filter(function(l){return (!uid||l.owner===uid)&&l.created>=cut});
+  var booked=ls.filter(function(l){return l.status==="booked"});
+  var rev=booked.reduce(function(s,l){return s+l.value},0);
+  return {leads:ls.length,booked:booked.length,rev:rev,conv:ls.length?Math.round(booked.length/ls.length*100):0,ls:ls};
+}
+function dailyBooked(uid){
+  var out=[],t=new Date();
+  for(var i=13;i>=0;i--){
+    var d=addDays(t,-i),k=dkey(d),c=0;
+    staffData.leads.forEach(function(l){if(l.status==="booked"&&l.bookedOn===k&&(!uid||l.owner===uid))c++});
+    out.push({k:k,label:String(d.getDate()),value:c});
+  }
+  return out;
+}
+function onlineStats(){
+  var c=0,rev=0,pf=0;
+  appts.forEach(function(a){if(a.status!=="cancelled"){c++;var d=byId(a.docId);rev+=a.fee!=null?a.fee:visitFee(d,a.mode);pf+=a.pf||0}});
+  return {count:c,rev:rev,pf:pf};
+}
+
+/* ---------- staff: actions ---------- */
+function doLogin(){
+  var em=state.login.email.trim().toLowerCase(),pw=state.login.pass,u=null;
+  staffData.users.forEach(function(x){if(em&&x.email.toLowerCase()===em)u=x});
+  if(!u||u.pass!==pw){state.login.err="Email or password is incorrect.";render();return}
+  if(!u.active){state.login.err="This account is deactivated. Ask a super admin to reactivate it.";render();return}
+  state.staff=u.id;state.stab="ov";state.lf="all";state.showTable=false;state.addLead=false;state.login={email:"",pass:"",err:""};
+  render(true);
+}
+function sLead(v){
+  var p=v.split("|"),l=null,me=getUser(state.staff);
+  staffData.leads.forEach(function(x){if(x.id===p[0])l=x});
+  if(!l||!me||(me.role!=="admin"&&l.owner!==me.id))return;
+  l.status=p[1];
+  if(p[1]==="booked"){l.bookedOn=dkey(new Date());l.value=specFee(l.spec)}else{l.bookedOn=null;l.value=0}
+  saveStaff();render();
+}
+function sToggle(id){
+  var u=getUser(id),me=getUser(state.staff);
+  if(!u||!me||me.role!=="admin"||u.id===me.id)return;
+  u.active=!u.active;saveStaff();render();
+}
+function addLead(){
+  var n=state.nlead,me=getUser(state.staff);
+  if(n.name.trim().length<2){n.err="Enter the patient name.";render();return}
+  if(!/^[6-9]\d{9}$/.test(n.phone)){n.err="Enter a valid 10-digit mobile number.";render();return}
+  staffData.leads.push({id:"l"+Date.now(),owner:me.id,name:n.name.trim(),phone:n.phone,spec:n.spec,status:"new",created:dkey(new Date()),bookedOn:null,value:0});
+  state.nlead={name:"",phone:"",spec:SPECS[1],err:""};state.addLead=false;state.lf="all";
+  saveStaff();render();
+}
+function addMember(){
+  var n=state.nmem,em=n.email.trim().toLowerCase(),dup=false;
+  staffData.users.forEach(function(u){if(u.email.toLowerCase()===em)dup=true});
+  if(n.name.trim().length<2){n.err="Enter the member name.";render();return}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){n.err="Enter a valid email address.";render();return}
+  if(dup){n.err="That email already has an account.";render();return}
+  if(n.pass.length<8){n.err="Use a password with at least 8 characters.";render();return}
+  if(n.phone&&!/^[6-9]\d{9}$/.test(n.phone)){n.err="Enter a valid 10-digit mobile number, or leave it blank.";render();return}
+  if(n.phone&&staffByPhone(n.phone)){n.err="That mobile number already has an account.";render();return}
+  staffData.users.push({id:"u"+Date.now(),name:n.name.trim(),email:em,phone:n.phone||"",pass:n.pass,role:"sales",active:true,target:Math.max(0,Math.round(+n.target||0))});
+  state.nmem={name:"",email:"",phone:"",pass:"",target:"50000",err:""};
+  saveStaff();render();
+}
+app.addEventListener("change",function(ev){
+  var t=ev.target;
+  if(t.id&&t.id.indexOf("t-")===0){
+    var u=getUser(t.id.slice(2)),me=getUser(state.staff);
+    if(u&&me&&me.role==="admin"){u.target=Math.max(0,Math.round(+t.value||0));saveStaff();render()}
+  }
+});
+
+/* ---------- staff: tooltip ---------- */
+var tip=document.createElement("div");tip.className="tip";tip.hidden=true;document.body.appendChild(tip);
+function placeTip(ev){
+  tip.style.left=Math.max(4,Math.min(ev.clientX+12,window.innerWidth-tip.offsetWidth-8))+"px";
+  tip.style.top=Math.max(4,ev.clientY-38)+"px";
+}
+function tipMove(ev){
+  var t=ev.target.closest&&ev.target.closest("[data-tip]");
+  if(!t){tip.hidden=true;return}
+  tip.textContent=t.getAttribute("data-tip");tip.hidden=false;placeTip(ev);
+}
+app.addEventListener("pointerover",tipMove);
+app.addEventListener("pointermove",tipMove);
+app.addEventListener("pointerleave",function(){tip.hidden=true});
+app.addEventListener("click",function(ev){if(!(ev.target.closest&&ev.target.closest("[data-tip]")))tip.hidden=true});
+
+/* ---------- staff: charts ---------- */
+function barChart(items,unit){
+  var W=340,H=170,L=30,B=22,T=16,R=4,n=items.length,max=0;
+  items.forEach(function(x){if(x.value>max)max=x.value});
+  var top=max<4?4:Math.ceil(max/2)*2,ph=H-B-T,slot=(W-L-R)/n,bw=Math.min(16,slot-5),g="",labelled=false,i;
+  [0,top/2,top].forEach(function(v){
+    var y=T+ph-ph*v/top;
+    g+='<line class="gl" x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'"/><text class="ax" x="'+(L-6)+'" y="'+(y+3)+'" text-anchor="end">'+v+'</text>';
+  });
+  for(i=0;i<n;i++){
+    var it=items[i],x=L+slot*i+(slot-bw)/2,h=ph*it.value/top,y=T+ph-h,r=Math.min(4,h);
+    g+='<rect class="hit" x="'+(L+slot*i)+'" y="'+T+'" width="'+slot+'" height="'+ph+'" data-tip="'+esc(longDate(it.k)+": "+it.value+" "+unit)+'"/>';
+    if(it.value>0){
+      g+='<path class="bar" d="M'+x+' '+(y+h)+'V'+(y+r)+'Q'+x+' '+y+' '+(x+r)+' '+y+'H'+(x+bw-r)+'Q'+(x+bw)+' '+y+' '+(x+bw)+' '+(y+r)+'V'+(y+h)+'Z"/>';
+      if(it.value===max&&!labelled){labelled=true;g+='<text class="val" x="'+(x+bw/2)+'" y="'+(y-4)+'" text-anchor="middle">'+it.value+'</text>'}
+    }
+    if(i%2===(n-1)%2)g+='<text class="ax" x="'+(L+slot*i+slot/2)+'" y="'+(H-6)+'" text-anchor="middle">'+it.label+'</text>';
+  }
+  return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Bar chart of bookings per day for the last 14 days. Use Show table for the exact values.">'+g+'</svg>';
+}
+function dailyCard(uid,title){
+  var items=dailyBooked(uid),total=0,inner;
+  items.forEach(function(x){total+=x.value});
+  if(state.showTable){
+    inner='<div class="scroll-x"><table class="t"><thead><tr><th>Day</th><th>Booked</th></tr></thead><tbody>'+
+      items.slice().reverse().map(function(x){return '<tr><td>'+longDate(x.k)+'</td><td class="tnum">'+x.value+'</td></tr>'}).join("")+'</tbody></table></div>';
+  }else inner=barChart(items,"booked");
+  return '<div class="card"><div class="cardhead"><h2>'+title+'</h2><button class="link" data-a="ttable">'+(state.showTable?"Show chart":"Show table")+'</button></div>'+inner+
+    '<div class="tiny" style="margin-top:6px">'+total+' bookings in the last 14 days</div></div>';
+}
+function kpi(label,val,sub){return '<div class="kpi"><span class="kl">'+label+'</span><b class="tnum">'+val+'</b><span class="ks">'+sub+'</span></div>'}
+function repRow(u){
+  var s=windowStats(u.id),sc=Math.max(u.target,s.rev,1);
+  return '<div class="rep"><div class="rep-h"><span class="rn">'+esc(u.name)+'</span><span class="tnum muted">'+money(s.rev)+' of '+money(u.target)+'</span></div>'+
+   '<div class="rtrack" data-tip="'+esc(u.name+": "+money(s.rev)+" of "+money(u.target)+" target")+'"><i style="width:'+(s.rev/sc*100)+'%"></i><u style="left:'+(u.target/sc*100)+'%"></u></div></div>';
+}
+function funnel(){
+  var cnt={"new":0,contacted:0,booked:0,lost:0},max=1;
+  windowStats(null).ls.forEach(function(l){cnt[l.status]++});
+  Object.keys(cnt).forEach(function(k){if(cnt[k]>max)max=cnt[k]});
+  return Object.keys(cnt).map(function(k){
+    return '<div class="fr"><span class="fl">'+STATUS[k]+'</span><span class="ft"><i style="width:'+(cnt[k]/max*100)+'%"></i></span><span class="fv tnum">'+cnt[k]+'</span></div>';
+  }).join("");
+}
+
+/* ---------- staff: views ---------- */
+function vLogin(){
+  var l=state.login;
+  return '<div class="bar"><button class="back" data-a="home">'+ic.back+'Patient app</button></div>'+
+   '<div class="title-block" style="padding-top:2px"><h1>Staff and doctor sign in</h1><p>For doctors, the sales team and super admins.</p></div>'+
+   '<div class="seg" style="margin:0 16px 12px" role="group" aria-label="Sign-in method">'+
+   '<button type="button" data-a="lmode" data-v="email" aria-pressed="'+(state.lmode!=="otp")+'">Email and password</button>'+
+   '<button type="button" data-a="lmode" data-v="otp" aria-pressed="'+(state.lmode==="otp")+'">Mobile and OTP</button></div>'+
+   (state.lmode==="otp"?staffOtpForm():
+   '<form id="loginForm" novalidate><div class="card">'+
+   '<div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="username" value="'+esc(l.email)+'" placeholder="you@nirog.demo"></div>'+
+   '<div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password" value="'+esc(l.pass)+'" placeholder="Password"></div>'+
+   (l.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(l.err)+'</div>':'')+
+   '<button class="btn" type="submit">Sign in</button></div></form>')+
+   '<div class="sec">Demo accounts</div><div class="card">'+
+   '<div class="who sumrow"><div><b>Super admin</b><div class="tiny tnum sel">admin@nirog.demo<br>Admin@123<br>Mobile 9000000001</div></div><button class="btn sm ghost" data-a="fill" data-v="admin">Use</button></div>'+
+   '<div class="who sumrow"><div><b>Sales team</b><div class="tiny tnum sel">riya@nirog.demo<br>Sales@123<br>Mobile 9000000002</div></div><button class="btn sm ghost" data-a="fill" data-v="sales">Use</button></div>'+
+   '<div class="who sumrow"><div><b>Doctor</b><div class="tiny tnum sel">anjali@nirog.demo<br>Doctor@123<br>Mobile 9000000005</div></div><button class="btn sm ghost" data-a="fill" data-v="doctor">Use</button></div></div>'+
+   '<div class="foot" style="text-align:left">Demo only. Accounts and passwords are stored in this browser, not on a server, so this sign-in does not protect real data. A live version needs server-side authentication and a real SMS service for one-time codes.</div>';
+}
+function vStaff(){
+  var u=getUser(state.staff),admin=u.role==="admin",isDoc=u.role==="doctor",isFac=u.role==="facility",tabs=admin?
+   [["ov","Overview",ic2.chart],["team","Team",ic2.users],["doc","Doctors",ic2.pin],["labs","Facilities",ic2.slots],["book","Bookings",ic.cal]]:
+   isFac?[["st","My listing",ic2.slots]]:
+   isDoc?[["appt","Bookings",ic.cal],["sched","Schedule",ic2.clock],["slots","Slots",ic2.slots]]:
+   [["ov","Dashboard",ic2.chart],["leads","Leads",ic2.users]];
+  if(!tabs.some(function(t){return t[0]===state.stab}))state.stab=tabs[0][0];
+  var body,title;
+  if(isFac){title="My listing";body=facStatus(u)}
+  else if(isDoc){
+    var dd=byId(u.docId);
+    if(state.stab==="appt"){title="My bookings";body=docBanner(dd)+docAppts(dd)}
+    else if(state.stab==="sched"){title="My schedule";body=docBanner(dd)+docSched(dd)}
+    else{title="Manage slots";body=docBanner(dd)+docSlots(dd)}
+  }else if(admin){
+    if(state.stab==="ov"){title="Business overview";body=adminOv()}
+    else if(state.stab==="team"){title="Sales team";body=adminTeam(u)}
+    else if(state.stab==="doc"){title="Doctors";body=adminDoctors()}
+    else if(state.stab==="labs"){title="Hospitals and labs";body=adminLabs()}
+    else{title="All bookings";body=adminBook()}
+  }else{
+    if(state.stab==="ov"){title="My dashboard";body=salesOv(u)}
+    else{title="My leads";body=salesLeads(u)}
+  }
+  var pendN=DOCS.filter(function(x){return x.status==="pending"}).length,pendF=LABS.filter(function(x){return x.registered&&x.status==="pending"}).length;
+  var newN=admin?0:staffData.leads.filter(function(l){return l.owner===u.id&&l.status==="new"}).length;
+  return '<div class="top"><div class="brand">Nirog<small>'+(admin?"Super admin":isFac?"Facility":isDoc?"Doctor":"Sales team")+'</small></div><button class="btn sm ghost" data-a="logout">Sign out</button></div>'+
+   '<div class="title-block" style="padding-bottom:12px"><h1>'+title+'</h1><p>Signed in as '+esc(u.name)+'</p></div>'+
+   '<div class="stack">'+body+'</div>'+
+   '<nav class="nav stick" style="grid-template-columns:repeat('+tabs.length+',1fr)" aria-label="Staff">'+tabs.map(function(t){
+     return '<button data-a="stab" data-v="'+t[0]+'" '+(state.stab===t[0]?'aria-current="page"':'')+'>'+t[2]+t[1]+(t[0]==="leads"&&newN?'<span class="badge tnum">'+newN+'</span>':(t[0]==="doc"&&pendN?'<span class="badge tnum">'+pendN+'</span>':(t[0]==="labs"&&pendF?'<span class="badge tnum">'+pendF+'</span>':'')))+'</button>';
+   }).join("")+'</nav>';
+}
+
+function platCard(){
+  var f=state.pf||(state.pf={on:PLAT.on,type:PLAT.type,value:String(PLAT.value),err:"",ok:""}),v=+f.value,
+   ex=f.type==="flat"?Math.round(v||0):Math.round(500*(v||0)/100),total=500+(f.on?ex:0);
+  return '<div class="card"><div class="cardhead"><h2>Platform fee</h2><span class="pill'+(PLAT.on?'':' warn')+'">'+esc(pfLabel())+'</span></div>'+
+   '<div class="hint" style="margin-bottom:12px">Charged to the patient on top of the doctor\'s fee and shown separately. Doctor fees are not reduced. A change applies to new bookings only; existing bookings keep the fee they were made with.</div>'+
+   '<form id="pfForm" novalidate>'+
+   '<div class="field"><button type="button" class="chk" data-a="pftog" aria-pressed="'+f.on+'"><i>'+(f.on?"✓":"")+'</i><span>Charge a platform fee</span></button></div>'+
+   '<div class="seg" style="margin:0 0 12px" role="group" aria-label="Fee type"><button type="button" data-a="pftype" data-v="flat" aria-pressed="'+(f.type==="flat")+'">Flat amount<small>₹ per booking</small></button><button type="button" data-a="pftype" data-v="percent" aria-pressed="'+(f.type==="percent")+'">Percentage<small>of doctor fee</small></button></div>'+
+   '<div class="field"><label for="pf-value">'+(f.type==="flat"?"Amount (₹, 0 to 5000)":"Percentage (0 to 50)")+'</label><input id="pf-value" inputmode="decimal" value="'+esc(f.value)+'"></div>'+
+   '<div class="demo-note" id="pf-ex">Example: on a ₹500 visit the patient sees ₹500 doctor fee + '+money(f.on?ex:0)+' platform fee = <b>'+money(total)+'</b>.</div>'+
+   (f.err?'<div class="err" style="margin-bottom:10px">'+esc(f.err)+'</div>':'')+(f.ok?'<div class="status-line" style="margin-bottom:10px">'+esc(f.ok)+'</div>':'')+
+   '<button class="btn" type="submit">Save platform fee</button></form></div>';
+}
+function savePf(){
+  var f=state.pf,v=+f.value;
+  if(String(f.value).trim()===""||!isFinite(v)||v<0){f.err="Enter a number, 0 or more.";f.ok="";render();return}
+  if(f.type==="flat"&&v>5000){f.err="A flat fee can be at most ₹5,000.";f.ok="";render();return}
+  if(f.type==="percent"&&v>50){f.err="A percentage can be at most 50.";f.ok="";render();return}
+  PLAT={on:f.on,type:f.type,value:v};savePlat();f.err="";f.ok="Saved. New bookings use this fee.";render();
+}
+function adminOv(){
+  var all=windowStats(null),on=onlineStats(),reps=salesUsers().filter(function(u){return u.active});
+  return '<div class="kpis">'+kpi("Team revenue",money(all.rev),"Last 30 days")+kpi("Leads",all.leads,all.booked+" booked")+kpi("Conversion",all.conv+"%","Leads to booked")+kpi("Patient app bookings",on.count,money(on.rev)+" doctor fees")+kpi("Platform fees earned",money(on.pf),"From patient app bookings")+'</div>'+platCard()+
+   '<div class="card"><div class="cardhead"><h2>Revenue against target</h2></div>'+(reps.length?reps.map(repRow).join(""):'<div class="tiny">No active sales members.</div>')+
+   '<div class="tiny" style="margin-top:10px"><span class="legend-line"></span>Target for 30 days</div></div>'+
+   dailyCard(null,"Team bookings per day")+
+   '<div class="card"><div class="cardhead"><h2>Lead pipeline</h2></div>'+funnel()+'<div class="tiny" style="margin-top:8px">Leads created in the last 30 days, by status.</div></div>';
+}
+function salesOv(u){
+  var s=windowStats(u.id),pct=u.target?Math.min(100,Math.round(s.rev/u.target*100)):0,
+   newN=staffData.leads.filter(function(l){return l.owner===u.id&&l.status==="new"}).length,
+   board=salesUsers().filter(function(x){return x.active}).map(function(x){return {u:x,rev:windowStats(x.id).rev}}).sort(function(a,b){return b.rev-a.rev});
+  return (newN?'<div class="callout"><span><b>'+newN+'</b> new '+(newN===1?"lead is":"leads are")+' waiting for a first call.</span><button class="btn sm" data-a="stab" data-v="leads">Open leads</button></div>':'')+
+   '<div class="card"><div class="cardhead"><h2>Revenue target</h2><span class="pill tnum">'+pct+'%</span></div><div class="track" role="img" aria-label="'+pct+' percent of target"><i style="width:'+pct+'%"></i></div>'+
+   '<div class="tiny tnum">'+money(s.rev)+' of '+money(u.target)+' in the last 30 days</div></div>'+
+   '<div class="kpis">'+kpi("My leads",s.leads,"Last 30 days")+kpi("Booked",s.booked,"Patients converted")+kpi("Conversion",s.conv+"%","Leads to booked")+kpi("Revenue",money(s.rev),"From booked leads")+'</div>'+
+   dailyCard(u.id,"My bookings per day")+
+   '<div class="card"><div class="cardhead"><h2>Team leaderboard</h2></div>'+board.map(function(b,i){
+     return '<div class="lb'+(b.u.id===u.id?" me":"")+'"><span class="rank tnum">'+(i+1)+'</span><span class="nm">'+esc(b.u.name)+(b.u.id===u.id?" (you)":"")+'</span><span class="tnum">'+money(b.rev)+'</span></div>';
+   }).join("")+'</div>';
+}
+function leadCard(l,showOwner){
+  var own=getUser(l.owner),acts="";
+  if(l.status==="new")acts='<button class="btn sm" data-a="lead" data-v="'+l.id+'|contacted">Mark contacted</button>';
+  else if(l.status==="contacted")acts='<button class="btn sm" data-a="lead" data-v="'+l.id+'|booked">Booked</button><button class="btn sm ghost" data-a="lead" data-v="'+l.id+'|lost">Lost</button>';
+  else acts='<button class="btn sm ghost" data-a="lead" data-v="'+l.id+'|contacted">Reopen</button>';
+  var pc=l.status==="booked"?"pill":l.status==="lost"?"pill bad":l.status==="new"?"pill warn":"pill";
+  return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(l.name)+'</div><div class="tiny">'+esc(l.spec)+' · added '+rel(l.created)+'</div></div><span class="'+pc+'">'+STATUS[l.status]+'</span></div>'+
+   '<div class="tiny tnum">Mobile <span class="sel">'+esc(l.phone)+'</span>'+(l.status==="booked"?' · '+money(l.value):'')+(l.sample?' · <span class="pill warn">Example</span>':'')+'</div>'+
+   '<div class="acts">'+acts+'</div></div>';
+}
+function salesLeads(u){
+  var mine=staffData.leads.filter(function(l){return l.owner===u.id}).sort(function(a,b){return a.created<b.created?1:a.created>b.created?-1:(a.id<b.id?1:-1)}),
+   cnt={all:mine.length,"new":0,contacted:0,booked:0,lost:0},n=state.nlead;
+  mine.forEach(function(l){cnt[l.status]++});
+  var shown=state.lf==="all"?mine:mine.filter(function(l){return l.status===state.lf});
+  var chips=["all","new","contacted","booked","lost"].map(function(k){
+    return '<button class="chip" data-a="lf" data-v="'+k+'" aria-pressed="'+(state.lf===k)+'">'+(k==="all"?"All":STATUS[k])+' '+cnt[k]+'</button>';
+  }).join("");
+  var form=state.addLead?'<form id="leadForm" novalidate><div class="card">'+
+   '<div class="field"><label for="nl-name">Patient name</label><input id="nl-name" value="'+esc(n.name)+'" placeholder="Full name"></div>'+
+   '<div class="field"><label for="nl-phone">Mobile number</label><input id="nl-phone" inputmode="numeric" maxlength="10" value="'+esc(n.phone)+'" placeholder="10-digit number"></div>'+
+   '<div class="field"><label for="nl-spec">Looking for</label><select id="nl-spec">'+SPECS.slice(1).map(function(s){return '<option'+(n.spec===s?" selected":"")+'>'+esc(s)+'</option>'}).join("")+'</select></div>'+
+   (n.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(n.err)+'</div>':'')+
+   '<div class="acts"><button class="btn sm" type="submit">Save lead</button><button class="btn sm ghost" type="button" data-a="addlead">Cancel</button></div></div></form>':
+   '<div style="padding:0 16px"><button class="btn" data-a="addlead">Add a lead</button></div>';
+  return form+'<div class="chips" style="padding-top:0" role="group" aria-label="Filter leads">'+chips+'</div>'+
+   (shown.length?'<div class="list" style="padding-top:0">'+shown.map(function(l){return leadCard(l)}).join("")+'</div>':'<div class="empty">No leads here yet. Add a lead to start your pipeline.</div>');
+}
+function adminTeam(me){
+  var n=state.nmem;
+  var cards=staffData.users.filter(function(u){return u.role!=="doctor"&&u.role!=="facility"}).map(function(u){
+    var s=u.role==="sales"?windowStats(u.id):null;
+    return '<div class="appt" style="margin:0 16px"><div class="who"><div><div class="doc-name">'+esc(u.name)+'</div><div class="tiny sel">'+esc(u.email)+'</div></div>'+
+     '<span class="pill'+(u.active?'':' bad')+'">'+(u.role==="admin"?"Super admin":u.active?"Active":"Deactivated")+'</span></div>'+
+     (s?'<div class="tiny tnum">'+s.leads+' leads · '+s.booked+' booked · '+money(s.rev)+' in 30 days</div>'+
+        '<div class="field" style="margin:0"><label for="t-'+u.id+'">30-day revenue target (₹)</label><input id="t-'+u.id+'" type="number" inputmode="numeric" min="0" step="500" value="'+u.target+'"></div>':'')+
+     (u.id!==me.id?'<div class="acts"><button class="btn sm ghost" data-a="toggle" data-v="'+u.id+'">'+(u.active?"Deactivate":"Reactivate")+'</button></div>':'<div class="tiny">This is your account.</div>')+'</div>';
+  }).join("");
+  return cards+'<div class="sec" style="padding-bottom:0">Add a sales member</div>'+
+   '<form id="memberForm" novalidate><div class="card">'+
+   '<div class="field"><label for="nm-name">Full name</label><input id="nm-name" value="'+esc(n.name)+'"></div>'+
+   '<div class="field"><label for="nm-email">Email</label><input id="nm-email" type="email" value="'+esc(n.email)+'"></div>'+
+   '<div class="field"><label for="nm-phone">Mobile number (optional)</label><input id="nm-phone" inputmode="numeric" maxlength="10" value="'+esc(n.phone||"")+'"><div class="hint">Lets the member sign in with a one-time code.</div></div>'+
+   '<div class="field"><label for="nm-pass">Starting password</label><input id="nm-pass" type="text" autocomplete="off" value="'+esc(n.pass)+'"><div class="hint">At least 8 characters. Share it with the member directly.</div></div>'+
+   '<div class="field"><label for="nm-target">30-day revenue target (₹)</label><input id="nm-target" type="number" inputmode="numeric" min="0" value="'+esc(n.target)+'"></div>'+
+   (n.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(n.err)+'</div>':'')+
+   '<button class="btn" type="submit">Add member</button></div></form>';
+}
+function adminBook(){
+  var list=appts.slice().sort(function(a,b){return (a.dateKey+a.time)<(b.dateKey+b.time)?1:-1});
+  if(!list.length)return '<div class="empty">No bookings yet. Appointments made in the patient app appear here.</div>';
+  return '<div class="list" style="padding-top:0">'+list.map(function(a){
+    var d=byId(a.docId),up=a.status==="upcoming",fee=a.mode==="video"?d.vfee:d.fee,acts="";
+    if(up){
+      acts=state.ask===a.id?
+        '<div class="confirm"><div>Cancel this booking? The slot will be released.</div><div class="acts"><button class="btn sm danger" data-a="cancel" data-v="'+a.id+'">Yes, cancel</button><button class="btn sm ghost" data-a="keep">Keep it</button></div></div>':
+        '<div class="acts"><button class="btn sm ghost" data-a="ask" data-v="'+a.id+'" style="color:var(--bad)">Cancel booking</button></div>';
+    }
+    return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">with '+esc(d.name)+' · '+esc(d.spec)+' · '+esc(d.city)+'</div></div><span class="pill'+(up?'':' bad')+'">'+(up?"Upcoming":"Cancelled")+'</span></div>'+
+     '<div class="when tnum">'+longDate(a.dateKey)+', '+t12(a.time)+'</div>'+
+     '<div class="tiny tnum">Mobile <span class="sel">'+esc(a.phone)+'</span>'+who(a)+' · Ref '+esc(a.ref)+' · '+(a.mode==="video"?"Video":"Clinic")+' · '+money(fee)+(a.sample?' · <span class="pill warn">Example</span>':'')+'</div>'+acts+'</div>';
+  }).join("")+'</div>';
+}
+
+/* ---------- doctor side: registration, schedule, slots ---------- */
+ic2.pin='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
+ic2.clock='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+ic2.slots='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="2"/><rect x="14" y="4" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M14 17.5h7"/></svg>';
+var DOW_ORDER=[1,2,3,4,5,6,0],STEPS=[15,20,30,45,60],schedMsg="";
+function fmtMin(m){return t12(pad2(Math.floor(m/60))+":"+pad2(m%60))}
+function opts(list,sel){return list.map(function(x){return '<option value="'+esc(x[0])+'"'+(String(sel)===String(x[0])?' selected':'')+'>'+esc(x[1])+'</option>'}).join("")}
+function minOpts(sel,allowNone,noneLabel){
+  var a=allowNone?[["",noneLabel]]:[];
+  for(var m=360;m<=1320;m+=30)a.push([String(m),fmtMin(m)]);
+  return opts(a,sel);
+}
+function rand5(){var c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",r="";for(var i=0;i<5;i++)r+=c[Math.floor(Math.random()*c.length)];return r}
+function modelFromDoc(d){
+  var a=d.hours[0]||[600,780],b=d.hours[1];
+  return {days:d.days.slice(),s1f:String(a[0]),s1t:String(a[1]),s2f:b?String(b[0]):"",s2t:b?String(b[1]):"1200",step:String(d.step),errs:{}};
+}
+function hoursFromModel(m){
+  var h=[[+m.s1f,+m.s1t]];
+  if(m.s2f!=="")h.push([+m.s2f,+m.s2t]);
+  return h;
+}
+function checkSched(m){
+  var e={};
+  if(!m.days.length)e.days="Choose at least one working day.";
+  if(!(+m.s1t>+m.s1f))e.s1="Session 1 must end after it starts.";
+  if(m.s2f!==""){
+    if(!(+m.s2t>+m.s2f))e.s2="Session 2 must end after it starts.";
+    else if(+m.s2f<+m.s1t)e.s2="Session 2 must start after session 1 ends.";
+  }
+  if(STEPS.indexOf(+m.step)<0)e.step="Choose how long each visit takes.";
+  return e;
+}
+function slotCount(m){
+  var st=+m.step,n=0;
+  if(!(st>0))return 0;
+  var a=[[+m.s1f,+m.s1t]];
+  if(m.s2f!=="")a.push([+m.s2f,+m.s2t]);
+  a.forEach(function(b){if(b[1]>b[0])n+=Math.floor((b[1]-b[0])/st)});
+  return n;
+}
+function afterSched(id,m,key){
+  if(key==="s2f"){var el=document.getElementById(id+"-s2t");if(el)el.disabled=m.s2f===""}
+  if(key==="s1f"||key==="s1t"||key==="s2f"||key==="s2t"||key==="step"){
+    var c=document.getElementById(id+"-cnt"),n=slotCount(m);
+    if(c)c.textContent=n?"This opens "+n+" slots on each working day.":"No slots yet. Check the times above.";
+  }
+}
+function toggleDay(which,v){
+  var m=state[which];if(!m)return;
+  var i=m.days.indexOf(v);
+  if(i<0)m.days.push(v);else m.days.splice(i,1);
+  render();
+}
+/* The same schedule fields are used at registration (id prefix rg) and in the doctor schedule tab (prefix sc). */
+function schedHtml(m,ns){
+  var e=m.errs||{},id=ns==="reg"?"rg":"sc",act=ns==="reg"?"rgday":"scday",n=slotCount(m);
+  var chips=DOW_ORDER.map(function(d){return '<button type="button" class="chip" data-a="'+act+'" data-v="'+d+'" aria-pressed="'+(m.days.indexOf(d)>-1)+'">'+DAY[d]+'</button>'}).join("");
+  function err(k){return e[k]?'<div class="err">'+e[k]+'</div>':''}
+  return '<div class="field"><label id="'+id+'-dl">Working days</label><div class="days" role="group" aria-labelledby="'+id+'-dl">'+chips+'</div>'+err("days")+'</div>'+
+   '<div class="field"><label for="'+id+'-s1f">Session 1</label><div class="two"><select id="'+id+'-s1f" aria-label="Session 1 starts">'+minOpts(m.s1f)+'</select><select id="'+id+'-s1t" aria-label="Session 1 ends">'+minOpts(m.s1t)+'</select></div>'+err("s1")+'</div>'+
+   '<div class="field"><label for="'+id+'-s2f">Session 2 (optional)</label><div class="two"><select id="'+id+'-s2f" aria-label="Session 2 starts">'+minOpts(m.s2f,true,"No second session")+'</select><select id="'+id+'-s2t" aria-label="Session 2 ends"'+(m.s2f===""?' disabled':'')+'>'+minOpts(m.s2t)+'</select></div>'+err("s2")+'</div>'+
+   '<div class="field" style="margin-bottom:0"><label for="'+id+'-step">Minutes per visit</label><select id="'+id+'-step">'+opts(STEPS.map(function(x){return [String(x),x+" minutes"]}),m.step)+'</select>'+err("step")+
+   '<div class="hint" id="'+id+'-cnt">'+(n?'This opens '+n+' slots on each working day.':'No slots yet. Check the times above.')+'</div></div>';
+}
+function newReg(){
+  return {name:"",spec:SPECS[1],qual:"",exp:"",clinic:"",city:CITIES[0],addr:"",pin:"",map:"",
+    days:[1,2,3,4,5,6],s1f:"600",s1t:"780",s2f:"1020",s2t:"1200",step:"20",
+    fee:"",vfee:"",phone:"",email:"",pass:"",lang:"Hindi, English",about:"",council:"",regno:"",ryear:"",photo:"",gallery:[],docs:{reg:null,id:null,deg:null},upMsg:"",errs:{}};
+}
+function findUrl(){
+  var r=state.reg||{};
+  return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent([r.clinic,r.addr,r.city,r.pin].filter(function(x){return x&&String(x).trim()}).join(", ")||"clinic");
+}
+function vRegister(){
+  if(state.regDone)return vRegDone();
+  var r=state.reg,e=r.errs||{};
+  function fld(k,label,input,hint){
+    return '<div class="field"><label for="rg-'+k+'">'+label+'</label>'+input+(e[k]?'<div class="err">'+e[k]+'</div>':(hint?'<div class="hint">'+hint+'</div>':''))+'</div>';
+  }
+  function txt(k,extra){return '<input id="rg-'+k+'" value="'+esc(r[k])+'" '+(extra||'')+'>'}
+  return '<div class="bar"><button class="back" data-a="home">'+ic.back+'Doctors</button></div>'+
+   '<div class="title-block" style="padding-top:2px"><h1>Register as a doctor</h1><p>Add your clinic, its Google Maps location and your own time slots. A super admin reviews every application before it goes live.</p></div>'+
+   '<form id="regForm" novalidate style="display:flex;flex-direction:column;flex:1">'+
+   '<div class="sec" style="padding-top:4px">About you</div><div class="card">'+
+   fld("name","Full name",txt("name",'autocomplete="name" placeholder="Dr. Full Name"'))+
+   fld("spec","Specialty",'<select id="rg-spec">'+opts(SPECS.slice(1).map(function(s){return [s,s]}),r.spec)+'</select>')+
+   fld("qual","Qualifications",txt("qual",'placeholder="e.g. MBBS, MD or BHMS, BAMS, BUMS, BPT"'))+
+   fld("exp","Years of experience",'<input id="rg-exp" type="number" inputmode="numeric" min="0" max="60" value="'+esc(r.exp)+'">')+
+   fld("lang","Languages",txt("lang"))+
+   fld("about","Short introduction (optional)",'<textarea id="rg-about" placeholder="What you treat and what patients should bring">'+esc(r.about)+'</textarea>')+
+   '</div>'+
+   '<div class="sec">Verification</div><div class="card">'+
+   '<div class="hint" style="margin-bottom:12px">A super admin checks these documents before you are listed. Verified doctors get a Verified tag. Documents are seen by admins only.</div>'+
+   fld("council","Council or board",txt("council",'placeholder="e.g. Delhi Medical Council, CCH, CCIM or state board"'),'For homeopathy, Ayurveda, Unani, Siddha, naturopathy, physiotherapy and other systems, enter the council or board that registered you.')+
+   fld("regno","Registration number",txt("regno",'autocomplete="off"'))+
+   fld("ryear","Year of registration",'<input id="rg-ryear" type="number" inputmode="numeric" min="1950" max="'+new Date().getFullYear()+'" value="'+esc(r.ryear)+'">')+
+   docUp("reg","Registration certificate (required)",r.docs.reg,e.reg)+
+   docUp("id","Government photo ID (required)",r.docs.id,e.id)+
+   docUp("deg","Degree certificate (optional)",r.docs.deg,e.deg)+
+   (r.upMsg?'<div class="err">'+esc(r.upMsg)+'</div>':'')+
+   '<div class="hint">Photos of documents or PDF. Photos are shrunk to save space; PDFs must be under 300 KB.</div></div>'+
+   '<div class="sec">Photos</div><div class="card">'+
+   '<div class="upl"><b>Profile photo (required)</b>'+(r.photo?'<div class="thumbs"><div class="thumb"><img src="'+esc(r.photo)+'" alt="Your profile photo"><button type="button" class="x" data-a="rmup" data-v="photo" aria-label="Remove profile photo">×</button></div></div>':'')+
+   '<label class="pick">'+(r.photo?'Change photo':'Choose photo')+'<input type="file" id="up-photo" accept="image/*"></label>'+(e.photo?'<div class="err">'+e.photo+'</div>':'')+'</div>'+
+   '<div class="upl" style="margin-bottom:0"><b>Clinic photos (1 to 4)</b>'+(r.gallery.length?'<div class="thumbs">'+r.gallery.map(function(g,i){return '<div class="thumb"><img src="'+esc(g)+'" alt="Clinic photo '+(i+1)+'"><button type="button" class="x" data-a="rmup" data-v="gal:'+i+'" aria-label="Remove clinic photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'')+
+   (r.gallery.length<4?'<label class="pick">Add clinic photos<input type="file" id="up-gal" accept="image/*" multiple></label>':'')+(e.gallery?'<div class="err">'+e.gallery+'</div>':'<div class="hint">Waiting room, reception, consulting room.</div>')+'</div></div>'+
+   '<div class="sec">Clinic address</div><div class="card">'+
+   fld("clinic","Clinic name",txt("clinic"))+
+   fld("city","City",'<select id="rg-city">'+opts(CITIES.map(function(c){return [c,c]}),r.city)+'</select>')+
+   fld("addr","Full street address",'<textarea id="rg-addr" placeholder="Floor, building, street, area">'+esc(r.addr)+'</textarea>')+
+   '<div class="field" style="margin-bottom:0"><label for="rg-pin">PIN code</label><input id="rg-pin" inputmode="numeric" maxlength="6" value="'+esc(r.pin)+'">'+(e.pin?'<div class="err">'+e.pin+'</div>':'')+'</div>'+
+   '</div>'+
+   '<div class="sec">Google Maps location</div><div class="card">'+
+   '<div class="mapfind"><a id="rg-find" class="btn sm ghost" style="align-self:flex-start" href="'+esc(findUrl())+'" target="_blank" rel="noopener noreferrer">1. Find your clinic on Google Maps</a>'+
+   '<div class="hint">Open your clinic in Google Maps, tap Share, copy the link and paste it below. You can also paste coordinates such as 12.9352, 77.6245.</div></div>'+
+   fld("map","2. Paste the Google Maps link",'<input id="rg-map" inputmode="url" autocomplete="off" value="'+esc(r.map)+'" placeholder="https://maps.app.goo.gl/...">')+
+   '<div class="status-line" id="rg-map-status" aria-live="polite">'+esc(mapStatus(r.map))+'</div></div>'+
+   '<div class="sec">Your time slots</div><div class="card">'+schedHtml(r,"reg")+'<div class="hint" style="margin-top:10px">You decide when patients can book. You can change days, hours, single slots and days off any time from your doctor login.</div></div>'+
+   '<div class="sec">Fees</div><div class="card">'+
+   fld("fee","In-clinic fee (₹)",'<input id="rg-fee" type="number" inputmode="numeric" min="0" value="'+esc(r.fee)+'">')+
+   '<div class="field" style="margin-bottom:0"><label for="rg-vfee">Video consult fee (₹, optional)</label><input id="rg-vfee" type="number" inputmode="numeric" min="0" value="'+esc(r.vfee)+'">'+(e.vfee?'<div class="err">'+e.vfee+'</div>':'<div class="hint">Leave blank if you do not offer video consults.</div>')+'</div></div>'+
+   '<div class="sec">Contact and login</div><div class="card">'+
+   fld("phone","Mobile number",'<input id="rg-phone" inputmode="numeric" maxlength="10" autocomplete="tel" value="'+esc(r.phone)+'">')+
+   fld("email","Email (your login)",'<input id="rg-email" type="email" autocomplete="username" value="'+esc(r.email)+'">')+
+   '<div class="field" style="margin-bottom:0"><label for="rg-pass">Password</label><input id="rg-pass" type="password" autocomplete="new-password" value="'+esc(r.pass)+'">'+(e.pass?'<div class="err">'+e.pass+'</div>':'<div class="hint">At least 8 characters. Demo only: stored in this browser.</div>')+'</div></div>'+
+   '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">Submit for review</button></div></form>';
+}
+
+/* ---------- uploads (registration) ---------- */
+function docUp(k,label,f,err){
+  return '<div class="upl"><b>'+label+'</b>'+(f?'<div class="filechip"><span>'+(f.type==="application/pdf"?"PDF · ":"Photo · ")+esc(f.name)+'</span><button type="button" class="btn sm ghost" data-a="rmup" data-v="doc:'+k+'">Remove</button></div>':'')+
+   '<label class="pick">'+(f?'Replace file':'Choose file')+'<input type="file" id="up-'+k+'" accept="image/*,application/pdf"></label>'+(err?'<div class="err">'+err+'</div>':'')+'</div>';
+}
+function shrink(file,maxDim,q,cb){
+  var fr=new FileReader();
+  fr.onerror=function(){cb(null)};
+  fr.onload=function(){
+    var im=new Image();
+    im.onerror=function(){cb(null)};
+    im.onload=function(){
+      var sc=Math.min(1,maxDim/Math.max(im.width,im.height)),w=Math.max(1,Math.round(im.width*sc)),h=Math.max(1,Math.round(im.height*sc));
+      var c=document.createElement("canvas");c.width=w;c.height=h;
+      var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);
+      try{cb(c.toDataURL("image/jpeg",q))}catch(e){cb(null)}
+    };
+    im.src=fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+function onUpload(id,files){
+  var r=state.reg;if(!r||!files||!files.length)return;
+  r.upMsg="";
+  var k=id.slice(3);
+  function fail(m){r.upMsg=m;render()}
+  if(k==="photo"){
+    shrink(files[0],480,.78,function(d){if(!d)return fail("That file could not be read as a photo.");r.photo=d;if(r.errs)delete r.errs.photo;render()});
+  }else if(k==="gal"){
+    var list=Array.prototype.slice.call(files,0,4-r.gallery.length),n=0;
+    if(!list.length)return;
+    list.forEach(function(f){shrink(f,900,.72,function(d){
+      if(d&&r.gallery.length<4)r.gallery.push(d);
+      if(++n===list.length){if(r.errs&&r.gallery.length)delete r.errs.gallery;render()}
+    })});
+  }else if(k==="reg"||k==="id"||k==="deg"){
+    var f=files[0];
+    if(f.type==="application/pdf"){
+      if(f.size>300*1024)return fail("That PDF is larger than 300 KB. Upload a photo of the document instead, or a smaller PDF.");
+      var fr=new FileReader();
+      fr.onload=function(){r.docs[k]={name:f.name,type:"application/pdf",data:fr.result};if(r.errs)delete r.errs[k];render()};
+      fr.onerror=function(){fail("That file could not be read.")};
+      fr.readAsDataURL(f);
+    }else if(/^image\//.test(f.type)){
+      shrink(f,1400,.72,function(d){if(!d)return fail("That file could not be read as a photo.");r.docs[k]={name:f.name,type:"image/jpeg",data:d};if(r.errs)delete r.errs[k];render()});
+    }else fail("Upload a photo or a PDF.");
+  }
+}
+function rmUpload(v){
+  var r=state.reg;if(!r)return;
+  if(v==="photo")r.photo="";
+  else if(v.indexOf("gal:")===0)r.gallery.splice(+v.slice(4),1);
+  else if(v.indexOf("doc:")===0)r.docs[v.slice(4)]=null;
+  render();
+}
+function lbHtml(){return state.lb?'<button class="lb" data-a="lbclose" aria-label="Close photo"><img src="'+esc(state.lb)+'" alt="Enlarged photo"></button>':''}
+function openBlob(dataUrl){
+  try{
+    var p=dataUrl.split(","),m=/data:([^;]+)/.exec(p[0]),bin=atob(p[1]),u=new Uint8Array(bin.length),i;
+    for(i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+    window.open(URL.createObjectURL(new Blob([u],{type:m?m[1]:"application/pdf"})),"_blank");
+  }catch(e){}
+}
+function vdoc(d,key){var a=d.vdocs||[],i;for(i=0;i<a.length;i++)if(a[i].key===key)return a[i];return null}
+function viewDoc(v){
+  var p=v.split("|"),d=byId(+p[0]),f=d&&vdoc(d,p[1]);
+  if(!f||!f.data)return;
+  if(f.type==="application/pdf")openBlob(f.data);else{state.lb=f.data;render()}
+}
+function viewImg(v){
+  var p=v.split("|"),d=byId(+p[0]);if(!d)return;
+  var src=p[1]==="photo"?d.photo:(d.gallery||[])[+p[2]];
+  if(src){state.lb=src;render()}
+}
+function submitReg(){
+  var r=state.reg,e={},em=r.email.trim().toLowerCase(),dup=false;
+  staffData.users.forEach(function(u){if(u.email.toLowerCase()===em)dup=true});
+  var nm=r.name.trim().replace(/^dr\.?\s+/i,""),ex=+r.exp,fee=+r.fee,vf=r.vfee===""?0:+r.vfee,mp=parseMap(r.map);
+  if(nm.length<3)e.name="Enter your full name.";
+  if(r.qual.trim().length<2)e.qual="Enter your qualifications, for example MBBS, MD, BHMS, BAMS or BPT.";
+  if(r.exp===""||!(ex>=0&&ex<=60))e.exp="Enter your years of experience, 0 to 60.";
+  if(r.clinic.trim().length<2)e.clinic="Enter the clinic name.";
+  if(r.addr.trim().length<8)e.addr="Enter the full street address.";
+  if(!/^\d{6}$/.test(r.pin))e.pin="Enter a 6-digit PIN code.";
+  if(!mp)e.map="Paste a Google Maps link (google.com/maps or maps.app.goo.gl) or coordinates like 12.9352, 77.6245.";
+  var yr=+r.ryear;
+  if(r.council.trim().length<3)e.council="Enter the medical council that registered you.";
+  if(r.regno.trim().length<3)e.regno="Enter your registration number.";
+  if(!(yr>=1950&&yr<=new Date().getFullYear()))e.ryear="Enter the year you were registered.";
+  if(!r.docs.reg)e.reg="Upload your registration certificate.";
+  if(!r.docs.id)e.id="Upload a government photo ID.";
+  if(!r.photo)e.photo="Add a profile photo.";
+  if(!r.gallery.length)e.gallery="Add at least one clinic photo.";
+  var se=checkSched(r);Object.keys(se).forEach(function(k){e[k]=se[k]});
+  if(!(fee>=100&&fee<=20000))e.fee="Enter a fee between ₹100 and ₹20,000.";
+  if(r.vfee!==""&&!(vf>=50&&vf<=20000))e.vfee="Enter a video fee between ₹50 and ₹20,000, or leave it blank.";
+  if(!/^[6-9]\d{9}$/.test(r.phone))e.phone="Enter a valid 10-digit mobile number.";
+  else if(staffByPhone(r.phone))e.phone="That mobile number already has an account.";
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))e.email="Enter a valid email address.";
+  else if(dup)e.email="That email already has an account.";
+  if(r.pass.length<8)e.pass="Use a password with at least 8 characters.";
+  r.errs=e;
+  var keys=Object.keys(e);
+  if(keys.length){
+    render();
+    var fk=keys[0]==="s1"?"s1f":keys[0]==="s2"?"s2f":keys[0],el=document.getElementById("rg-"+fk)||document.getElementById("up-"+fk);if(el&&el.scrollIntoView&&!el.focus)el.scrollIntoView();
+    if(el&&el.focus)el.focus();
+    return;
+  }
+  var id=100;DOCS.forEach(function(x){if(x.id>=id)id=x.id+1});
+  var doc={id:id,name:"Dr. "+nm,spec:r.spec,exp:Math.round(ex),qual:r.qual.trim(),fee:Math.round(fee),vfee:Math.round(vf),video:vf>0,rating:0,reviews:0,
+    lang:r.lang.trim()||"Hindi, English",clinic:r.clinic.trim(),city:r.city,address:r.addr.trim(),pin:r.pin,mapUrl:mp.url,
+    about:r.about.trim()||"New on Nirog. Pick an open slot to book a visit.",days:r.days.slice().sort(),hours:hoursFromModel(r),step:+r.step,
+    off:[],blocked:[],min:true,phone:r.phone,status:"pending",registered:true,ref:"DR-"+rand5(),
+    council:r.council.trim(),regno:r.regno.trim(),ryear:yr,verified:false,photo:r.photo,gallery:r.gallery.slice(),
+    vdocs:[["reg","Registration certificate"],["id","Government photo ID"],["deg","Degree certificate"]].filter(function(x){return r.docs[x[0]]}).map(function(x){var f=r.docs[x[0]];return {key:x[0],label:x[1],name:f.name,type:f.type,data:f.data}})};
+  if(isNum(mp.lat)){doc.lat=mp.lat;doc.lng=mp.lng}
+  DOCS.push(doc);
+  staffData.users.push({id:"u"+Date.now(),name:doc.name,email:em,phone:r.phone,pass:r.pass,role:"doctor",docId:id,active:true,target:0});
+  saveStaff();saveRegistered();
+  state.regDone=doc;render(true);
+}
+function schedText(d){
+  var days=d.days.slice().sort(function(a,b){return ((a+6)%7)-((b+6)%7)}).map(function(x){return DAY[x]}).join(", ");
+  return days+" · "+d.hours.map(function(b){return fmtMin(b[0])+" to "+fmtMin(b[1])}).join(", ")+" · "+d.step+" min visits";
+}
+function vRegDone(){
+  var d=state.regDone;
+  return '<div class="done"><div class="tick">'+ic.check+'</div><h1 style="font-size:26px">Application received</h1>'+
+   '<p class="muted" style="margin:8px 0 0">'+esc(d.name)+', a super admin will review your clinic and its Google Maps location before you appear to patients. Once your documents are verified you get a Verified tag.</p><div class="ref tnum">'+esc(d.ref)+'</div></div>'+
+   '<div class="card" style="margin-top:12px"><div class="sumrow"><span>Clinic</span><span>'+esc(d.clinic)+'</span></div>'+
+   '<div class="sumrow"><span>Address</span><span>'+esc(d.address)+', '+esc(d.city)+' '+esc(d.pin)+'</span></div>'+
+   '<div class="sumrow"><span>Time slots</span><span>'+esc(schedText(d))+'</span></div>'+
+   '<div class="sumrow"><span>Map</span><span>'+mapLink(siteOpen(d),"Check on Google Maps","maplink")+'</span></div></div>'+
+   '<div class="foot" style="text-align:left">Use the sign-in button below, with your email and password or your mobile number and a one-time code, to change your slots, block single times or close a day.</div>'+
+   '<div class="stick" style="display:flex;flex-direction:column;gap:8px"><button class="btn" data-a="staff">Sign in to manage slots</button><button class="btn ghost" data-a="home">Back to doctors</button></div>';
+}
+
+/* ---- doctor portal ---- */
+function myDoc(){var me=getUser(state.staff);return me&&me.role==="doctor"?byId(me.docId):null}
+function docBanner(d){
+  if(d.status==="pending")return '<div class="callout"><span>Your documents are waiting for verification. Patients can book you once a super admin verifies them. You can set your slots now.</span></div>';
+  if(d.status==="rejected")return '<div class="callout" style="background:var(--bad-soft)"><span>You are not listed right now.'+(d.reason?' Reason: '+esc(d.reason)+'.':'')+' Contact the super admin to be listed again.</span></div>';
+  return '';
+}
+function docAppts(d){
+  var list=appts.filter(function(a){return a.docId===d.id&&a.status==="upcoming"}).sort(function(a,b){return (a.dateKey+a.time)<(b.dateKey+b.time)?-1:1});
+  if(!list.length)return '<div class="empty">No upcoming bookings. Patients book the open slots you set under Schedule and Slots.</div>';
+  return '<div class="list" style="padding-top:0">'+list.map(function(a){
+    return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">'+(a.mode==="video"?"Video consult":"In-clinic visit")+'</div></div><span class="pill">Upcoming</span></div>'+
+     '<div class="when tnum">'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+'</div>'+
+     '<div class="tiny tnum">Mobile <span class="sel">'+esc(a.phone)+'</span>'+who(a)+' · Ref '+esc(a.ref)+(a.reason?' · '+esc(a.reason):'')+'</div></div>';
+  }).join("")+'</div>';
+}
+function docSched(d){
+  if(state.schedFor!==d.id||!state.sched){state.sched=modelFromDoc(d);state.schedFor=d.id}
+  var today=dkey(new Date()),off=(d.off||[]).filter(function(k){return k>=today}).sort();
+  return '<form id="schedForm" novalidate><div class="card"><div class="cardhead"><h2>Weekly hours</h2></div>'+schedHtml(state.sched,"sc")+
+   '<div style="height:14px"></div><button class="btn" type="submit">Save schedule</button>'+(schedMsg?'<div class="status-line" role="status" style="margin-top:10px">'+esc(schedMsg)+'</div>':'')+'</div></form>'+
+   '<div class="card"><div class="cardhead"><h2>Days off</h2></div>'+
+   '<div class="field"><label for="sc-offdate">Close a date</label><div class="two"><input id="sc-offdate" type="date" min="'+today+'" value="'+esc(state.offDate)+'"><button type="button" class="btn sm" data-a="addoff">Add day off</button></div></div>'+
+   (off.length?off.map(function(k){return '<div class="sumrow"><span style="color:var(--ink)">'+longDate(k)+'</span><button type="button" class="link" data-a="rmoff" data-v="'+k+'">Reopen</button></div>'}).join(""):'<div class="tiny">No days off planned.</div>')+'</div>';
+}
+function docSlots(d){
+  var today=new Date(),tk=dkey(today),k=state.sdate&&state.sdate>=tk?state.sdate:tk,i;
+  state.sdate=k;
+  var chips="";
+  for(i=0;i<14;i++){
+    var dt=addDays(today,i),kk=dkey(dt),sub=!worksDay(d,kk)?"Off":isOff(d,kk)?"Closed":freeCount(d,kk)+" open";
+    chips+='<button class="date" data-a="sdate" data-v="'+kk+'" aria-pressed="'+(kk===k)+'"><span class="d">'+(i===0?"Today":DAY[dt.getDay()])+'</span><span class="n tnum">'+dt.getDate()+'</span><span class="c">'+sub+'</span></button>';
+  }
+  var body;
+  if(!worksDay(d,k)){
+    body='<div class="empty">You do not work on '+DAY[fromKey(k).getDay()]+'s. Change your working days under Schedule.</div>';
+  }else if(isOff(d,k)){
+    body='<div class="callout"><span>This day is closed to patients.</span><button class="btn sm" data-a="rmoff" data-v="'+k+'">Reopen day</button></div>';
+  }else{
+    var slots=slotsFor(d,k),c={free:0,busy:0,blocked:0,past:0},who={};
+    slots.forEach(function(s){c[s.st]++});
+    appts.forEach(function(a){if(a.docId===d.id&&a.dateKey===k&&a.status==="upcoming")who[a.time]=a});
+    var grid=slots.map(function(s){
+      if(s.st==="free")return '<button class="slot tnum" data-a="blk" data-v="'+s.t+'" aria-label="'+t12(s.t)+', open. Tap to block">'+t12(s.t)+'</button>';
+      if(s.st==="blocked")return '<button class="slot blocked tnum" data-a="unblk" data-v="'+s.t+'" aria-label="'+t12(s.t)+', blocked. Tap to open">'+t12(s.t)+'</button>';
+      if(s.st==="busy")return '<button class="slot booked tnum" disabled aria-label="'+t12(s.t)+', booked">'+t12(s.t)+'</button>';
+      return '<button class="slot tnum" disabled>'+t12(s.t)+'</button>';
+    }).join("");
+    var bl=Object.keys(who).sort().map(function(t){return '<div class="sumrow"><span style="color:var(--ink)" class="tnum">'+t12(t)+'</span><span>'+esc(who[t].name)+'</span></div>'}).join("");
+    body='<div class="card"><div class="cardhead"><h2>'+longDate(k)+'</h2><span class="tiny tnum">'+c.free+' open · '+c.busy+' booked · '+c.blocked+' blocked</span></div>'+
+      (slots.length?'<div class="slots">'+grid+'</div>':'<div class="empty" style="margin:0">No slots on this day. Check your hours under Schedule.</div>')+
+      '<div class="tiny" style="margin-top:10px">Tap an open slot to block it. Tap a blocked slot to open it again. Booked slots cannot be changed here.</div>'+
+      '<div class="acts" style="margin-top:12px"><button class="btn sm ghost" data-a="offday" data-v="'+k+'">Close this whole day</button></div></div>'+
+      (bl?'<div class="card"><div class="cardhead"><h2>Booked on this day</h2></div>'+bl+'</div>':'');
+  }
+  return '<div class="dates" style="padding-bottom:0">'+chips+'</div>'+body;
+}
+function dSlot(t,add){
+  var d=myDoc();if(!d)return;
+  var s=slotsFor(d,state.sdate).filter(function(x){return x.t===t})[0];
+  if(!s||(add&&s.st!=="free")||(!add&&s.st!=="blocked"))return;
+  var key=state.sdate+"|"+t;d.blocked=d.blocked||[];
+  var i=d.blocked.indexOf(key);
+  if(add&&i<0)d.blocked.push(key);
+  if(!add&&i>-1)d.blocked.splice(i,1);
+  d.touched=true;saveRegistered();render();
+}
+function dOff(k,add){
+  var d=myDoc();if(!d)return;
+  var today=dkey(new Date());d.off=d.off||[];
+  if(add){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(k||"")||k<today)return;
+    if(d.off.indexOf(k)<0)d.off.push(k);
+    d.off.sort();state.offDate="";
+  }else{
+    var i=d.off.indexOf(k);if(i>-1)d.off.splice(i,1);
+  }
+  d.touched=true;saveRegistered();render();
+}
+function saveSched(){
+  var d=myDoc(),m=state.sched;if(!d||!m)return;
+  m.errs=checkSched(m);
+  if(Object.keys(m.errs).length){schedMsg="";render();return}
+  d.days=m.days.slice().sort();d.hours=hoursFromModel(m);d.step=+m.step;d.touched=true;
+  schedMsg="Saved. Patients now see your new slots.";
+  saveRegistered();render();
+}
+
+/* ---- admin: review doctors ---- */
+var REJ=["Registration certificate is not readable","Registration number does not match the council record","Name on documents does not match","Photo ID missing or not valid","Other, contact support"];
+function vChk(id){state.vchk=state.vchk||{};return state.vchk[id]||(state.vchk[id]={a:false,b:false,c:false})}
+function sDocStatus(v){
+  var p=v.split("|"),me=getUser(state.staff),d=byId(+p[0]);
+  if(!me||me.role!=="admin"||!d||!d.registered)return;
+  if(p[1]!=="approved"&&p[1]!=="rejected")return;
+  if(p[1]==="approved"){
+    var c=vChk(d.id);
+    if(!(c.a&&c.b&&c.c))return;
+    d.status="approved";d.verified=true;d.verifiedAt=Date.now();d.reason="";
+  }else{
+    var rr=state.rej&&state.rej[d.id];
+    d.status="rejected";d.verified=false;d.reason=rr||REJ[0];
+  }
+  saveRegistered();render();
+}
+function docVerifyBox(d){
+  var c=vChk(d.id),all=c.a&&c.b&&c.c,st=d.status;
+  function row(k,t){return '<button class="chk" data-a="vchk" data-v="'+d.id+'|'+k+'" aria-pressed="'+c[k]+'"><i>'+(c[k]?"✓":"")+'</i><span>'+t+'</span></button>'}
+  var files=(d.vdocs||[]).map(function(f){
+    return '<div class="filechip"><span>'+esc(f.label)+' · '+(f.type==="application/pdf"?"PDF":"Photo")+'</span>'+(f.data?'<button class="btn sm ghost" data-a="viewdoc" data-v="'+d.id+'|'+f.key+'">View</button>':'<span class="tiny">Too large to keep</span>')+'</div>';
+  }).join("");
+  var imgs=(d.photo?'<button class="thumb" data-a="viewimg" data-v="'+d.id+'|photo" aria-label="View profile photo"><img src="'+esc(d.photo)+'" alt="Profile photo"></button>':'')+
+    (d.gallery||[]).map(function(g,i){return '<button class="thumb" data-a="viewimg" data-v="'+d.id+'|g|'+i+'" aria-label="View clinic photo '+(i+1)+'"><img src="'+esc(g)+'" alt="Clinic photo"></button>'}).join("");
+  var sel='<select id="rj-'+d.id+'" aria-label="Reason if rejected">'+REJ.map(function(x){return '<option'+((state.rej&&state.rej[d.id]||REJ[0])===x?' selected':'')+'>'+esc(x)+'</option>'}).join("")+'</select>';
+  return '<div class="vbox"><div class="tiny"><b>Council:</b> '+esc(d.council||"—")+' · <b>Reg. no:</b> <span class="sel">'+esc(d.regno||"—")+'</span> · <b>Year:</b> '+esc(d.ryear||"—")+'</div>'+
+   (files?'<div style="display:flex;flex-direction:column;gap:6px">'+files+'</div>':'<div class="tiny">No documents were uploaded.</div>')+
+   (imgs?'<div class="thumbs">'+imgs+'</div>':'')+
+   (st==="approved"?'':row("a","Registration certificate is readable and genuine")+row("b","Name and registration number match the council record")+row("c","Photo ID matches the doctor"))+
+   '<div class="acts">'+(st==="approved"?'':'<button class="btn sm" data-a="dstat" data-v="'+d.id+'|approved" '+(all?'':'disabled style="opacity:.5"')+'>Verify and list</button>')+
+   (st==="rejected"?'':'<button class="btn sm ghost" data-a="dstat" data-v="'+d.id+'|rejected" style="color:var(--bad)">'+(st==="approved"?"Unlist":"Reject")+'</button>')+'</div>'+
+   (st==="rejected"?'':sel)+
+   (st==="rejected"&&d.reason?'<div class="tiny">Reason: '+esc(d.reason)+'</div>':'')+'</div>';
+}
+function docAdminCard(d){
+  var st=d.status,pc=st==="pending"?"pill warn":st==="rejected"?"pill bad":"pill",label=st==="pending"?"Pending review":st==="rejected"?"Not listed":"Listed";
+  return '<div class="appt"><div class="who" style="gap:12px">'+avatar(d)+'<div style="flex:1;min-width:0"><div class="doc-name">'+esc(d.name)+'</div><div class="tiny">'+esc(d.spec)+' · '+d.exp+' yrs · '+esc(d.qual)+'</div></div><span style="display:flex;flex-direction:column;gap:4px;align-items:flex-end"><span class="'+pc+'">'+label+'</span>'+vtag(d)+'</span></div>'+
+   '<div class="tiny">'+esc(d.clinic)+'<br>'+esc(d.address||"")+', '+esc(d.city)+' '+esc(d.pin||"")+'</div>'+
+   '<div class="tiny tnum">Mobile <span class="sel">'+esc(d.phone||"")+'</span> · Fee '+money(d.fee)+(d.video?' · Video '+money(d.vfee):'')+'</div>'+
+   '<div class="tiny">'+esc(schedText(d))+'</div>'+
+   '<div class="row">'+mapLink(siteOpen(d),"Check on Google Maps","maplink")+(isNum(d.lat)?'<span class="tiny tnum">'+d.lat.toFixed(4)+', '+d.lng.toFixed(4)+'</span>':'')+'</div>'+
+   docVerifyBox(d)+'</div>';
+}
+function adminDoctors(){
+  var reg=DOCS.filter(function(d){return d.registered}),pend=reg.filter(function(d){return d.status==="pending"}),
+   rest=reg.filter(function(d){return d.status!=="pending"}),samples=DOCS.filter(function(d){return !d.registered});
+  return '<div class="sec" style="padding:0 16px">Waiting for review</div>'+
+   (pend.length?pend.map(docAdminCard).join(""):'<div class="empty" style="margin:0 16px">No applications waiting. New doctor registrations appear here with their Google Maps location.</div>')+
+   (rest.length?'<div class="sec" style="padding:0 16px">Registered doctors</div>'+rest.map(docAdminCard).join(""):'')+
+   '<div class="card"><div class="cardhead"><h2>Sample doctors</h2></div>'+samples.map(function(d){
+     return '<div class="sumrow"><span>'+esc(d.name)+'<br><span class="tiny">'+esc(d.clinic)+', '+esc(d.city)+'</span></span><span>'+mapLink(siteOpen(d),"Map","maplink")+'</span></div>';
+   }).join("")+'</div>';
+}
+
+
+/* ---------- facilities: labs, diagnostic centres, super speciality hospitals, other care (sample listings; names, prices and services are examples) ---------- */
+var LKEY="nirog-labs-v1";
+var KINDS=[["lab","Labs","Diagnostic lab"],["centre","Diagnostic centres","Diagnostic centre"],["hospital","Hospitals","Super speciality hospital"],["other","Other care","Other facility"]];
+var SUBS=["Pharmacy","Physiotherapy","Blood bank","Ambulance service","Eye care","Dialysis centre","Other"];
+function kindName(k){for(var i=0;i<KINDS.length;i++)if(KINDS[i][0]===k)return KINDS[i][2];return "Facility"}
+var LABS=[
+ {id:"l1",kind:"lab",name:"Sample Diagnostics Connaught",city:"Delhi",address:"Block B, Connaught Place",pin:"110001",hours:"7:00 AM to 8:00 PM",home:true,tests:[["Complete blood count",350],["Lipid profile",600],["HbA1c",450],["Thyroid profile (T3 T4 TSH)",550],["Vitamin D",900]]},
+ {id:"l2",kind:"lab",name:"Sample Path Labs Saket",city:"Delhi",address:"Press Enclave Road, Saket",pin:"110017",hours:"6:30 AM to 9:00 PM",home:true,tests:[["Liver function test",650],["Kidney function test",600],["Urine routine",150],["Chest X-ray",400],["ECG",250]]},
+ {id:"l3",kind:"lab",name:"Sample Diagnostics Andheri",city:"Mumbai",address:"Veera Desai Road, Andheri West",pin:"400053",hours:"7:00 AM to 9:00 PM",home:true,tests:[["Complete blood count",380],["Fasting blood sugar",120],["HbA1c",480],["Ultrasound abdomen",1100],["Vitamin B12",750]]},
+ {id:"l4",kind:"centre",name:"Sample Scan Centre Dadar",city:"Mumbai",address:"Tilak Road, Dadar East",pin:"400014",hours:"8:00 AM to 7:00 PM",home:false,tests:[["MRI brain",6500],["CT scan chest",4200],["Ultrasound abdomen",1000],["X-ray",350],["Echocardiogram",1800]]},
+ {id:"l5",kind:"lab",name:"Sample Path Labs Indiranagar",city:"Bengaluru",address:"100 Feet Road, Indiranagar",pin:"560038",hours:"6:30 AM to 8:30 PM",home:true,tests:[["Complete blood count",330],["Lipid profile",580],["Thyroid profile (T3 T4 TSH)",520],["Dengue NS1",700],["Urine routine",140]]},
+ {id:"l6",kind:"lab",name:"Sample Diagnostics Jayanagar",city:"Bengaluru",address:"4th Block, Jayanagar",pin:"560011",hours:"7:00 AM to 7:30 PM",home:true,tests:[["Full body checkup",2200],["HbA1c",430],["Vitamin D",850],["ECG",230],["Liver function test",620]]},
+ {id:"l7",kind:"lab",name:"Sample Diagnostics Banjara Hills",city:"Hyderabad",address:"Road No. 12, Banjara Hills",pin:"500034",hours:"7:00 AM to 8:00 PM",home:true,tests:[["Complete blood count",340],["Lipid profile",590],["Thyroid profile (T3 T4 TSH)",540],["HbA1c",440],["Ultrasound abdomen",1050]]},
+ {id:"l8",kind:"centre",name:"Sample Scan Centre Madhapur",city:"Hyderabad",address:"Hitech City Road, Madhapur",pin:"500081",hours:"8:00 AM to 8:00 PM",home:false,tests:[["MRI knee",5800],["CT scan head",3500],["X-ray",320],["Echocardiogram",1700],["Mammography",1600]]},
+ {id:"c1",kind:"centre",name:"Sample Imaging Centre Nehru Place",city:"Delhi",address:"Nehru Place Commercial Complex",pin:"110019",hours:"8:00 AM to 8:00 PM",home:false,tests:[["MRI spine",6200],["CT scan abdomen",4500],["PET-CT",24000],["Ultrasound pelvis",1000],["Bone density (DEXA)",1800]]},
+ {id:"c2",kind:"centre",name:"Sample Scan Centre Whitefield",city:"Bengaluru",address:"ITPL Main Road, Whitefield",pin:"560066",hours:"8:00 AM to 7:00 PM",home:false,tests:[["MRI brain",6300],["CT angiography",7500],["Mammography",1500],["Echocardiogram",1700],["Doppler study",1900]]},
+ {id:"h1",kind:"hospital",name:"Sample Super Speciality Hospital Saket",city:"Delhi",address:"Press Enclave Road, Saket",pin:"110017",hours:"Open 24 hours",er:true,ambulance:true,beds:450,tests:[["Cardiology and cardiac surgery"],["Neurology and neurosurgery"],["Oncology"],["Nephrology and kidney transplant"],["Gastroenterology"],["Orthopaedics and joint replacement"]]},
+ {id:"h2",kind:"hospital",name:"Sample Heart and Brain Institute Dwarka",city:"Delhi",address:"Sector 12, Dwarka",pin:"110075",hours:"Open 24 hours",er:true,ambulance:true,beds:300,tests:[["Cardiac surgery"],["Neurosciences"],["Critical care"],["Robotic surgery"]]},
+ {id:"h3",kind:"hospital",name:"Sample Super Speciality Hospital Powai",city:"Mumbai",address:"Hiranandani Gardens, Powai",pin:"400076",hours:"Open 24 hours",er:true,ambulance:true,beds:520,tests:[["Cardiology and cardiac surgery"],["Oncology and radiation therapy"],["Liver transplant"],["Neurosurgery"],["Paediatric super speciality"]]},
+ {id:"h4",kind:"hospital",name:"Sample Institute of Medical Sciences Bandra",city:"Mumbai",address:"Hill Road, Bandra West",pin:"400050",hours:"Open 24 hours",er:true,ambulance:false,beds:260,tests:[["Urology and nephrology"],["Gastro sciences"],["Orthopaedics"],["Women and child care"]]},
+ {id:"h5",kind:"hospital",name:"Sample Super Speciality Hospital Indiranagar",city:"Bengaluru",address:"100 Feet Road, Indiranagar",pin:"560038",hours:"Open 24 hours",er:true,ambulance:true,beds:400,tests:[["Cardiology"],["Neurology and neurosurgery"],["Bone marrow transplant"],["Oncology"],["Spine surgery"]]},
+ {id:"h6",kind:"hospital",name:"Sample Heart and Kidney Centre Jayanagar",city:"Bengaluru",address:"4th Block, Jayanagar",pin:"560011",hours:"Open 24 hours",er:true,ambulance:true,beds:280,tests:[["Cardiac care"],["Nephrology and dialysis"],["Urology"],["Critical care"]]},
+ {id:"h7",kind:"hospital",name:"Sample Super Speciality Hospital Banjara Hills",city:"Hyderabad",address:"Road No. 1, Banjara Hills",pin:"500034",hours:"Open 24 hours",er:true,ambulance:true,beds:600,tests:[["Cardiology and cardiac surgery"],["Neurosciences"],["Organ transplant"],["Oncology"],["Robotic surgery"]]},
+ {id:"h8",kind:"hospital",name:"Sample Institute of Medical Sciences Madhapur",city:"Hyderabad",address:"HITEC City Road, Madhapur",pin:"500081",hours:"Open 24 hours",er:true,ambulance:false,beds:350,tests:[["Gastroenterology"],["Orthopaedics"],["Pulmonology"],["Women and child care"]]},
+ {id:"o1",kind:"other",sub:"Pharmacy",name:"Sample Pharmacy Karol Bagh",city:"Delhi",address:"Arya Samaj Road, Karol Bagh",pin:"110005",hours:"Open 24 hours",home:true,tests:[["Prescription medicines"],["Home delivery"],["Diabetes and BP supplies"]]},
+ {id:"o2",kind:"other",sub:"Physiotherapy",name:"Sample Physio and Rehab Andheri",city:"Mumbai",address:"Lokhandwala Complex, Andheri West",pin:"400053",hours:"8:00 AM to 8:00 PM",tests:[["Back and neck pain therapy",700],["Post-surgery rehabilitation"],["Sports injury care"]]},
+ {id:"o3",kind:"other",sub:"Blood bank",name:"Sample Blood Bank Koramangala",city:"Bengaluru",address:"5th Block, Koramangala",pin:"560095",hours:"Open 24 hours",tests:[["Whole blood"],["Platelets"],["Plasma"]]},
+ {id:"o4",kind:"other",sub:"Ambulance service",name:"Sample Ambulance Service Hyderabad",city:"Hyderabad",address:"Begumpet Main Road",pin:"500016",hours:"Open 24 hours",tests:[["Basic life support ambulance"],["ICU ambulance"],["Patient transfer between cities"]]},
+ {id:"o5",kind:"other",sub:"Eye care",name:"Sample Eye Care Centre Dwarka",city:"Delhi",address:"Sector 7, Dwarka",pin:"110075",hours:"9:00 AM to 7:00 PM",tests:[["Eye check-up",300],["Cataract surgery"],["Spectacles and lenses"]]},
+ {id:"o6",kind:"other",sub:"Dialysis centre",name:"Sample Dialysis Centre Powai",city:"Mumbai",address:"Hiranandani Gardens, Powai",pin:"400076",hours:"6:00 AM to 10:00 PM",tests:[["Haemodialysis session",1800],["Peritoneal dialysis training"]]}
+];
+LABS.forEach(function(l){l.sample=true});
+(function(){
+  try{var r=localStorage.getItem(LKEY);if(r){var a=JSON.parse(r);if(Array.isArray(a))a.forEach(function(l){if(l&&l.id&&l.name&&Array.isArray(l.tests)&&CITIES.indexOf(l.city)>-1){l.sample=false;if(!l.kind)l.kind="lab";if(l.registered&&["pending","approved","rejected"].indexOf(l.status)<0)l.status="pending";LABS.push(l)}})}}catch(e){}
+})();
+function saveLabs(){
+  var mine=LABS.filter(function(l){return !l.sample});
+  try{localStorage.setItem(LKEY,JSON.stringify(mine))}
+  catch(e1){
+    try{state.storeWarn=true;localStorage.setItem(LKEY,JSON.stringify(mine.map(function(l){var c={};Object.keys(l).forEach(function(k){c[k]=l[k]});c.gallery=(l.gallery||[]).slice(0,1);c.vdocs=(l.vdocs||[]).map(function(x){return {key:x.key,label:x.label,name:x.name,type:x.type,data:""}});return c})))}catch(e2){}
+  }
+}
+/* one item per line: "Name - price" or just "Name" */
+function parseTests(t){
+  return String(t||"").split(/\n/).map(function(x){
+    x=x.trim();if(!x)return null;
+    var m=/^(.+?)\s*[-:–,]\s*(?:₹|rs\.?\s*)?(\d{1,6})$/i.exec(x);
+    return m?[m[1].slice(0,60),+m[2]]:[x.slice(0,60)];
+  }).filter(Boolean).slice(0,40);
+}
+function labMatches(l,q){
+  if(!q)return true;
+  return (l.name+" "+l.address+" "+(l.sub||"")+" "+l.tests.map(function(t){return t[0]}).join(" ")).toLowerCase().indexOf(q)>-1;
+}
+function labCard(l){
+  var q=state.lq.trim().toLowerCase();
+  var shown=q?l.tests.filter(function(t){return t[0].toLowerCase().indexOf(q)>-1}):l.tests;
+  if(!shown.length)shown=l.tests;
+  var pills=(l.kind==="hospital"?'<span class="pill">Super speciality</span>':l.kind==="other"?'<span class="pill">'+esc(l.sub||"Other care")+'</span>':l.kind==="centre"?'<span class="pill">Diagnostic centre</span>':'')+
+    (l.er?' <span class="pill warn">Emergency 24x7</span>':'')+(l.ambulance?' <span class="pill">Ambulance</span>':'')+
+    (l.home?' <span class="pill">'+(l.kind==="other"?'Home delivery':'Home collection')+'</span>':'');
+  return '<div class="appt lab"><div class="who"><div><div class="doc-name">'+esc(l.name)+'</div><div class="tiny">'+esc(l.address)+', '+esc(l.city)+(l.pin?' '+esc(l.pin):'')+'</div></div></div>'+
+   (pills||l.verified?'<div class="row">'+vtag(l)+(pills?' '+pills:'')+'</div>':'')+
+   ((l.gallery||[]).length?'<div class="gal" style="padding:0">'+l.gallery.map(function(g,i){return '<button data-a="fviewimg" data-v="'+esc(l.id)+'|'+i+'" aria-label="View photo '+(i+1)+' of '+esc(l.name)+'"><img src="'+esc(g)+'" alt=""></button>'}).join("")+'</div>':'')+
+   '<div class="tiny">'+(/^open 24/i.test(l.hours)?esc(l.hours):'Open '+esc(l.hours))+(l.beds?' · '+l.beds+' beds':'')+'</div>'+
+   '<div class="tiny" style="font-weight:600">'+(l.kind==="hospital"?"Specialities":l.kind==="other"?"Services":"Tests")+'</div>'+
+   '<div class="tests">'+shown.map(function(t){return '<span>'+esc(t[0])+(t.length>1?' <b>'+money(t[1])+'</b>':'')+'</span>'}).join("")+'</div>'+
+   '<div class="acts">'+mapLink(siteOpen({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Open in Google Maps","btn sm")+mapLink(siteDir({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Directions","btn sm ghost")+'</div>'+
+   (l.sample?'<div class="hint">Sample listing. Names, services and prices are examples.</div>':'')+'</div>';
+}
+function labsListHtml(){
+  var q=state.lq.trim().toLowerCase();
+  var list=LABS.filter(function(l){return l.status!=="pending"&&l.status!=="rejected"&&(state.fk==="all"||l.kind===state.fk)&&(state.city===ALL_CITIES||l.city===state.city)&&labMatches(l,q)});
+  if(!list.length)return '<div class="empty">Nothing matches. Try another name, service or location.</div>';
+  return '<div class="count">'+list.length+(list.length===1?' listing':' listings')+(state.city===ALL_CITIES?'':' in '+esc(state.city))+'</div><div class="list">'+list.map(labCard).join("")+'</div>';
+}
+function kindChips(){
+  return '<div class="chips" role="group" aria-label="Type of facility">'+[["all","All","All"]].concat(KINDS).map(function(k){return '<button class="chip" data-a="fkind" data-v="'+k[0]+'" aria-pressed="'+(state.fk===k[0])+'">'+esc(k[1])+'</button>'}).join("")+'</div>';
+}
+function vLabs(){
+  return '<div class="top"><div class="brand">Nirog<small>Hospitals and labs</small></div>'+profBtn()+'</div>'+
+   '<div class="title-block"><h1>Find care near you</h1><p>Super speciality hospitals, diagnostic labs and centres, and other medical facilities. Open any of them in Google Maps.</p></div>'+
+   '<div class="loc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'+
+   '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(CITIES).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
+   '<div class="callout" style="margin-bottom:10px"><span><b>Own a lab, diagnostic centre or hospital?</b><br>List it on Nirog. A super admin verifies your licence first.</span><button class="btn sm" data-a="fregstart">Sign up</button></div>'+
+   '<div class="search"><input id="lq" type="search" placeholder="Search a name, test or speciality, for example MRI" value="'+esc(state.lq)+'" aria-label="Search facilities"></div>'+
+   kindChips()+
+   '<div id="labs">'+labsListHtml()+'</div><div style="height:16px"></div>';
+}
+function adminLabs(){
+  if(!state.nlab)state.nlab=blankLab();
+  var n=state.nlab,hosp=n.kind==="hospital",oth=n.kind==="other";
+  function f(k,label,inp){return '<div class="field"><label for="nb-'+k+'">'+label+'</label>'+inp+'</div>'}
+  function tg(a,on,label){return '<div class="field"><button type="button" class="chk" data-a="'+a+'" aria-pressed="'+on+'"><i>'+(on?"✓":"")+'</i><span>'+label+'</span></button></div>'}
+  return facPending()+'<div class="card"><div class="cardhead"><h2>Add a facility</h2></div><form id="labForm" novalidate>'+
+   f("kind","Type",'<select id="nb-kind">'+opts(KINDS.map(function(k){return [k[0],k[2]]}),n.kind)+'</select>')+
+   (oth?f("sub","Kind of facility",'<select id="nb-sub">'+opts(SUBS.map(function(x){return [x,x]}),n.sub)+'</select>'):'')+
+   f("name","Name",'<input id="nb-name" value="'+esc(n.name)+'">')+
+   f("city","City",'<select id="nb-city">'+opts(CITIES.map(function(c){return [c,c]}),n.city)+'</select>')+
+   f("addr","Street address",'<input id="nb-addr" value="'+esc(n.addr)+'">')+
+   f("pin","PIN code",'<input id="nb-pin" inputmode="numeric" maxlength="6" value="'+esc(n.pin)+'">')+
+   f("map","Google Maps link (optional)",'<input id="nb-map" inputmode="url" value="'+esc(n.map)+'" placeholder="https://maps.app.goo.gl/...">')+
+   f("hours","Opening hours",'<input id="nb-hours" value="'+esc(n.hours)+'">')+
+   (hosp?f("beds","Number of beds (optional)",'<input id="nb-beds" inputmode="numeric" maxlength="5" value="'+esc(n.beds)+'">')+tg("faer",n.er,"Emergency care 24x7")+tg("famb",n.amb,"Ambulance available"):
+    tg("labhome",n.home,oth?"Home delivery available":"Home sample collection available"))+
+   f("tests",hosp?"Specialities, one per line":oth?"Services, one per line (price optional)":"Tests and prices, one per line",'<textarea id="nb-tests" placeholder="'+(hosp?"Cardiology and cardiac surgery&#10;Neurosurgery":oth?"Prescription medicines&#10;Home delivery":"Complete blood count - 350&#10;Lipid profile - 600")+'">'+esc(n.tests)+'</textarea>')+
+   (n.err?'<div class="err" style="margin-bottom:10px">'+esc(n.err)+'</div>':'')+
+   '<button class="btn" type="submit">Add listing</button></form></div>'+
+   '<div class="sec" style="padding:20px 16px 8px">Listed facilities</div>'+
+   LABS.map(function(l){if(l.registered)return l.status==="pending"?"":facAdminCard(l);return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(l.name)+'</div><div class="tiny">'+esc(l.kind==="other"&&l.sub?l.sub:kindName(l.kind))+' · '+esc(l.city)+' · '+l.tests.length+(l.kind==="hospital"?' specialities':' items')+'</div></div>'+(l.sample?'<span class="pill warn">Sample</span>':'<button class="btn sm ghost" data-a="rmlab" data-v="'+esc(l.id)+'" style="color:var(--bad)">Remove</button>')+'</div></div>'}).join("");
+}
+function blankLab(city){return {kind:"lab",sub:SUBS[0],name:"",city:city||CITIES[0],addr:"",pin:"",map:"",hours:"7:00 AM to 9:00 PM",home:true,er:true,amb:true,beds:"",tests:"",err:""}}
+function submitLab(){
+  if(!state.nlab)state.nlab=blankLab();
+  var n=state.nlab,mp=n.map.trim()?parseMap(n.map):null,t=parseTests(n.tests),hosp=n.kind==="hospital",oth=n.kind==="other";
+  if(n.name.trim().length<3){n.err="Enter the name.";render();return}
+  if(n.addr.trim().length<5){n.err="Enter the street address.";render();return}
+  if(n.pin&&!/^\d{6}$/.test(n.pin)){n.err="Enter a 6-digit PIN code or leave it blank.";render();return}
+  if(n.map.trim()&&!mp){n.err="That does not look like a Google Maps link.";render();return}
+  if(!hosp&&!oth&&!t.some(function(x){return x.length>1})){n.err="Add at least one test with a price, for example Lipid profile - 600.";render();return}
+  if(!t.length){n.err=hosp?"Add at least one speciality.":"Add at least one service.";render();return}
+  var l={id:"l"+Date.now(),kind:n.kind,name:n.name.trim(),city:n.city,address:n.addr.trim(),pin:n.pin,hours:n.hours.trim()||"Call for hours",tests:t,sample:false};
+  if(hosp){l.er=n.er;l.ambulance=n.amb;if(/^\d{1,5}$/.test(n.beds))l.beds=+n.beds}else l.home=n.home;
+  if(oth)l.sub=n.sub;
+  if(mp){l.mapUrl=mp.url;if(isNum(mp.lat)){l.lat=mp.lat;l.lng=mp.lng}}
+  LABS.push(l);saveLabs();
+  state.nlab=blankLab(n.city);
+  render();
+}
+
+/* ---------- facility sign-up (labs, diagnostic centres, hospitals, other care) ---------- */
+var FREJ=["Licence or registration certificate is not readable","Licence does not match the facility name or address","Owner or authorised person ID is missing or not valid","Location or address could not be confirmed","Other, contact support"];
+function newFr(){return {kind:"lab",sub:SUBS[0],name:"",contact:"",phone:"",email:"",city:CITIES[0],addr:"",pin:"",map:"",hours:"7:00 AM to 9:00 PM",home:true,er:true,amb:true,beds:"",tests:"",
+  licno:"",auth:"",docs:{lic:null,id:null,acc:null},gallery:[],agree:false,upMsg:"",errs:{}}}
+function facById(id){for(var i=0;i<LABS.length;i++)if(LABS[i].id===id)return LABS[i];return null}
+function vChkF(id){state.vchk=state.vchk||{};var k="f"+id;return state.vchk[k]||(state.vchk[k]={a:false,b:false,c:false})}
+function fdocUp(k,label,f,err){
+  return '<div class="upl"><b>'+label+'</b>'+(f?'<div class="filechip"><span>'+(f.type==="application/pdf"?"PDF · ":"Photo · ")+esc(f.name)+'</span><button type="button" class="btn sm ghost" data-a="frm" data-v="doc:'+k+'">Remove</button></div>':'')+
+   '<label class="pick">'+(f?'Replace file':'Choose file')+'<input type="file" id="fu-'+k+'" accept="image/*,application/pdf"></label>'+(err?'<div class="err">'+err+'</div>':'')+'</div>';
+}
+function vFreg(){
+  if(state.frDone)return vFregDone();
+  var r=state.fr||(state.fr=newFr()),e=r.errs||{},hosp=r.kind==="hospital",oth=r.kind==="other";
+  function fld(k,label,input,hint){return '<div class="field"><label for="fr-'+k+'">'+label+'</label>'+input+(e[k]?'<div class="err">'+e[k]+'</div>':(hint?'<div class="hint">'+hint+'</div>':''))+'</div>'}
+  function tg(a,on,label){return '<div class="field"><button type="button" class="chk" data-a="'+a+'" aria-pressed="'+on+'"><i>'+(on?"✓":"")+'</i><span>'+label+'</span></button></div>'}
+  function txt(k,extra){return '<input id="fr-'+k+'" value="'+esc(r[k])+'" '+(extra||'')+'>'}
+  return '<div class="bar"><button class="back" data-a="fback">'+ic.back+'Hospitals and labs</button></div>'+
+   '<div class="title-block" style="padding-top:2px"><h1>List your facility</h1><p>For labs, diagnostic centres, super speciality hospitals and other care. A super admin checks your licence before you appear to patients.</p></div>'+
+   '<form id="fregForm" novalidate style="display:flex;flex-direction:column;flex:1">'+
+   '<div class="sec">About the facility</div><div class="card">'+
+   fld("kind","Type",'<select id="fr-kind">'+opts(KINDS.map(function(k){return [k[0],k[2]]}),r.kind)+'</select>')+
+   (oth?fld("sub","Kind of facility",'<select id="fr-sub">'+opts(SUBS.map(function(x){return [x,x]}),r.sub)+'</select>'):'')+
+   fld("name","Facility name",txt("name"))+
+   fld("city","City",'<select id="fr-city">'+opts(CITIES.map(function(c){return [c,c]}),r.city)+'</select>')+
+   fld("addr","Street address",txt("addr"))+
+   fld("pin","PIN code",txt("pin",'inputmode="numeric" maxlength="6"'))+
+   fld("map","Google Maps link",txt("map",'inputmode="url" placeholder="https://maps.app.goo.gl/..."'),'<span id="fr-map-status" class="status-line">'+esc(mapStatus(r.map))+'</span> Open Google Maps, search your facility, tap Share and paste the link. Or paste coordinates like 12.9352, 77.6245.')+
+   fld("hours","Opening hours",txt("hours"),'For example 7:00 AM to 9:00 PM, or Open 24 hours.')+
+   (hosp?fld("beds","Number of beds (optional)",txt("beds",'inputmode="numeric" maxlength="5"'))+tg("er",r.er,"Emergency care 24x7")+tg("amb",r.amb,"Ambulance available"):tg("home",r.home,oth?"Home delivery available":"Home sample collection available"))+
+   '<div class="field" style="margin-bottom:0"><label for="fr-tests">'+(hosp?"Specialities, one per line":oth?"Services, one per line (price optional)":"Tests and prices, one per line")+'</label><textarea id="fr-tests" placeholder="'+(hosp?"Cardiology and cardiac surgery&#10;Neurosurgery":oth?"Prescription medicines&#10;Home delivery":"Complete blood count - 350&#10;Lipid profile - 600")+'">'+esc(r.tests)+'</textarea>'+(e.tests?'<div class="err">'+e.tests+'</div>':'')+'</div></div>'+
+   '<div class="sec">Verification</div><div class="card">'+
+   '<div class="hint" style="margin-bottom:12px">A super admin checks these before your listing goes live. Documents are seen by admins only.</div>'+
+   fld("licno","Licence or registration number",txt("licno"),'For example your Clinical Establishments Act registration, state health department licence, or NABL or NABH certificate number.')+
+   fld("auth","Issued by",txt("auth",'placeholder="For example State Health Department"'))+
+   fdocUp("lic","Licence or registration certificate (required)",r.docs.lic,e.lic)+
+   fdocUp("id","Photo ID of owner or authorised person (required)",r.docs.id,e.id)+
+   fdocUp("acc","NABL, NABH or other accreditation (optional)",r.docs.acc,e.acc)+
+   (r.upMsg?'<div class="err">'+esc(r.upMsg)+'</div>':'')+
+   '<div class="hint">Photos of documents or PDF. Photos are shrunk to save space; PDFs must be under 300 KB.</div></div>'+
+   '<div class="sec">Photos</div><div class="card"><div class="upl" style="margin-bottom:0"><b>Facility photos (1 to 4)</b>'+(r.gallery.length?'<div class="thumbs">'+r.gallery.map(function(g,i){return '<div class="thumb"><img src="'+esc(g)+'" alt="Facility photo '+(i+1)+'"><button type="button" class="x" data-a="frm" data-v="gal:'+i+'" aria-label="Remove photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'')+
+   (r.gallery.length<4?'<label class="pick">Add photos<input type="file" id="fu-gal" accept="image/*" multiple></label>':'')+(e.gallery?'<div class="err">'+e.gallery+'</div>':'<div class="hint">Front of the building, reception, equipment.</div>')+'</div></div>'+
+   '<div class="sec">Contact and login</div><div class="card">'+
+   fld("contact","Contact person",txt("contact",'autocomplete="name"'))+
+   fld("phone","Mobile number (you sign in with a one-time code)",txt("phone",'inputmode="numeric" maxlength="10" autocomplete="tel"'))+
+   fld("email","Email",txt("email",'type="email" autocomplete="email"'))+
+   '<div class="field" style="margin-bottom:0"><button type="button" class="chk" data-a="fftog" data-v="agree" aria-pressed="'+r.agree+'"><i>'+(r.agree?"✓":"")+'</i><span>I confirm these details and documents are true and I am allowed to list this facility.</span></button>'+(e.agree?'<div class="err">'+e.agree+'</div>':'')+'</div></div>'+
+   '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">Submit for review</button></div></form>';
+}
+function onFacUpload(id,files){
+  var r=state.fr;if(!r||!files||!files.length)return;
+  r.upMsg="";
+  var k=id.slice(3);
+  function fail(m){r.upMsg=m;render()}
+  if(k==="gal"){
+    var list=Array.prototype.slice.call(files,0,4-r.gallery.length),n=0;
+    if(!list.length)return;
+    list.forEach(function(f){shrink(f,900,.72,function(d){
+      if(d&&r.gallery.length<4)r.gallery.push(d);
+      if(++n===list.length){if(r.errs&&r.gallery.length)delete r.errs.gallery;render()}
+    })});
+  }else if(k==="lic"||k==="id"||k==="acc"){
+    var f=files[0];
+    if(f.type==="application/pdf"){
+      if(f.size>300*1024)return fail("That PDF is larger than 300 KB. Upload a photo of the document instead, or a smaller PDF.");
+      var fr=new FileReader();
+      fr.onload=function(){r.docs[k]={name:f.name,type:"application/pdf",data:fr.result};if(r.errs)delete r.errs[k];render()};
+      fr.onerror=function(){fail("That file could not be read.")};
+      fr.readAsDataURL(f);
+    }else if(/^image\//.test(f.type)){
+      shrink(f,1400,.72,function(d){if(!d)return fail("That file could not be read as a photo.");r.docs[k]={name:f.name,type:"image/jpeg",data:d};if(r.errs)delete r.errs[k];render()});
+    }else fail("Upload a photo or a PDF.");
+  }
+}
+function frRemove(v){
+  var r=state.fr;if(!r)return;
+  if(v.indexOf("gal:")===0)r.gallery.splice(+v.slice(4),1);
+  else if(v.indexOf("doc:")===0)r.docs[v.slice(4)]=null;
+  render();
+}
+function submitFreg(){
+  var r=state.fr,e={},em=r.email.trim().toLowerCase(),dup=false,hosp=r.kind==="hospital",oth=r.kind==="other",t=parseTests(r.tests),mp=parseMap(r.map);
+  staffData.users.forEach(function(u){if(u.email&&u.email.toLowerCase()===em)dup=true});
+  if(r.name.trim().length<3)e.name="Enter the facility name.";
+  if(r.addr.trim().length<8)e.addr="Enter the full street address.";
+  if(!/^\d{6}$/.test(r.pin))e.pin="Enter a 6-digit PIN code.";
+  if(!mp)e.map="Paste a Google Maps link (google.com/maps or maps.app.goo.gl) or coordinates like 12.9352, 77.6245.";
+  if(r.hours.trim().length<3)e.hours="Enter your opening hours.";
+  if(!t.length)e.tests=hosp?"Add at least one speciality.":oth?"Add at least one service.":"Add at least one test with a price.";
+  else if(!hosp&&!oth&&!t.some(function(x){return x.length>1}))e.tests="Add at least one test with a price, for example Lipid profile - 600.";
+  if(r.licno.trim().length<4)e.licno="Enter your licence or registration number.";
+  if(r.auth.trim().length<2)e.auth="Enter who issued the licence.";
+  if(!r.docs.lic)e.lic="Upload your licence or registration certificate.";
+  if(!r.docs.id)e.id="Upload a photo ID.";
+  if(!r.gallery.length)e.gallery="Add at least one facility photo.";
+  if(r.contact.trim().length<2)e.contact="Enter the contact person's name.";
+  if(!/^[6-9]\d{9}$/.test(r.phone))e.phone="Enter a valid 10-digit mobile number.";
+  else if(staffByPhone(r.phone))e.phone="That mobile number already has an account.";
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))e.email="Enter a valid email address.";
+  else if(dup)e.email="That email already has an account.";
+  if(!r.agree)e.agree="Please confirm before submitting.";
+  r.errs=e;
+  var keys=Object.keys(e);
+  if(keys.length){
+    render();
+    var el=document.getElementById("fr-"+keys[0])||document.getElementById("fu-"+keys[0]);
+    if(el&&el.scrollIntoView&&!el.focus)el.scrollIntoView();
+    if(el&&el.focus)el.focus();
+    return;
+  }
+  var id="l"+Date.now();
+  var l={id:id,kind:r.kind,name:r.name.trim(),city:r.city,address:r.addr.trim(),pin:r.pin,hours:r.hours.trim(),tests:t,sample:false,
+    registered:true,status:"pending",verified:false,ref:"FC-"+rand5(),contact:r.contact.trim(),phone:r.phone,email:em,licno:r.licno.trim(),auth:r.auth.trim(),
+    gallery:r.gallery.slice(),submitted:Date.now(),
+    vdocs:[["lic","Licence or registration certificate"],["id","Photo ID"],["acc","Accreditation"]].filter(function(x){return r.docs[x[0]]}).map(function(x){var f=r.docs[x[0]];return {key:x[0],label:x[1],name:f.name,type:f.type,data:f.data}})};
+  if(hosp){l.er=r.er;l.ambulance=r.amb;if(/^\d{1,5}$/.test(r.beds))l.beds=+r.beds}else l.home=r.home;
+  if(oth)l.sub=r.sub;
+  l.mapUrl=mp.url;if(isNum(mp.lat)){l.lat=mp.lat;l.lng=mp.lng}
+  LABS.push(l);saveLabs();
+  /* sign-in is by mobile code, so the stored password is random and never shown */
+  staffData.users.push({id:"u"+Date.now(),name:l.contact,email:em,phone:r.phone,pass:"x"+genCode()+genCode()+genCode(),role:"facility",facId:id,active:true,target:0});
+  saveStaff();
+  state.frDone=l;render(true);
+}
+function vFregDone(){
+  var l=state.frDone;
+  return '<div class="done"><div class="tick">'+ic.check+'</div><h1 style="font-size:26px">Application received</h1>'+
+   '<p class="muted" style="margin:8px 0 0">'+esc(l.name)+', a super admin will check your licence and location before you appear to patients. Once verified you get a Verified tag.</p><div class="ref tnum">'+esc(l.ref)+'</div></div>'+
+   '<div class="card" style="margin-top:12px"><div class="sumrow"><span>Type</span><span>'+esc(l.kind==="other"&&l.sub?l.sub:kindName(l.kind))+'</span></div>'+
+   '<div class="sumrow"><span>Address</span><span>'+esc(l.address)+', '+esc(l.city)+' '+esc(l.pin)+'</span></div>'+
+   '<div class="sumrow"><span>Map</span><span>'+mapLink(siteOpen({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Check on Google Maps","maplink")+'</span></div></div>'+
+   '<div class="foot" style="text-align:left">To check your status, tap Check my status, choose Mobile and OTP, and sign in with '+esc(maskPhone(l.phone))+'.</div>'+
+   '<div class="stick" style="display:flex;flex-direction:column;gap:8px"><button class="btn" data-a="staff">Check my status</button><button class="btn ghost" data-a="fback">Back to hospitals and labs</button></div>';
+}
+function facStatus(u){
+  var l=facById(u.facId);
+  if(!l)return '<div class="empty">Your listing could not be found. Contact support.</div>';
+  var st=l.status,pc=st==="pending"?"pill warn":st==="rejected"?"pill bad":"pill",lab=st==="pending"?"Waiting for review":st==="rejected"?"Not listed":"Live";
+  return '<div class="card"><div class="cardhead"><h2>'+esc(l.name)+'</h2><span class="'+pc+'">'+lab+'</span></div>'+
+   '<div class="sumrow"><span>Reference</span><span class="tnum">'+esc(l.ref||"")+'</span></div>'+
+   '<div class="sumrow"><span>Type</span><span>'+esc(l.kind==="other"&&l.sub?l.sub:kindName(l.kind))+'</span></div>'+
+   '<div class="sumrow"><span>Location</span><span>'+esc(l.address)+', '+esc(l.city)+'</span></div>'+
+   (st==="pending"?'<div class="hint" style="margin-top:8px">A super admin is checking your licence and location. You will appear to patients once verified.</div>':'')+
+   (st==="approved"?'<div class="hint" style="margin-top:8px">Your listing is live with the Verified tag.</div>':'')+
+   (st==="rejected"?'<div class="err" style="margin-top:8px">Not listed. Reason: '+esc(l.reason||FREJ[0])+'</div><div class="acts" style="margin-top:10px"><button class="btn sm" data-a="fregagain">Apply again</button></div>':'')+'</div>'+
+   (st==="approved"?'<div class="sec" style="padding:16px 16px 8px">How patients see it</div><div style="padding:0 16px">'+labCard(l)+'</div>':'');
+}
+function sFacStatus(v){
+  var p=v.split("|"),me=getUser(state.staff),l=facById(p[0]);
+  if(!me||me.role!=="admin"||!l||!l.registered)return;
+  if(p[1]==="approved"){
+    var c=vChkF(l.id);if(!(c.a&&c.b&&c.c))return;
+    l.status="approved";l.verified=true;l.verifiedAt=Date.now();l.reason="";
+  }else if(p[1]==="rejected"){
+    l.status="rejected";l.verified=false;l.reason=(state.rej&&state.rej["f"+l.id])||FREJ[0];
+  }else return;
+  saveLabs();render();
+}
+function fViewDoc(v){
+  var p=v.split("|"),l=facById(p[0]),f=null,i;
+  if(!l)return;
+  for(i=0;i<(l.vdocs||[]).length;i++)if(l.vdocs[i].key===p[1])f=l.vdocs[i];
+  if(!f||!f.data)return;
+  if(f.type==="application/pdf")openBlob(f.data);else{state.lb=f.data;render()}
+}
+function fViewImg(v){
+  var p=v.split("|"),l=facById(p[0]),src=l&&(l.gallery||[])[+p[1]];
+  if(src){state.lb=src;render()}
+}
+function facAdminCard(l){
+  var st=l.status,c=vChkF(l.id),all=c.a&&c.b&&c.c,pc=st==="pending"?"pill warn":st==="rejected"?"pill bad":"pill",lab=st==="pending"?"Pending review":st==="rejected"?"Not listed":"Listed";
+  function row(k,t){return '<button class="chk" data-a="fchk" data-v="'+esc(l.id)+'|'+k+'" aria-pressed="'+c[k]+'"><i>'+(c[k]?"✓":"")+'</i><span>'+t+'</span></button>'}
+  var files=(l.vdocs||[]).map(function(f){return '<div class="filechip"><span>'+esc(f.label)+' · '+(f.type==="application/pdf"?"PDF":"Photo")+'</span>'+(f.data?'<button class="btn sm ghost" data-a="fviewdoc" data-v="'+esc(l.id)+'|'+f.key+'">View</button>':'<span class="tiny">Too large to keep</span>')+'</div>'}).join("");
+  var imgs=(l.gallery||[]).map(function(g,i){return '<button class="thumb" data-a="fviewimg" data-v="'+esc(l.id)+'|'+i+'" aria-label="View photo '+(i+1)+'"><img src="'+esc(g)+'" alt="Facility photo"></button>'}).join("");
+  var sel='<select id="fj-'+esc(l.id)+'" aria-label="Reason if rejected">'+FREJ.map(function(x){return '<option'+((state.rej&&state.rej["f"+l.id]||FREJ[0])===x?' selected':'')+'>'+esc(x)+'</option>'}).join("")+'</select>';
+  return '<div class="appt"><div class="who"><div style="min-width:0"><div class="doc-name">'+esc(l.name)+'</div><div class="tiny">'+esc(l.kind==="other"&&l.sub?l.sub:kindName(l.kind))+' · '+esc(l.city)+'</div></div><span style="display:flex;flex-direction:column;gap:4px;align-items:flex-end"><span class="'+pc+'">'+lab+'</span>'+vtag(l)+'</span></div>'+
+   '<div class="tiny">'+esc(l.address)+', '+esc(l.city)+' '+esc(l.pin||"")+'</div>'+
+   '<div class="tiny tnum">'+esc(l.contact||"")+' · Mobile <span class="sel">'+esc(l.phone||"")+'</span> · '+esc(l.email||"")+'</div>'+
+   '<div class="row">'+mapLink(siteOpen({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Check on Google Maps","maplink")+'</div>'+
+   '<div class="vbox"><div class="tiny"><b>Licence no:</b> <span class="sel">'+esc(l.licno||"—")+'</span> · <b>Issued by:</b> '+esc(l.auth||"—")+'</div>'+
+   (files?'<div style="display:flex;flex-direction:column;gap:6px">'+files+'</div>':'<div class="tiny">No documents were uploaded.</div>')+
+   (imgs?'<div class="thumbs">'+imgs+'</div>':'')+
+   (st==="approved"?'':row("a","Licence is readable and genuine")+row("b","Name and address match the licence")+row("c","Photo ID matches the owner, and the map location is right"))+
+   '<div class="acts">'+(st==="approved"?'':'<button class="btn sm" data-a="fstat" data-v="'+esc(l.id)+'|approved" '+(all?'':'disabled style="opacity:.5"')+'>Verify and list</button>')+
+   (st==="rejected"?'':'<button class="btn sm ghost" data-a="fstat" data-v="'+esc(l.id)+'|rejected" style="color:var(--bad)">'+(st==="approved"?"Unlist":"Reject")+'</button>')+
+   (st==="approved"||st==="rejected"?'<button class="btn sm ghost" data-a="rmlab" data-v="'+esc(l.id)+'" style="color:var(--bad)">Remove</button>':'')+'</div>'+
+   (st==="rejected"?'':sel)+(st==="rejected"&&l.reason?'<div class="tiny">Reason: '+esc(l.reason)+'</div>':'')+'</div></div>';
+}
+function facPending(){
+  var pend=LABS.filter(function(l){return l.registered&&l.status==="pending"});
+  return '<div class="sec" style="padding:0 16px">Waiting for review</div>'+(pend.length?pend.map(facAdminCard).join(""):'<div class="empty" style="margin:0 16px 14px">No facility applications waiting. Sign-ups from labs, centres and hospitals appear here.</div>');
+}
+
+/* ---------- patient profile: name, age, sex, photo (kept in this browser, keyed by mobile number) ---------- */
+var SEXES=["Female","Male","Other","Prefer not to say"];
+function getProf(ph){try{var r=localStorage.getItem("nirog-profiles-v1");if(r){var m=JSON.parse(r);if(m&&m[ph])return m[ph]}}catch(e){}return null}
+function putProf(ph,o){try{var r=localStorage.getItem("nirog-profiles-v1"),m=r?JSON.parse(r):{};m[ph]=o;localStorage.setItem("nirog-profiles-v1",JSON.stringify(m));return true}catch(e){return false}}
+function validAge(v){return /^\d{1,3}$/.test(String(v))&&+v>=0&&+v<=120}
+function patAvatar(sz){
+  var pr=state.pat&&getProf(state.pat.phone),ph=pr&&pr.photo,nm=state.pat?state.pat.name:"";
+  return '<span class="av" style="width:'+sz+'px;height:'+sz+'px;font-size:'+Math.round(sz*.4)+'px;display:inline-grid;vertical-align:middle;margin-right:6px">'+(ph?'<img src="'+esc(ph)+'" alt="">':esc(initials(nm||"?")))+'</span>';
+}
+function profBtn(){
+  if(!state.pat)return '<button class="btn sm" data-a="psignin">Sign in</button>';
+  var first=String(state.pat.name).trim().split(/\s+/)[0];
+  return '<button class="pbtn" data-a="profile" aria-label="My profile">'+patAvatar(32)+'<span>'+esc(first)+'</span></button>';
+}
+function patLine(){
+  return patAvatar(26)+esc(state.pat.name)+' · '+esc(maskPhone(state.pat.phone))+' <button class="link" data-a="psignout">Sign out</button>';
+}
+function openProfile(){
+  if(!state.pat){openOtp("patient",null);return}
+  var pr=getProf(state.pat.phone)||{};
+  state.prof={name:state.pat.name,age:pr.age!=null?String(pr.age):"",sex:pr.sex||"",photo:pr.photo||"",err:"",ok:"",errs:{}};
+  state.view="profile";render(true);
+}
+function vProfile(){
+  var r=state.prof,e=r.errs||{};
+  function fld(k,label,input,hint){return '<div class="field"><label for="pr-'+k+'">'+label+'</label>'+input+(e[k]?'<div class="err">'+e[k]+'</div>':(hint?'<div class="hint">'+hint+'</div>':''))+'</div>'}
+  return '<div class="bar"><button class="back" data-a="pback">'+ic.back+'Back</button></div>'+
+   '<div class="title-block" style="padding-top:2px"><h1>My profile</h1><p>Your details are filled in when you book. Doctors you book see your name, age and sex, not your photo.</p></div>'+
+   '<form id="profForm" novalidate><div class="card">'+
+   '<div class="upl"><b>Profile photo</b><div class="thumbs"><div class="thumb" style="width:96px;height:96px;border-radius:50%">'+(r.photo?'<img src="'+esc(r.photo)+'" alt="Your profile photo">':'<span style="font-family:var(--font-display);font-weight:700;font-size:30px;color:var(--brand)">'+esc(initials(r.name||"?"))+'</span>')+'</div></div>'+
+   '<div class="acts"><label class="pick">'+(r.photo?'Change photo':'Add photo')+'<input type="file" id="pu-photo" accept="image/*"></label>'+(r.photo?'<button type="button" class="btn sm ghost" data-a="pphotorm">Remove</button>':'')+'</div>'+(e.photo?'<div class="err">'+e.photo+'</div>':'')+'</div>'+
+   fld("name","Full name",'<input id="pr-name" autocomplete="name" value="'+esc(r.name)+'">')+
+   fld("age","Age (years)",'<input id="pr-age" inputmode="numeric" maxlength="3" value="'+esc(r.age)+'">')+
+   fld("sex","Sex",'<select id="pr-sex"><option value="">Select</option>'+SEXES.map(function(x){return '<option'+(r.sex===x?' selected':'')+'>'+x+'</option>'}).join("")+'</select>')+
+   '<div class="field" style="margin-bottom:0"><div class="foot" style="text-align:left;padding:0">Mobile number: <span class="tnum">'+esc(maskPhone(state.pat.phone))+'</span> (verified)</div></div></div>'+
+   (r.ok?'<div class="status-line" style="margin:12px 16px 0">'+esc(r.ok)+'</div>':'')+
+   '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">Save profile</button></div></form>';
+}
+function saveProfile(){
+  var r=state.prof,e={};
+  if(r.name.trim().length<2)e.name="Enter your full name.";
+  if(!validAge(r.age))e.age="Enter your age, 0 to 120.";
+  if(SEXES.indexOf(r.sex)<0)e.sex="Select an option.";
+  r.errs=e;r.ok="";
+  if(Object.keys(e).length){render();return}
+  var nm=r.name.trim();
+  if(!putProf(state.pat.phone,{name:nm,age:+r.age,sex:r.sex,photo:r.photo})){r.errs={photo:"Could not save. The photo may be too large for this browser."};render();return}
+  state.pat={phone:state.pat.phone,name:nm};savePat();rememberName(state.pat.phone,nm);
+  r.ok="Saved.";render();
+}
+function onProfPhoto(files){
+  var r=state.prof;if(!r||!files||!files.length)return;
+  var f=files[0];
+  if(!/^image\//.test(f.type)){r.errs={photo:"Choose a photo."};render();return}
+  shrink(f,320,.8,function(d){if(!d){r.errs={photo:"That file could not be read as a photo."};render();return}r.photo=d;r.errs={};r.ok="";render()});
+}
+function prefillForm(){
+  var f=state.form,pr=state.pat&&getProf(state.pat.phone);
+  if(pr&&f.name.trim().toLowerCase()===String(pr.name||state.pat.name).toLowerCase()){
+    if(f.age===""&&pr.age!=null)f.age=String(pr.age);
+    if(!f.sex&&pr.sex)f.sex=pr.sex;
+  }
+}
+function who(a){return a.age!=null?' · '+a.age+' yrs'+(a.sex&&a.sex!=="Prefer not to say"?', '+esc(a.sex):''):''}
+/* ---------- sign in with mobile number and one-time code (demo) ----------
+   This prototype cannot send SMS, so the code is generated here and shown on screen in a demo note.
+   To go live, replace the code generation in otpSend() with a call to your server, which sends the SMS
+   through a provider (MSG91, Twilio Verify, Firebase Phone Auth), and replace the comparison in otpVerify()
+   with a call that checks the code on the server. */
+var PKEY="nirog-pat-v1",PNKEY="nirog-patients-v1",OTP_TTL=300000,OTP_WAIT=30000,OTP_TRIES=5;
+/* literal keys here: loadPat() runs while the state object is built, before the var below is assigned */
+function loadPat(){try{var r=localStorage.getItem("nirog-pat-v1");if(r){var p=JSON.parse(r);if(p&&/^[6-9]\d{9}$/.test(p.phone)&&p.name)return {phone:p.phone,name:String(p.name)}}}catch(e){}return null}
+function savePat(){try{if(state.pat)localStorage.setItem("nirog-pat-v1",JSON.stringify(state.pat));else localStorage.removeItem("nirog-pat-v1")}catch(e){}}
+function knownName(ph){try{var r=localStorage.getItem(PNKEY);if(r){var m=JSON.parse(r);if(m&&m[ph])return String(m[ph])}}catch(e){}return ""}
+function rememberName(ph,n){try{var r=localStorage.getItem(PNKEY),m=r?JSON.parse(r):{};m[ph]=n;localStorage.setItem(PNKEY,JSON.stringify(m))}catch(e){}}
+function genCode(){
+  var a=new Uint32Array(1);
+  if(typeof crypto!=="undefined"&&crypto.getRandomValues)crypto.getRandomValues(a);else a[0]=Math.floor(Math.random()*4294967295);
+  return String(100000+a[0]%900000);
+}
+function maskPhone(p){return "+91 "+p.slice(0,5)+" "+p.slice(5)}
+function staffByPhone(ph){for(var i=0;i<staffData.users.length;i++)if(staffData.users[i].phone===ph)return staffData.users[i];return null}
+function myAppts(){return state.pat?appts.filter(function(a){return a.phone===state.pat.phone}):[]}
+function newOtp(kind,after){return {kind:kind,after:after||null,stage:"phone",phone:"",code:"",sent:"",exp:0,at:0,tries:0,name:"",err:"",needName:false}}
+function openOtp(kind,after){state.otp=newOtp(kind,after);state.view="otp";render(true)}
+function otpSend(resend){
+  var o=state.otp;if(!o)return;
+  if(!/^[6-9]\d{9}$/.test(o.phone)){o.err="Enter a valid 10-digit mobile number.";render();return}
+  if(o.kind==="staff"){
+    var u=staffByPhone(o.phone);
+    if(!u){o.err="No staff or doctor account uses this number.";render();return}
+    if(!u.active){o.err="This account is deactivated. Ask a super admin to reactivate it.";render();return}
+  }
+  var now=Date.now();
+  if(resend&&now-o.at<OTP_WAIT){o.err="Wait "+Math.ceil((OTP_WAIT-(now-o.at))/1000)+" seconds before asking for a new code.";render();return}
+  o.sent=genCode();o.at=now;o.exp=now+OTP_TTL;o.tries=0;o.code="";o.err="";o.stage="code";
+  o.needName=o.kind==="patient"&&!knownName(o.phone);
+  render();
+}
+function otpVerify(){
+  var o=state.otp;if(!o)return;
+  var now=Date.now();
+  if(now>o.exp){o.err="This code has expired. Send a new one.";render();return}
+  if(o.tries>=OTP_TRIES){o.err="Too many wrong tries. Send a new code.";render();return}
+  if(!/^\d{6}$/.test(o.code)){o.err="Enter the 6-digit code.";render();return}
+  if(o.code!==o.sent){o.tries++;o.err="That code is not right. "+(OTP_TRIES-o.tries)+" tries left.";render();return}
+  if(o.kind==="patient"){
+    var nm=o.needName?o.name.trim():knownName(o.phone);
+    if(nm.length<2){o.err="Enter your name to finish.";render();return}
+    rememberName(o.phone,nm);
+    state.pat={phone:o.phone,name:nm};savePat();
+    var af=o.after,ph=o.phone;
+    state.otp=null;
+    if(af==="confirm"&&state.docId&&state.dateKey&&state.time){state.form.name=nm;state.form.phone=ph;state.errors={};state.view="confirm";state.tab="find"}
+    else if(af==="appts"){state.tab="appts";state.view="list"}
+    else{state.view="list";state.tab="find"}
+    render(true);
+    return;
+  }
+  var su=staffByPhone(o.phone);
+  if(!su||!su.active){o.err="This account cannot sign in.";render();return}
+  state.staff=su.id;state.stab="ov";state.lf="all";state.showTable=false;state.addLead=false;
+  state.otp=null;state.lmode="email";state.login={email:"",pass:"",err:""};
+  render(true);
+}
+function otpPanel(o){
+  var err=o.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(o.err)+'</div>':'';
+  if(o.stage==="phone"){
+    return '<div class="field"><label for="o-phone">Mobile number</label><div class="phoneio"><span class="cc">+91</span><input id="o-phone" inputmode="numeric" maxlength="10" autocomplete="tel-national" value="'+esc(o.phone)+'" placeholder="10-digit number"></div>'+
+      '<div class="hint">We will send a 6-digit one-time code to this number.</div></div>'+err+'<button class="btn" type="submit">Send code</button>';
+  }
+  return '<div class="demo-note" role="status"><b>Demo mode.</b> This prototype cannot send SMS, so your code is shown here: <span class="code tnum">'+esc(o.sent)+'</span></div>'+
+    '<div class="tiny" style="margin-bottom:10px">Code for '+esc(maskPhone(o.phone))+'. It works for 5 minutes.</div>'+
+    '<div class="field"><label for="o-code">6-digit code</label><input id="o-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="'+esc(o.code)+'" placeholder="______"></div>'+
+    (o.needName?'<div class="field"><label for="o-name">Your name</label><input id="o-name" autocomplete="name" value="'+esc(o.name)+'" placeholder="Full name"><div class="hint">First time here. We use it on your bookings.</div></div>':'')+
+    err+'<button class="btn" type="submit">Verify and continue</button>'+
+    '<div class="acts" style="margin-top:12px"><button type="button" class="btn sm ghost" data-a="otpresend">Send a new code</button><button type="button" class="btn sm ghost" data-a="otpchange">Change number</button></div>';
+}
+function staffOtpForm(){
+  if(!state.otp||state.otp.kind!=="staff")state.otp=newOtp("staff");
+  return '<form id="otpForm" novalidate><div class="card">'+otpPanel(state.otp)+'</div></form>';
+}
+function vOtp(){
+  var o=state.otp,t=o.stage==="phone"?"Sign in with your mobile number":"Enter your code",
+   sub=o.stage==="phone"?(o.after==="confirm"?"Verify your number to confirm this booking.":"We use your number to keep your bookings together."):"One more step to finish signing in.";
+  return '<div class="bar"><button class="back" data-a="home">'+ic.back+'Doctors</button></div>'+
+   '<div class="title-block" style="padding-top:2px"><h1>'+t+'</h1><p>'+sub+'</p></div>'+
+   '<form id="otpForm" novalidate><div class="card">'+otpPanel(o)+'</div></form>'+
+   '<div class="foot" style="text-align:left">Demo only. Try 9876543210 to see the example appointment. A live version sends the code by SMS.</div>';
+}
+
+/* ---------- views ---------- */
+function docCard(d){
+  var n=nextFree(d);
+  return '<button class="doc" data-a="open" data-v="'+d.id+'" aria-label="'+esc(d.name)+', '+esc(d.spec)+'">'+
+   avatar(d)+
+   '<div class="doc-main">'+
+    '<div class="doc-name">'+esc(d.name)+'</div>'+(d.verified?'<div style="margin:2px 0">'+vtag(d)+'</div>':'')+
+    '<div class="doc-sub">'+esc(d.spec)+' · '+d.exp+' yrs</div>'+
+    '<div class="doc-sub">'+esc(d.clinic)+', '+esc(d.city)+'</div>'+
+    (d.reviews?'<div class="row"><span class="rate">'+ic.star+d.rating.toFixed(1)+'</span><span class="muted" style="font-size:13px">'+d.reviews.toLocaleString("en-IN")+' reviews</span></div>':'<div class="row"><span class="pill">New on Nirog</span></div>')+
+    '<div class="next"><span>'+(n?'Next: <b>'+rel(n.k)+', '+t12(n.t)+'</b>':'No slots in 14 days')+'</span><span class="fee tnum">'+money(d.fee)+(platFee(d.fee)?'<small class="muted" style="font-weight:500;font-size:11.5px"> + '+money(platFee(d.fee))+' fee</small>':'')+'</span></div>'+
+   '</div></button>';
+}
+function docListHtml(){
+  var q=state.q.trim().toLowerCase();
+  var list=DOCS.filter(function(d){
+    return d.status!=="pending"&&d.status!=="rejected"&&(state.city===ALL_CITIES||d.city===state.city)&&(state.spec==="All"||d.spec===state.spec)&&(!q||(d.name+" "+d.spec+" "+d.clinic).toLowerCase().indexOf(q)>-1);
+  });
+  if(!list.length)return '<div class="empty">No doctors match. Try another specialty or clear the search.</div>';
+  return '<div class="count">'+list.length+(list.length===1?' doctor':' doctors')+' available'+(state.city===ALL_CITIES?'':' in '+esc(state.city))+'</div><div class="list">'+list.map(docCard).join("")+'</div>';
+}
+function vList(){
+  var chips=SPECS.map(function(s){return '<button class="chip" data-a="spec" data-v="'+esc(s)+'" aria-pressed="'+(state.spec===s)+'">'+esc(s)+'</button>'}).join("");
+  return '<div class="top"><div class="brand">Nirog<small>Doctor appointments</small></div>'+profBtn()+'</div>'+
+   '<div class="title-block"><h1>Book a doctor in a few taps</h1><p>Pick a specialist, choose a time, and get your booking reference.</p>'+
+   '<div class="tiny" style="margin-top:8px">'+(state.pat?'Signed in as '+patLine():'<button class="link" data-a="psignin" style="padding:0">Sign in with your mobile number</button>')+'</div></div>'+
+   '<div class="loc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'+
+   '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(CITIES).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
+   '<label class="search">'+ic.search+'<input id="q" type="search" placeholder="Search doctor, specialty or clinic" value="'+esc(state.q)+'" autocomplete="off"></label>'+
+   '<div class="chips" role="group" aria-label="Specialty">'+chips+'</div>'+
+   '<div id="docs">'+docListHtml()+'</div>'+
+   '<div class="card" style="margin-bottom:12px"><b>Are you a doctor?</b><div class="tiny" style="margin:4px 0 12px">Register your clinic with its address and Google Maps location so patients can find you.</div><button class="btn" data-a="regdoc">Register as a doctor</button></div>'+
+   '<div class="foot">Doctors, clinics and availability shown here are sample data for this prototype.</div>';
+}
+function vDoctor(){
+  var d=byId(state.docId),today=new Date(),dates="",i;
+  for(i=0;i<7;i++){
+    var dt=addDays(today,i),k=dkey(dt),c=freeCount(d,k),on=works(d,k)&&c>0;
+    dates+='<button class="date" data-a="date" data-v="'+k+'" '+(on?'':'disabled ')+'aria-pressed="'+(state.dateKey===k)+'" aria-label="'+longDate(k)+(on?', '+c+' slots':', unavailable')+'">'+
+     '<span class="d">'+(i===0?'Today':DAY[dt.getDay()])+'</span><span class="n tnum">'+dt.getDate()+'</span><span class="c">'+(on?c+' free':(works(d,k)?'Full':'Off'))+'</span></button>';
+  }
+  var slots=slotsFor(d,state.dateKey),groups=[["Morning",0,12],["Afternoon",12,17],["Evening",17,24]],gh="";
+  groups.forEach(function(g){
+    var s=slots.filter(function(x){var h=+x.t.split(":")[0];return h>=g[1]&&h<g[2]});
+    if(!s.length)return;
+    gh+='<div class="period"><h3>'+g[0]+'</h3><div class="slots">'+s.map(function(x){
+      return '<button class="slot tnum" data-a="slot" data-v="'+x.t+'" '+(x.st==="free"?'':'disabled ')+'aria-pressed="'+(state.time===x.t)+'">'+t12(x.t)+'</button>';
+    }).join("")+'</div></div>';
+  });
+  if(!gh)gh='<div class="empty">No slots left on this day. Pick another date.</div>';
+  var fee=state.mode==="video"?d.vfee:d.fee;
+  var seg='<div class="seg" role="group" aria-label="Visit type">'+
+    '<button data-a="mode" data-v="clinic" aria-pressed="'+(state.mode==="clinic")+'">In-clinic visit<small class="tnum">'+money(d.fee)+'</small></button>'+
+    (d.video?'<button data-a="mode" data-v="video" aria-pressed="'+(state.mode==="video")+'">Video consult<small class="tnum">'+money(d.vfee)+'</small></button>':
+             '<button disabled style="opacity:.5;cursor:not-allowed">Video consult<small>Not offered</small></button>')+'</div>';
+  var ready=state.dateKey&&state.time;
+  return '<div class="bar"><button class="back" data-a="back">'+ic.back+'Doctors</button></div>'+
+   (state.resched?'<div class="card" style="margin-bottom:10px;background:var(--accent-soft);border-color:transparent;font-size:14px">Rescheduling your appointment. Choose a new date and time.</div>':'')+
+   '<div class="profile">'+avatar(d,"lg")+'<div style="min-width:0"><h1>'+esc(d.name)+'</h1><div style="margin:2px 0">'+vtag(d)+'</div><div class="doc-sub">'+esc(d.spec)+'</div><div class="doc-sub">'+esc(d.qual)+'</div></div></div>'+
+   '<div class="facts"><div class="fact"><b class="tnum">'+d.exp+' yrs</b><span>Experience</span></div><div class="fact"><b class="tnum">'+(d.reviews?d.rating.toFixed(1):"New")+'</b><span>'+(d.reviews?d.reviews.toLocaleString("en-IN")+' reviews':'No reviews yet')+'</span></div><div class="fact"><b class="tnum">'+d.step+' min</b><span>Per visit</span></div></div>'+
+   '<div class="about">'+esc(d.about)+'<br><span style="font-size:13px">'+esc(d.clinic)+', '+esc(d.city)+' · '+esc(d.lang)+'</span></div>'+
+   ((d.gallery&&d.gallery.length)?'<div class="sec">Clinic photos</div><div class="gal">'+d.gallery.map(function(g,i){return '<button data-a="viewimg" data-v="'+d.id+'|g|'+i+'" aria-label="View clinic photo '+(i+1)+'"><img src="'+esc(g)+'" alt="Clinic photo '+(i+1)+'"></button>'}).join("")+'</div>':'')+
+   '<div class="sec">Clinic location</div><div class="card"><div class="locrow"><div class="pinbox">'+ic2.pin+'</div><div style="min-width:0"><b>'+esc(d.clinic)+'</b><div class="tiny">'+esc(d.address||"")+(d.address?", ":"")+esc(d.city)+(d.pin?" "+esc(d.pin):"")+'</div></div></div>'+
+   '<div class="acts" style="margin-top:12px">'+mapLink(siteOpen(d),"Open in Google Maps","btn sm")+mapLink(siteDir(d),"Directions","btn sm ghost")+'</div></div>'+
+   '<div class="sec">Visit type</div>'+seg+
+   '<div class="sec">Choose a date</div><div class="dates">'+dates+'</div>'+
+   '<div class="sec" style="padding-bottom:0">Choose a time</div>'+gh+
+   '<div class="legend">Struck-through times are already booked.</div><div style="height:16px"></div>'+
+   '<div class="stick">'+(ready?'<div class="cta-sum"><span><b>'+longDate(state.dateKey)+'</b>, '+t12(state.time)+'</span><span class="tnum" style="text-align:right">'+money(fee)+(platFee(fee)?' + '+money(platFee(fee))+' platform fee':'')+'</span></div>':'')+
+   '<button class="btn" data-a="cont" '+(ready?'':'disabled')+'>'+(ready?'Continue':'Select a date and time')+'</button></div>';
+}
+function vConfirm(){
+  prefillForm();
+  var d=byId(state.docId),f=state.form,e=state.errors,fee=state.mode==="video"?d.vfee:d.fee;
+  return '<div class="bar"><button class="back" data-a="backdoc">'+ic.back+'Change time</button></div>'+
+   '<div class="title-block" style="padding-top:2px"><h1>Confirm your visit</h1></div>'+
+   '<div class="card"><div class="sumrow"><span>Doctor</span><span>'+esc(d.name)+'</span></div>'+
+   '<div class="sumrow"><span>When</span><span class="tnum">'+longDate(state.dateKey)+', '+t12(state.time)+'</span></div>'+
+   '<div class="sumrow"><span>Visit</span><span>'+(state.mode==="video"?'Video consult':'In-clinic at '+esc(d.clinic)+', '+esc(d.city))+'</span></div>'+
+   '<div class="sumrow"><span>Doctor fee</span><span class="tnum">'+money(fee)+'</span></div>'+
+   (platFee(fee)?'<div class="sumrow"><span>Platform fee</span><span class="tnum">'+money(platFee(fee))+'</span></div><div class="sumrow"><span><b>Total</b></span><span class="tnum">'+money(fee+platFee(fee))+'</span></div>':'')+
+   '<div class="hint" style="margin-top:6px">The platform fee is charged by Nirog and is separate from the doctor\'s fee. Online payment is not connected in this demo, so nothing is charged here.</div></div>'+
+   '<form id="bookForm" novalidate style="display:flex;flex-direction:column;flex:1">'+
+   '<div class="sec">Patient details</div><div class="card">'+
+   '<div class="field"><label for="f-name">Patient name</label><input id="f-name" name="name" autocomplete="name" value="'+esc(f.name)+'" placeholder="Full name">'+(e.name?'<div class="err">'+e.name+'</div>':'')+'</div>'+
+   '<div class="field"><label for="f-phone">Mobile number</label><input id="f-phone" name="phone" inputmode="numeric" autocomplete="tel" maxlength="10" value="'+esc(f.phone)+'" placeholder="10-digit number"'+(state.pat?' readonly':'')+'>'+(e.phone?'<div class="err">'+e.phone+'</div>':'<div class="hint">'+(state.pat?'Verified with a one-time code. The clinic will use this number to reach you.':'The clinic will use this to reach you about your booking.')+'</div>')+'</div>'+
+   '<div class="two"><div class="field"><label for="f-age">Age (years)</label><input id="f-age" inputmode="numeric" maxlength="3" value="'+esc(f.age)+'">'+(e.age?'<div class="err">'+e.age+'</div>':'')+'</div>'+
+   '<div class="field"><label for="f-sex">Sex</label><select id="f-sex"><option value="">Select</option>'+SEXES.map(function(x){return '<option'+(f.sex===x?' selected':'')+'>'+x+'</option>'}).join("")+'</select>'+(e.sex?'<div class="err">'+e.sex+'</div>':'')+'</div></div>'+
+   '<div class="field" style="margin-bottom:0"><label for="f-reason">Reason for visit <span class="muted" style="font-weight:400">(optional)</span></label><textarea id="f-reason" name="reason" placeholder="For example: fever for two days">'+esc(f.reason)+'</textarea></div></div>'+
+   '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">'+(state.resched?'Confirm new time':'Confirm booking')+'</button></div></form>';
+}
+function vDone(){
+  var a=state.last,d=byId(a.docId);
+  return '<div class="done"><div class="tick">'+ic.check+'</div><h1 style="font-size:26px">'+(state.resched===null&&a.rebooked?'Appointment rescheduled':'You are booked')+'</h1>'+
+   '<p class="muted" style="margin:8px 0 0">'+esc(d.name)+' will see you on</p>'+
+   '<p style="font-family:var(--font-display);font-weight:700;font-size:20px;margin:4px 0 0" class="tnum">'+longDate(a.dateKey)+', '+t12(a.time)+'</p>'+
+   '<div class="ref tnum">'+esc(a.ref)+'</div>'+
+   '<p class="hint" style="margin-top:10px">Note this reference. Carry it, and any earlier reports, to the visit.</p></div>'+
+   '<div class="card" style="margin-top:12px"><div class="sumrow"><span>Patient</span><span>'+esc(a.name)+'</span></div>'+
+   '<div class="sumrow"><span>Visit</span><span>'+(a.mode==="video"?'Video consult':esc(d.clinic)+', '+esc(d.city))+'</span></div>'+
+   '<div class="sumrow"><span>Mobile</span><span class="tnum">'+esc(a.phone)+'</span></div>'+
+   '<div class="sumrow"><span>Doctor fee</span><span class="tnum">'+money(a.fee!=null?a.fee:visitFee(d,a.mode))+'</span></div>'+(a.pf?'<div class="sumrow"><span>Platform fee</span><span class="tnum">'+money(a.pf)+'</span></div>':'')+
+   (a.mode==="video"?'':'<div class="sumrow"><span>Address</span><span>'+esc(d.address||d.clinic)+', '+esc(d.city)+'<br>'+mapLink(siteDir(d),"Get directions","maplink")+'</span></div>')+'</div>'+
+   '<div class="stick" style="display:flex;flex-direction:column;gap:8px"><button class="btn" data-a="mine">View my appointments</button><button class="btn ghost" data-a="home">Book another</button></div>';
+}
+function apptCard(a){
+  var d=byId(a.docId),up=a.status==="upcoming";
+  var acts="";
+  if(up){
+    if(state.ask===a.id){
+      acts='<div class="confirm"><div>Cancel this appointment? The slot will be released for other patients.</div><div class="acts"><button class="btn sm danger" data-a="cancel" data-v="'+a.id+'">Yes, cancel</button><button class="btn sm ghost" data-a="keep">Keep it</button></div></div>';
+    }else{
+      acts='<div class="acts"><button class="btn sm ghost" data-a="resched" data-v="'+a.id+'">Reschedule</button><button class="btn sm ghost" data-a="ask" data-v="'+a.id+'" style="color:var(--bad)">Cancel</button></div>';
+    }
+  }
+  return '<div class="appt"'+(up?'':' style="opacity:.7"')+'><div class="appt-head">'+avatar(d)+'<div style="min-width:0;flex:1"><div class="doc-name">'+esc(d.name)+'</div><div class="doc-sub">'+esc(d.spec)+'</div></div>'+
+   (up?'<span class="pill">Upcoming</span>':'<span class="pill bad">Cancelled</span>')+'</div>'+
+   '<div class="when tnum">'+ic.cal.replace('width="22" height="22"','width="18" height="18"')+'<span>'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+'</span></div>'+
+   '<div class="doc-sub">'+(a.mode==="video"?'Video consult':esc(d.clinic)+', '+esc(d.city))+' · For '+esc(a.name)+(a.reason?' · '+esc(a.reason):'')+'</div>'+
+   (a.mode==="clinic"&&up?'<div>'+mapLink(siteDir(d),"Get directions on Google Maps","maplink")+'</div>':'')+
+   '<div class="row"><span class="hint tnum">Ref '+esc(a.ref)+' · '+money(a.fee!=null?a.fee:visitFee(d,a.mode))+(a.pf?' + '+money(a.pf)+' platform fee':'')+'</span>'+(a.sample?'<span class="pill warn">Example</span>':'')+'</div>'+acts+'</div>';
+}
+function vAppts(){
+  var mineA=myAppts();
+  var up=mineA.filter(function(a){return a.status==="upcoming"}).sort(function(x,y){return (x.dateKey+x.time)<(y.dateKey+y.time)?-1:1});
+  var cx=mineA.filter(function(a){return a.status==="cancelled"});
+  return '<div class="top"><div class="brand">Nirog<small>My appointments</small></div>'+profBtn()+'</div>'+
+   '<div class="title-block"><h1>Your appointments</h1>'+(state.pat?'<div class="tiny" style="margin-top:8px">'+patLine()+'</div>':'')+'</div>'+
+   (up.length?up.map(apptCard).join(""):'<div class="empty">No upcoming appointments. Book a doctor from the first tab and it will show up here.</div>')+
+   (cx.length?'<div class="sec">Cancelled</div>'+cx.map(apptCard).join(""):'')+
+   '<div style="height:16px"></div>';
+}
+function nav(){
+  var n=myAppts().filter(function(a){return a.status==="upcoming"}).length;
+  return '<nav class="nav stick" style="padding-top:6px" aria-label="Main"><button data-a="tab" data-v="find" '+(state.tab==="find"?'aria-current="page"':'')+'>'+ic.plus+'Find doctors</button>'+
+   '<button data-a="tab" data-v="labs" '+(state.tab==="labs"?'aria-current="page"':'')+'>'+ic2.slots+'Facilities</button>'+
+   '<button data-a="tab" data-v="appts" '+(state.tab==="appts"?'aria-current="page"':'')+'>'+ic.cal+'Appointments'+(n?'<span class="badge tnum">'+n+'</span>':'')+'</button></nav>';
+}
+function render(scroll){
+  var h,showNav=false;
+  if(state.staff){app.innerHTML=vStaff()+lbHtml();if(scroll)window.scrollTo(0,0);return}
+  if(state.view==="login"){app.innerHTML=vLogin();if(scroll)window.scrollTo(0,0);return}
+  if(state.view==="profile"&&state.pat&&state.prof){app.innerHTML=vProfile();if(scroll)window.scrollTo(0,0);return}
+  if(state.view==="freg"){app.innerHTML=vFreg();if(scroll)window.scrollTo(0,0);return}
+  if(state.view==="register"){app.innerHTML=vRegister();if(scroll)window.scrollTo(0,0);return}
+  if(state.view==="otp"&&state.otp){app.innerHTML=vOtp();if(scroll)window.scrollTo(0,0);return}
+  if(state.tab==="labs"){h=vLabs();showNav=true}
+  else if(state.tab==="appts"){h=vAppts();showNav=true}
+  else if(state.view==="list"){h=vList();showNav=true}
+  else if(state.view==="doctor")h=vDoctor();
+  else if(state.view==="confirm")h=vConfirm();
+  else h=vDone();
+  app.innerHTML=h+(showNav?nav():"")+lbHtml();
+  if(scroll)window.scrollTo(0,0);
+}
+
+/* ---------- actions ---------- */
+function resetPick(){state.dateKey=null;state.time=null;state.mode="clinic"}
+function firstDate(d){
+  var t=new Date();
+  for(var i=0;i<7;i++){var k=dkey(addDays(t,i));if(freeCount(d,k)>0)return k}
+  return null;
+}
+function book(){
+  var f=state.form,d=byId(state.docId),a;
+  if(state.pat&&f.name.trim().toLowerCase()===state.pat.name.toLowerCase()){var pr0=getProf(state.pat.phone)||{};pr0.name=state.pat.name;pr0.age=+f.age;pr0.sex=f.sex;putProf(state.pat.phone,pr0)}
+  if(state.resched){
+    a=null;appts.forEach(function(x){if(x.id===state.resched)a=x});
+    if(a){a.dateKey=state.dateKey;a.time=state.time;a.docId=state.docId;a.mode=state.mode;a.fee=visitFee(d,state.mode);a.pf=platFee(a.fee);a.age=+f.age;a.sex=f.sex;a.name=f.name.trim();a.phone=f.phone;a.reason=f.reason.trim();a.sample=false;a.rebooked=true;state.last=a;state.resched=null;save();state.view="done";render(true);return}
+  }
+  var chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",r="";
+  for(var i=0;i<5;i++)r+=chars[Math.floor(Math.random()*chars.length)];
+  a={id:"a"+Date.now(),ref:"NR-"+r,docId:d.id,dateKey:state.dateKey,time:state.time,mode:state.mode,age:+f.age,sex:f.sex,fee:visitFee(d,state.mode),pf:platFee(visitFee(d,state.mode)),name:f.name.trim(),phone:f.phone,reason:f.reason.trim(),status:"upcoming"};
+  appts.push(a);state.last=a;save();state.view="done";render(true);
+}
+app.addEventListener("click",function(ev){
+  var b=ev.target.closest("[data-a]");if(!b||b.disabled)return;
+  var a=b.getAttribute("data-a"),v=b.getAttribute("data-v");
+  switch(a){
+    case "regdoc":state.view="register";state.reg=newReg();state.regDone=null;state.tab="find";render(true);break;
+    case "rgday":toggleDay("reg",+v);break;
+    case "scday":toggleDay("sched",+v);break;
+    case "sdate":state.sdate=v;render();break;
+    case "blk":dSlot(v,true);break;
+    case "unblk":dSlot(v,false);break;
+    case "addoff":dOff(state.offDate,true);break;
+    case "offday":dOff(v,true);break;
+    case "rmoff":dOff(v,false);break;
+    case "dstat":sDocStatus(v);break;
+    case "vchk":(function(){var p=v.split("|"),c=vChk(p[0]);c[p[1]]=!c[p[1]];render()})();break;
+    case "viewdoc":viewDoc(v);break;
+    case "viewimg":viewImg(v);break;
+    case "lbclose":state.lb=null;render();break;
+    case "rmup":rmUpload(v);break;
+    case "labhome":state.nlab.home=!state.nlab.home;render();break;
+    case "faer":state.nlab.er=!state.nlab.er;render();break;
+    case "famb":state.nlab.amb=!state.nlab.amb;render();break;
+    case "fkind":state.fk=v;render();break;
+    case "profile":openProfile();break;
+    case "pback":state.view="list";render(true);break;
+    case "pphotorm":if(state.prof){state.prof.photo="";state.prof.ok="";render()}break;
+    case "pftog":if(state.pf){state.pf.on=!state.pf.on;state.pf.ok="";render()}break;
+    case "pftype":if(state.pf){state.pf.type=v;state.pf.err="";state.pf.ok="";render()}break;
+    case "fregstart":state.view="freg";state.fr=newFr();state.frDone=null;state.tab="labs";render(true);break;
+    case "fregagain":state.staff=null;state.view="freg";state.fr=newFr();state.frDone=null;state.tab="labs";render(true);break;
+    case "fback":state.view="list";state.tab="labs";state.frDone=null;render(true);break;
+    case "fftog":if(state.fr){state.fr[v]=!state.fr[v];render()}break;
+    case "frm":frRemove(v);break;
+    case "fstat":sFacStatus(v);break;
+    case "fchk":(function(){var p=v.split("|"),c=vChkF(p[0]);c[p[1]]=!c[p[1]];render()})();break;
+    case "fviewdoc":fViewDoc(v);break;
+    case "fviewimg":fViewImg(v);break;
+    case "rmlab":(function(){var me=getUser(state.staff);if(!me||me.role!=="admin")return;LABS=LABS.filter(function(l){return l.sample||l.id!==v});saveLabs();render()})();break;
+    case "staff":state.view="login";state.login={email:"",pass:"",err:""};render(true);break;
+    case "fill":state.login=v==="admin"?{email:"admin@nirog.demo",pass:"Admin@123",err:""}:v==="doctor"?{email:"anjali@nirog.demo",pass:"Doctor@123",err:""}:{email:"riya@nirog.demo",pass:"Sales@123",err:""};render();break;
+    case "logout":state.staff=null;state.view="list";state.tab="find";state.ask=null;render(true);break;
+    case "stab":state.stab=v;state.ask=null;state.addLead=false;schedMsg="";render(true);break;
+    case "lf":state.lf=v;render();break;
+    case "lead":sLead(v);break;
+    case "addlead":state.addLead=!state.addLead;render();break;
+    case "ttable":state.showTable=!state.showTable;render();break;
+    case "toggle":sToggle(v);break;
+    case "spec":state.spec=v;render();break;
+    case "open":
+      state.docId=+v;resetPick();var d=byId(state.docId);state.dateKey=firstDate(d);state.view="doctor";state.tab="find";render(true);break;
+    case "back":state.view="list";state.resched=null;render(true);break;
+    case "date":state.dateKey=v;state.time=null;render();break;
+    case "slot":state.time=v;render();break;
+    case "mode":state.mode=v;render();break;
+    case "cont":
+      if(state.dateKey&&state.time){
+        if(!state.pat){openOtp("patient","confirm");break}
+        state.errors={};state.form.name=state.pat.name;state.form.phone=state.pat.phone;state.view="confirm";render(true);
+      }
+      break;
+    case "psignin":openOtp("patient",null);break;
+    case "psignout":state.pat=null;savePat();state.tab="find";state.view="list";render(true);break;
+    case "otpsend":otpSend(false);break;
+    case "otpresend":otpSend(true);break;
+    case "otpchange":state.otp=newOtp(state.otp?state.otp.kind:"patient",state.otp?state.otp.after:null);render();break;
+    case "lmode":state.lmode=v;state.otp=null;state.login.err="";render();break;
+    case "backdoc":state.view="doctor";render(true);break;
+    case "tab":
+      if(v==="appts"&&!state.pat){openOtp("patient","appts");break}
+      state.tab=v;if(v==="find"&&state.view!=="list"&&state.view!=="doctor"){state.view="list"}state.ask=null;render(true);break;
+    case "home":state.view="list";state.tab="find";state.resched=null;state.form.reason="";state.form.age="";state.form.sex="";render(true);break;
+    case "mine":state.tab="appts";state.view="list";render(true);break;
+    case "ask":state.ask=v;render();break;
+    case "keep":state.ask=null;render();break;
+    case "cancel":appts.forEach(function(x){if(x.id===v)x.status="cancelled"});state.ask=null;save();render();break;
+    case "resched":
+      var ap=null;appts.forEach(function(x){if(x.id===v)ap=x});
+      if(ap){state.resched=ap.id;state.docId=ap.docId;state.mode=ap.mode;state.dateKey=null;state.time=null;
+        state.form={name:ap.name,phone:ap.phone,reason:ap.reason||"",age:ap.age!=null?String(ap.age):"",sex:ap.sex||""};
+        state.dateKey=firstDate(byId(ap.docId));state.tab="find";state.view="doctor";render(true)}
+      break;
+  }
+});
+app.addEventListener("input",function(ev){
+  var t=ev.target;
+  if(t.id==="q"){state.q=t.value;var box=document.getElementById("docs");if(box)box.innerHTML=docListHtml()}
+  else if(t.id==="f-name")state.form.name=t.value;
+  else if(t.id==="f-phone"){t.value=t.value.replace(/\D/g,"").slice(0,10);state.form.phone=t.value}
+  else if(t.id==="f-reason")state.form.reason=t.value;
+  else if(t.id==="f-age"){t.value=t.value.replace(/\D/g,"").slice(0,3);state.form.age=t.value}
+  else if(t.id==="f-sex")state.form.sex=t.value;
+  else if(t.id==="pr-name"&&state.prof){state.prof.name=t.value;state.prof.ok=""}
+  else if(t.id==="pr-age"&&state.prof){t.value=t.value.replace(/\D/g,"").slice(0,3);state.prof.age=t.value;state.prof.ok=""}
+  else if(t.id==="pr-sex"&&state.prof){state.prof.sex=t.value;state.prof.ok=""}
+  else if(t.id==="city"){state.city=t.value;saveCity(t.value);var cbox=document.getElementById("docs");if(cbox)cbox.innerHTML=docListHtml();var lbx=document.getElementById("labs");if(lbx)lbx.innerHTML=labsListHtml()}
+  else if(t.id==="lq"){state.lq=t.value;var lb2=document.getElementById("labs");if(lb2)lb2.innerHTML=labsListHtml()}
+  else if(t.id==="pf-value"&&state.pf){state.pf.value=t.value.replace(/[^\d.]/g,"").slice(0,6);t.value=state.pf.value;state.pf.ok="";state.pf.err="";var pfx=document.getElementById("pf-ex");if(pfx){var pv=+state.pf.value||0,pe=state.pf.type==="flat"?Math.round(pv):Math.round(500*pv/100);pfx.innerHTML="Example: on a ₹500 visit the patient sees ₹500 doctor fee + "+money(state.pf.on?pe:0)+" platform fee = <b>"+money(500+(state.pf.on?pe:0))+"</b>."}}
+  else if(t.id&&t.id.indexOf("rj-")===0){state.rej[t.id.slice(3)]=t.value}
+  else if(t.id&&t.id.indexOf("fj-")===0){state.rej["f"+t.id.slice(3)]=t.value}
+  else if(t.id&&t.id.indexOf("fr-")===0&&state.fr){
+    var fk=t.id.slice(3),fv=t.value;
+    if(fk==="phone"){fv=fv.replace(/\D/g,"").slice(0,10);t.value=fv}
+    if(fk==="pin"){fv=fv.replace(/\D/g,"").slice(0,6);t.value=fv}
+    if(fk==="beds"){fv=fv.replace(/\D/g,"").slice(0,5);t.value=fv}
+    state.fr[fk]=fv;
+    if(fk==="kind")render();
+    if(fk==="map"){var fms=document.getElementById("fr-map-status");if(fms)fms.textContent=mapStatus(fv)}
+  }
+  else if(t.id&&t.id.indexOf("nb-")===0){var nk=t.id.slice(3),nv=t.value;if(nk==="pin"){nv=nv.replace(/\D/g,"").slice(0,6);t.value=nv}state.nlab[nk]=nv;if(nk==="kind")render()}
+  else if(t.id&&t.id.indexOf("rg-")===0&&state.reg){
+    var rk=t.id.slice(3),rv=t.value;
+    if(rk==="phone"){rv=rv.replace(/\D/g,"").slice(0,10);t.value=rv}
+    if(rk==="pin"){rv=rv.replace(/\D/g,"").slice(0,6);t.value=rv}
+    state.reg[rk]=rv;
+    afterSched("rg",state.reg,rk);
+    if(rk==="clinic"||rk==="addr"||rk==="city"||rk==="pin"){var fa=document.getElementById("rg-find");if(fa)fa.href=findUrl()}
+    if(rk==="map"){var ms=document.getElementById("rg-map-status");if(ms)ms.textContent=mapStatus(rv)}
+  }
+  else if(t.id==="sc-offdate")state.offDate=t.value;
+  else if(t.id&&t.id.indexOf("sc-")===0&&state.sched){var sk=t.id.slice(3);state.sched[sk]=t.value;afterSched("sc",state.sched,sk)}
+  else if(t.id==="o-phone"&&state.otp){t.value=t.value.replace(/\D/g,"").slice(0,10);state.otp.phone=t.value}
+  else if(t.id==="o-code"&&state.otp){t.value=t.value.replace(/\D/g,"").slice(0,6);state.otp.code=t.value}
+  else if(t.id==="o-name"&&state.otp)state.otp.name=t.value;
+  else if(t.id==="nm-phone"){t.value=t.value.replace(/\D/g,"").slice(0,10);state.nmem.phone=t.value}
+  else if(t.id==="l-email")state.login.email=t.value;
+  else if(t.id==="l-pass")state.login.pass=t.value;
+  else if(t.id==="nl-name")state.nlead.name=t.value;
+  else if(t.id==="nl-phone"){t.value=t.value.replace(/\D/g,"").slice(0,10);state.nlead.phone=t.value}
+  else if(t.id==="nl-spec")state.nlead.spec=t.value;
+  else if(t.id==="nm-name")state.nmem.name=t.value;
+  else if(t.id==="nm-email")state.nmem.email=t.value;
+  else if(t.id==="nm-pass")state.nmem.pass=t.value;
+  else if(t.id==="nm-target")state.nmem.target=t.value;
+});
+app.addEventListener("change",function(ev){
+  var t=ev.target;
+  if(t&&t.type==="file"&&t.id&&t.id.indexOf("up-")===0){onUpload(t.id,t.files)}
+  if(t&&t.type==="file"&&t.id&&t.id.indexOf("fu-")===0){onFacUpload(t.id,t.files)}
+  if(t&&t.type==="file"&&t.id==="pu-photo"){onProfPhoto(t.files)}
+});
+app.addEventListener("submit",function(ev){
+  ev.preventDefault();
+  var fid=ev.target.id;
+  if(fid==="otpForm"){if(state.otp&&state.otp.stage==="code")otpVerify();else otpSend(false);return}
+  if(fid==="regForm"){submitReg();return}
+  if(fid==="labForm"){submitLab();return}
+  if(fid==="pfForm"){savePf();return}
+  if(fid==="profForm"){saveProfile();return}
+  if(fid==="fregForm"){submitFreg();return}
+  if(fid==="schedForm"){saveSched();return}
+  if(fid==="loginForm"){doLogin();return}
+  if(fid==="leadForm"){addLead();return}
+  if(fid==="memberForm"){addMember();return}
+  var f=state.form,e={};
+  if(f.name.trim().length<2)e.name="Enter the patient's full name.";
+  if(!/^[6-9]\d{9}$/.test(f.phone))e.phone="Enter a valid 10-digit mobile number starting with 6, 7, 8 or 9.";
+  if(!validAge(f.age))e.age="Enter the patient's age, 0 to 120.";
+  if(SEXES.indexOf(f.sex)<0)e.sex="Select an option.";
+  state.errors=e;
+  if(e.name||e.phone||e.age||e.sex){render();var el=document.getElementById(e.name?"f-name":e.phone?"f-phone":e.age?"f-age":"f-sex");if(el)el.focus();return}
+  book();
+});
+/* Back button support for the Android wrapper. Returns true when it handled the press. */
+window.__nirogBack=function(){
+  if(state.staff)return false;
+  if(state.lb){state.lb=null;render();return true}
+  if(state.view==="confirm"){state.view="doctor";render(true);return true}
+  if(state.view==="doctor"||state.view==="done"||state.view==="login"||state.view==="register"||state.view==="freg"||state.view==="profile"||state.view==="otp"){state.view="list";state.resched=null;render(true);return true}
+  if(state.lb){state.lb=null;render();return true}
+  if(state.tab==="appts"||state.tab==="labs"){state.tab="find";render(true);return true}
+  return false;
+};
+/* Deep links: #staff opens staff sign-in, #register the doctor sign-up, #facility the lab, centre and hospital sign-up. */
+function hashRoute(){
+  var h="";try{h=location.hash}catch(e){}
+  if(/(^|[#&])staff$/.test(h)&&!state.staff){state.view="login";state.login={email:"",pass:"",err:""};return true}
+  if(/(^|[#&])register$/.test(h)&&!state.staff){state.view="register";state.reg=newReg();state.regDone=null;state.tab="find";return true}
+  if(/(^|[#&])facility$/.test(h)&&!state.staff){state.view="freg";state.fr=newFr();state.frDone=null;state.tab="labs";return true}
+  return false;
+}
+try{window.addEventListener("hashchange",function(){if(hashRoute())render(true)})}catch(e){}
+hashRoute();
+render();
+})();
+</script>
+
+</body>
+</html>

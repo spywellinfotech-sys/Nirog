@@ -40,3 +40,18 @@ Raise `versionCode` in `app/build.gradle.kts` for each release you hand out.
   patients and clinics use it together.
 - Google Maps links open in the Google Maps app. The Back button steps back inside the app before it exits.
 - Application id: `com.nirog.app`. Minimum Android version: 7.0 (API 24).
+
+## Web app (web/ folder)
+
+`web/` is the same Nirog app as a website. It is a Progressive Web App: on a phone, open the site in Chrome and choose Add to Home screen (or Install app) and it opens full screen like an app, and works offline once loaded.
+
+Publish it free with GitHub Pages:
+1. Upload this whole project to your repository (keep the `web` and `.github` folders).
+2. Repository Settings -> Pages -> Source: **GitHub Actions**.
+3. Actions tab -> **Deploy web app** -> Run workflow. The address is shown on the finished run, usually `https://<your-username>.github.io/<repository>/`.
+
+Or drag the `web` folder onto any static host (Netlify Drop, Cloudflare Pages, Firebase Hosting, your own server).
+
+Deep links: add `#staff` (staff sign-in), `#register` (doctor sign-up) or `#facility` (lab, centre and hospital sign-up) to the end of the web address.
+
+Note: data (bookings, doctors, profiles, uploads) is saved in each visitor's own browser, not on a server. A real launch needs a backend.
