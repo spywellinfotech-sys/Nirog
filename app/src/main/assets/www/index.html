@@ -467,7 +467,7 @@ function worksDay(doc,k){return doc.days.indexOf(fromKey(k).getDay())>-1}
 function works(doc,k){return worksDay(doc,k)&&!isOff(doc,k)}
 function bookedKey(id,k,t){return id+"|"+k+"|"+t}
 /* ---------- help and support ---------- */
-var SUP=(function(){try{var r=JSON.parse(localStorage.getItem("nirog-support-v1"));if(r&&typeof r==="object")return {email:String(r.email||""),wa:String(r.wa||"")}}catch(e){}return {email:"",wa:""}})();
+var SUP=(function(){try{var r=JSON.parse(localStorage.getItem("nirog-support-v1"));if(r&&typeof r==="object")return {email:String(r.email||""),wa:String(r.wa||"")}}catch(e){}return {email:"spywellinfotech@gmail.com",wa:"9837900303"}})();
 function saveSup(){try{localStorage.setItem("nirog-support-v1",JSON.stringify(SUP))}catch(e){}}
 function waNum(v){var d=String(v||"").replace(/\D/g,"");if(d.length===10)d="91"+d;return d}
 function supWho(){
