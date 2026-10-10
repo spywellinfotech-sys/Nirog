@@ -55,3 +55,15 @@ Or drag the `web` folder onto any static host (Netlify Drop, Cloudflare Pages, F
 Deep links: add `#staff` (staff sign-in), `#register` (doctor sign-up) or `#facility` (lab, centre and hospital sign-up) to the end of the web address.
 
 Note: data (bookings, doctors, profiles, uploads) is saved in each visitor's own browser, not on a server. A real launch needs a backend.
+
+## iOS app (ios/ folder)
+
+`ios/` is a native iPhone and iPad wrapper (SwiftUI + WKWebView) around the same web app, built with XcodeGen.
+The **Build iOS app** workflow runs on a Mac server and publishes an **unsigned** `Nirog-unsigned.ipa` under Releases (tag `latest-ios`).
+
+Apple only lets signed apps run on iPhones. Options:
+- **Free, for testing:** install the .ipa with Sideloadly or AltStore using your Apple ID. The app expires after 7 days and must be re-installed.
+- **Paid Apple Developer account ($99 a year):** sign the app, then use TestFlight or the App Store.
+- **No account at all:** open the website in Safari, tap Share, then Add to Home Screen.
+
+Staff sign-in inside the Android and iOS apps: press and hold the Nirog name at the top of the screen for about a second.
