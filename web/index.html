@@ -476,6 +476,7 @@ function supWho(){
 }
 function supText(){var w=supWho();return "Hello Nirog support, I need help with: "+(w?"\n\n(From: "+w+")":"")}
 function supMail(){return "mailto:"+SUP.email+"?subject="+encodeURIComponent("Nirog help request")+"&body="+encodeURIComponent(supText())}
+function waLink(n,who){var t="Hello"+(who?" "+who:"")+", I found you on Nirog and would like to ask about "+(state.pat?"an appointment. (I am "+state.pat.name+")":"an appointment.");return "https://wa.me/"+waNum(n)+"?text="+encodeURIComponent(t)}
 function supWa(){return "https://wa.me/"+waNum(SUP.wa)+"?text="+encodeURIComponent(supText())}
 function helpFoot(){return '<div style="text-align:center;padding:6px 0 18px"><button class="btn sm ghost" data-a="help">Help and support</button></div>'}
 function vHelp(){
@@ -1008,7 +1009,7 @@ function schedHtml(m,ns){
    '<div class="hint" id="'+id+'-cnt">'+(n?'This opens '+n+' slots on each working day.':'No slots yet. Check the times above.')+'</div></div>';
 }
 function newReg(){
-  return {name:"",spec:SPECS[1],qual:"",exp:"",clinic:"",city:CITIES[0],addr:"",pin:"",map:"",
+  return {wa:"",name:"",spec:SPECS[1],qual:"",exp:"",clinic:"",city:CITIES[0],addr:"",pin:"",map:"",
     days:[1,2,3,4,5,6],s1f:"600",s1t:"780",s2f:"1020",s2t:"1200",step:"20",
     fee:"",vfee:"",phone:"",email:"",pass:"",lang:"Hindi, English",about:"",council:"",regno:"",ryear:"",photo:"",gallery:[],docs:{reg:null,id:null,deg:null},upMsg:"",errs:{}};
 }
@@ -1066,6 +1067,7 @@ function vRegister(){
    '<div class="field" style="margin-bottom:0"><label for="rg-vfee">Video consult fee (₹, optional)</label><input id="rg-vfee" type="number" inputmode="numeric" min="0" value="'+esc(r.vfee)+'">'+(e.vfee?'<div class="err">'+e.vfee+'</div>':'<div class="hint">Leave blank if you do not offer video consults.</div>')+'</div></div>'+
    '<div class="sec">Contact and login</div><div class="card">'+
    fld("phone","Mobile number",'<input id="rg-phone" inputmode="numeric" maxlength="10" autocomplete="tel" value="'+esc(r.phone)+'">')+
+   fld("wa","WhatsApp number for patients (optional)",'<input id="rg-wa" inputmode="numeric" maxlength="10" autocomplete="off" value="'+esc(r.wa)+'">',"Patients can message you on WhatsApp from your profile. Leave empty to hide it.")+
    fld("email","Email (your login)",'<input id="rg-email" type="email" autocomplete="username" value="'+esc(r.email)+'">')+
    '<div class="field" style="margin-bottom:0"><label for="rg-pass">Password</label><input id="rg-pass" type="password" autocomplete="new-password" value="'+esc(r.pass)+'">'+(e.pass?'<div class="err">'+e.pass+'</div>':'<div class="hint">At least 8 characters. Demo only: stored in this browser.</div>')+'</div></div>'+
    '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">Submit for review</button></div></form>';
@@ -1168,6 +1170,7 @@ function submitReg(){
   if(!(fee>=100&&fee<=20000))e.fee="Enter a fee between ₹100 and ₹20,000.";
   if(r.vfee!==""&&!(vf>=50&&vf<=20000))e.vfee="Enter a video fee between ₹50 and ₹20,000, or leave it blank.";
   if(!/^[6-9]\d{9}$/.test(r.phone))e.phone="Enter a valid 10-digit mobile number.";
+  if(r.wa&&!/^[6-9]\d{9}$/.test(r.wa))e.wa="Enter a valid 10-digit WhatsApp number, or leave it empty.";
   else if(staffByPhone(r.phone))e.phone="That mobile number already has an account.";
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))e.email="Enter a valid email address.";
   else if(dup)e.email="That email already has an account.";
@@ -1184,7 +1187,7 @@ function submitReg(){
   var doc={id:id,name:"Dr. "+nm,spec:r.spec,exp:Math.round(ex),qual:r.qual.trim(),fee:Math.round(fee),vfee:Math.round(vf),video:vf>0,rating:0,reviews:0,
     lang:r.lang.trim()||"Hindi, English",clinic:r.clinic.trim(),city:r.city,address:r.addr.trim(),pin:r.pin,mapUrl:mp.url,
     about:r.about.trim()||"New on Nirog. Pick an open slot to book a visit.",days:r.days.slice().sort(),hours:hoursFromModel(r),step:+r.step,
-    off:[],blocked:[],min:true,phone:r.phone,status:"pending",registered:true,ref:"DR-"+rand5(),
+    off:[],blocked:[],min:true,phone:r.phone,wa:r.wa||"",status:"pending",registered:true,ref:"DR-"+rand5(),
     council:r.council.trim(),regno:r.regno.trim(),ryear:yr,verified:false,photo:r.photo,gallery:r.gallery.slice(),
     vdocs:[["reg","Registration certificate"],["id","Government photo ID"],["deg","Degree certificate"]].filter(function(x){return r.docs[x[0]]}).map(function(x){var f=r.docs[x[0]];return {key:x[0],label:x[1],name:f.name,type:f.type,data:f.data}})};
   if(isNum(mp.lat)){doc.lat=mp.lat;doc.lng=mp.lng}
@@ -1432,7 +1435,7 @@ function labCard(l){
    '<div class="tiny">'+(/^open 24/i.test(l.hours)?esc(l.hours):'Open '+esc(l.hours))+(l.beds?' · '+l.beds+' beds':'')+'</div>'+
    '<div class="tiny" style="font-weight:600">'+(l.kind==="hospital"?"Specialities":l.kind==="other"?"Services":"Tests")+'</div>'+
    '<div class="tests">'+shown.map(function(t){return '<span>'+esc(t[0])+(t.length>1?' <b>'+money(t[1])+'</b>':'')+'</span>'}).join("")+'</div>'+
-   '<div class="acts">'+mapLink(siteOpen({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Open in Google Maps","btn sm")+mapLink(siteDir({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Directions","btn sm ghost")+'</div>'+
+   '<div class="acts">'+(l.wa?mapLink(waLink(l.wa,l.name),"WhatsApp","btn sm"):'')+mapLink(siteOpen({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Open in Google Maps","btn sm")+mapLink(siteDir({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Directions","btn sm ghost")+'</div>'+
    (l.sample?'<div class="hint">Sample listing. Names, services and prices are examples.</div>':'')+'</div>';
 }
 function labsListHtml(){
@@ -1497,7 +1500,7 @@ function submitLab(){
 
 /* ---------- facility sign-up (labs, diagnostic centres, hospitals, other care) ---------- */
 var FREJ=["Licence or registration certificate is not readable","Licence does not match the facility name or address","Owner or authorised person ID is missing or not valid","Location or address could not be confirmed","Other, contact support"];
-function newFr(){return {kind:"lab",sub:SUBS[0],name:"",contact:"",phone:"",email:"",city:CITIES[0],addr:"",pin:"",map:"",hours:"7:00 AM to 9:00 PM",home:true,er:true,amb:true,beds:"",tests:"",
+function newFr(){return {wa:"",kind:"lab",sub:SUBS[0],name:"",contact:"",phone:"",email:"",city:CITIES[0],addr:"",pin:"",map:"",hours:"7:00 AM to 9:00 PM",home:true,er:true,amb:true,beds:"",tests:"",
   licno:"",auth:"",docs:{lic:null,id:null,acc:null},gallery:[],agree:false,upMsg:"",errs:{}}}
 function facById(id){for(var i=0;i<LABS.length;i++)if(LABS[i].id===id)return LABS[i];return null}
 function vChkF(id){state.vchk=state.vchk||{};var k="f"+id;return state.vchk[k]||(state.vchk[k]={a:false,b:false,c:false})}
@@ -1539,6 +1542,7 @@ function vFreg(){
    '<div class="sec">Contact and login</div><div class="card">'+
    fld("contact","Contact person",txt("contact",'autocomplete="name"'))+
    fld("phone","Mobile number (you sign in with a one-time code)",txt("phone",'inputmode="numeric" maxlength="10" autocomplete="tel"'))+
+   fld("wa","WhatsApp number for patients (optional)",txt("wa",'inputmode="numeric" maxlength="10" autocomplete="off"'),"Shown on your listing as a Chat on WhatsApp button. Leave empty to hide it.")+
    fld("email","Email",txt("email",'type="email" autocomplete="email"'))+
    '<div class="field" style="margin-bottom:0"><button type="button" class="chk" data-a="fftog" data-v="agree" aria-pressed="'+r.agree+'"><i>'+(r.agree?"✓":"")+'</i><span>I confirm these details and documents are true and I am allowed to list this facility.</span></button>'+(e.agree?'<div class="err">'+e.agree+'</div>':'')+'</div></div>'+
    '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">Submit for review</button></div></form>';
@@ -1591,6 +1595,7 @@ function submitFreg(){
   if(!r.gallery.length)e.gallery="Add at least one facility photo.";
   if(r.contact.trim().length<2)e.contact="Enter the contact person's name.";
   if(!/^[6-9]\d{9}$/.test(r.phone))e.phone="Enter a valid 10-digit mobile number.";
+  if(r.wa&&!/^[6-9]\d{9}$/.test(r.wa))e.wa="Enter a valid 10-digit WhatsApp number, or leave it empty.";
   else if(staffByPhone(r.phone))e.phone="That mobile number already has an account.";
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))e.email="Enter a valid email address.";
   else if(dup)e.email="That email already has an account.";
@@ -1606,7 +1611,7 @@ function submitFreg(){
   }
   var id="l"+Date.now();
   var l={id:id,kind:r.kind,name:r.name.trim(),city:r.city,address:r.addr.trim(),pin:r.pin,hours:r.hours.trim(),tests:t,sample:false,
-    registered:true,status:"pending",verified:false,ref:"FC-"+rand5(),contact:r.contact.trim(),phone:r.phone,email:em,licno:r.licno.trim(),auth:r.auth.trim(),
+    registered:true,status:"pending",verified:false,ref:"FC-"+rand5(),contact:r.contact.trim(),phone:r.phone,wa:r.wa||"",email:em,licno:r.licno.trim(),auth:r.auth.trim(),
     gallery:r.gallery.slice(),submitted:Date.now(),
     vdocs:[["lic","Licence or registration certificate"],["id","Photo ID"],["acc","Accreditation"]].filter(function(x){return r.docs[x[0]]}).map(function(x){var f=r.docs[x[0]];return {key:x[0],label:x[1],name:f.name,type:f.type,data:f.data}})};
   if(hosp){l.er=r.er;l.ambulance=r.amb;if(/^\d{1,5}$/.test(r.beds))l.beds=+r.beds}else l.home=r.home;
@@ -1901,7 +1906,7 @@ function vDoctor(){
    (state.resched?'<div class="card" style="margin-bottom:10px;background:var(--accent-soft);border-color:transparent;font-size:14px">Rescheduling your appointment. Choose a new date and time.</div>':'')+
    '<div class="profile">'+avatar(d,"lg")+'<div style="min-width:0"><h1>'+esc(d.name)+'</h1><div style="margin:2px 0">'+vtag(d)+'</div><div class="doc-sub">'+esc(d.spec)+'</div><div class="doc-sub">'+esc(d.qual)+'</div></div></div>'+
    '<div class="facts"><div class="fact"><b class="tnum">'+d.exp+' yrs</b><span>Experience</span></div><div class="fact"><b class="tnum">'+(d.reviews?d.rating.toFixed(1):"New")+'</b><span>'+(d.reviews?d.reviews.toLocaleString("en-IN")+' reviews':'No reviews yet')+'</span></div><div class="fact"><b class="tnum">'+d.step+' min</b><span>Per visit</span></div></div>'+
-   '<div class="about">'+esc(d.about)+'<br><span style="font-size:13px">'+esc(d.clinic)+', '+esc(d.city)+' · '+esc(d.lang)+'</span></div>'+
+   (d.wa?'<div style="margin:0 0 12px">'+mapLink(waLink(d.wa,d.name),"Chat with the clinic on WhatsApp","btn sm")+'</div>':'')+'<div class="about">'+esc(d.about)+'<br><span style="font-size:13px">'+esc(d.clinic)+', '+esc(d.city)+' · '+esc(d.lang)+'</span></div>'+
    ((d.gallery&&d.gallery.length)?'<div class="sec">Clinic photos</div><div class="gal">'+d.gallery.map(function(g,i){return '<button data-a="viewimg" data-v="'+d.id+'|g|'+i+'" aria-label="View clinic photo '+(i+1)+'"><img src="'+esc(g)+'" alt="Clinic photo '+(i+1)+'"></button>'}).join("")+'</div>':'')+
    '<div class="sec">Clinic location</div><div class="card"><div class="locrow"><div class="pinbox">'+ic2.pin+'</div><div style="min-width:0"><b>'+esc(d.clinic)+'</b><div class="tiny">'+esc(d.address||"")+(d.address?", ":"")+esc(d.city)+(d.pin?" "+esc(d.pin):"")+'</div></div></div>'+
    '<div class="acts" style="margin-top:12px">'+mapLink(siteOpen(d),"Open in Google Maps","btn sm")+mapLink(siteDir(d),"Directions","btn sm ghost")+'</div></div>'+
@@ -2133,7 +2138,7 @@ app.addEventListener("input",function(ev){
   else if(t.id&&t.id.indexOf("fj-")===0){state.rej["f"+t.id.slice(3)]=t.value}
   else if(t.id&&t.id.indexOf("fr-")===0&&state.fr){
     var fk=t.id.slice(3),fv=t.value;
-    if(fk==="phone"){fv=fv.replace(/\D/g,"").slice(0,10);t.value=fv}
+    if(fk==="phone"||fk==="wa"){fv=fv.replace(/\D/g,"").slice(0,10);t.value=fv}
     if(fk==="pin"){fv=fv.replace(/\D/g,"").slice(0,6);t.value=fv}
     if(fk==="beds"){fv=fv.replace(/\D/g,"").slice(0,5);t.value=fv}
     state.fr[fk]=fv;
@@ -2143,7 +2148,7 @@ app.addEventListener("input",function(ev){
   else if(t.id&&t.id.indexOf("nb-")===0){var nk=t.id.slice(3),nv=t.value;if(nk==="pin"){nv=nv.replace(/\D/g,"").slice(0,6);t.value=nv}state.nlab[nk]=nv;if(nk==="kind")render()}
   else if(t.id&&t.id.indexOf("rg-")===0&&state.reg){
     var rk=t.id.slice(3),rv=t.value;
-    if(rk==="phone"){rv=rv.replace(/\D/g,"").slice(0,10);t.value=rv}
+    if(rk==="phone"||rk==="wa"){rv=rv.replace(/\D/g,"").slice(0,10);t.value=rv}
     if(rk==="pin"){rv=rv.replace(/\D/g,"").slice(0,6);t.value=rv}
     state.reg[rk]=rv;
     afterSched("rg",state.reg,rk);
