@@ -466,6 +466,40 @@ function isOff(doc,k){return (doc.off||[]).indexOf(k)>-1}
 function worksDay(doc,k){return doc.days.indexOf(fromKey(k).getDay())>-1}
 function works(doc,k){return worksDay(doc,k)&&!isOff(doc,k)}
 function bookedKey(id,k,t){return id+"|"+k+"|"+t}
+/* ---------- help and support ---------- */
+var SUP=(function(){try{var r=JSON.parse(localStorage.getItem("nirog-support-v1"));if(r&&typeof r==="object")return {email:String(r.email||""),wa:String(r.wa||"")}}catch(e){}return {email:"",wa:""}})();
+function saveSup(){try{localStorage.setItem("nirog-support-v1",JSON.stringify(SUP))}catch(e){}}
+function waNum(v){var d=String(v||"").replace(/\D/g,"");if(d.length===10)d="91"+d;return d}
+function supWho(){
+  if(state.staff){var u=getUser(state.staff);return u?u.name+" ("+({admin:"Super admin",doctor:"Doctor",sales:"Sales",facility:"Facility"}[u.role]||u.role)+")":""}
+  return state.pat?state.pat.name+", mobile "+state.pat.phone:"";
+}
+function supText(){var w=supWho();return "Hello Nirog support, I need help with: "+(w?"\n\n(From: "+w+")":"")}
+function supMail(){return "mailto:"+SUP.email+"?subject="+encodeURIComponent("Nirog help request")+"&body="+encodeURIComponent(supText())}
+function supWa(){return "https://wa.me/"+waNum(SUP.wa)+"?text="+encodeURIComponent(supText())}
+function helpFoot(){return '<div style="text-align:center;padding:6px 0 18px"><button class="btn sm ghost" data-a="help">Help and support</button></div>'}
+function vHelp(){
+  var has=SUP.email||SUP.wa,out='';
+  if(SUP.wa)out+='<a class="btn" style="text-decoration:none;display:flex;justify-content:center" href="'+esc(supWa())+'" target="_blank" rel="noopener">Chat on WhatsApp</a>';
+  if(SUP.email)out+='<a class="btn ghost" style="text-decoration:none;display:flex;justify-content:center" href="'+esc(supMail())+'" target="_blank" rel="noopener">Email support</a>';
+  return '<div class="top"><div class="brand">Nirog<small>Help</small></div><button class="btn sm ghost" data-a="hclose">Close</button></div><div class="title-block"><h1>Help and support</h1><p>Questions about a booking, a doctor or your account? Reach us here.</p></div>'+
+   '<div class="card" style="display:flex;flex-direction:column;gap:10px">'+(has?out+'<div class="hint">Your message opens ready to send. Support replies during working hours.</div>':'<div class="empty">Support contact is not set up yet. Please check back soon.</div>')+'</div>';
+}
+function supCard(){
+  var f=state.supf||(state.supf={email:SUP.email,wa:SUP.wa,err:"",ok:""});
+  return '<div class="card"><div class="cardhead"><h2>Help and support</h2><span class="pill'+(SUP.email||SUP.wa?'':' warn')+'">'+(SUP.email||SUP.wa?"Live":"Not set")+'</span></div>'+
+   '<div class="hint" style="margin-bottom:12px">Patients, doctors and facilities see these as Email and WhatsApp buttons under Help and support.</div>'+
+   '<form id="supForm" novalidate><div class="field"><label for="sup-email">Support email</label><input id="sup-email" type="email" inputmode="email" value="'+esc(f.email)+'" placeholder="support@yourdomain.com"></div>'+
+   '<div class="field"><label for="sup-wa">WhatsApp number</label><input id="sup-wa" type="tel" inputmode="tel" value="'+esc(f.wa)+'" placeholder="10-digit mobile, or with country code"></div>'+
+   (f.err?'<div class="err">'+esc(f.err)+'</div>':'')+(f.ok?'<div class="hint" style="color:var(--ok,#2a7a3b)">'+esc(f.ok)+'</div>':'')+
+   '<button class="btn" type="submit" style="margin-top:8px">Save support contacts</button></form></div>';
+}
+function saveSupForm(){
+  var f=state.supf;if(!f)return;var em=f.email.trim(),wa=f.wa.trim();f.ok="";f.err="";
+  if(em&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){f.err="Enter a valid email address.";render();return}
+  if(wa&&!/^\+?[\d\s-]{10,16}$/.test(wa)){f.err="Enter a valid WhatsApp number (10 to 15 digits).";render();return}
+  SUP.email=em;SUP.wa=wa;saveSup();f.ok="Saved.";render();
+}
 /* ---------- in-app notifications ---------- */
 var NOTIF=(function(){try{var r=JSON.parse(localStorage.getItem("nirog-notif-v1"));if(Array.isArray(r))return r}catch(e){}return []})();
 function saveNotif(){try{localStorage.setItem("nirog-notif-v1",JSON.stringify(NOTIF.slice(-300)))}catch(e){}}
@@ -547,7 +581,7 @@ var state={tab:"find",view:"list",city:loadCity(),spec:"All",q:"",docId:null,dat
   login:{email:"",pass:"",err:""},
   nlead:{name:"",phone:"",spec:SPECS[1],err:""},
   nmem:{name:"",email:"",phone:"",pass:"",target:"50000",err:""},
-  pat:loadPat(),after:null,otp:null,lmode:"email",lb:null,vchk:{},rej:{},lq:"",pf:null,prof:null,nb:true,notif:false,atime:{},rrs:{},rask:null,fr:null,frDone:null,nlab:null,fk:"all"};
+  pat:loadPat(),after:null,otp:null,lmode:"email",lb:null,vchk:{},rej:{},lq:"",pf:null,prof:null,nb:true,notif:false,help:false,supf:null,atime:{},rrs:{},rask:null,fr:null,frDone:null,nlab:null,fk:"all"};
 var app=document.getElementById("app");
 
 /* ---------- staff: data ---------- */
@@ -797,7 +831,7 @@ function vStaff(){
   var newN=admin?0:staffData.leads.filter(function(l){return l.owner===u.id&&l.status==="new"}).length;
   return '<div class="top"><div class="brand">Nirog<small>'+(admin?"Super admin":isFac?"Facility":isDoc?"Doctor":"Sales team")+'</small></div><div class="topr">'+bellBtn()+'<button class="btn sm ghost" data-a="logout">Sign out</button></div></div>'+
    '<div class="title-block" style="padding-bottom:12px"><h1>'+title+'</h1><p>Signed in as '+esc(u.name)+'</p></div>'+
-   '<div class="stack">'+body+'</div>'+
+   '<div class="stack">'+body+helpFoot()+'</div>'+
    '<nav class="nav stick" style="grid-template-columns:repeat('+tabs.length+',1fr)" aria-label="Staff">'+tabs.map(function(t){
      return '<button data-a="stab" data-v="'+t[0]+'" '+(state.stab===t[0]?'aria-current="page"':'')+'>'+t[2]+t[1]+(t[0]==="leads"&&newN?'<span class="badge tnum">'+newN+'</span>':(t[0]==="appt"&&isDoc&&pendA?'<span class="badge tnum">'+pendA+'</span>':t[0]==="doc"&&pendN?'<span class="badge tnum">'+pendN+'</span>':(t[0]==="labs"&&pendF?'<span class="badge tnum">'+pendF+'</span>':'')))+'</button>';
    }).join("")+'</nav>';
@@ -825,7 +859,7 @@ function savePf(){
 }
 function adminOv(){
   var all=windowStats(null),on=onlineStats(),reps=salesUsers().filter(function(u){return u.active});
-  return '<div class="kpis">'+kpi("Team revenue",money(all.rev),"Last 30 days")+kpi("Leads",all.leads,all.booked+" booked")+kpi("Conversion",all.conv+"%","Leads to booked")+kpi("Patient app bookings",on.count,money(on.rev)+" doctor fees")+kpi("Platform fees earned",money(on.pf),"From patient app bookings")+'</div>'+platCard()+
+  return '<div class="kpis">'+kpi("Team revenue",money(all.rev),"Last 30 days")+kpi("Leads",all.leads,all.booked+" booked")+kpi("Conversion",all.conv+"%","Leads to booked")+kpi("Patient app bookings",on.count,money(on.rev)+" doctor fees")+kpi("Platform fees earned",money(on.pf),"From patient app bookings")+'</div>'+platCard()+supCard()+
    '<div class="card"><div class="cardhead"><h2>Revenue against target</h2></div>'+(reps.length?reps.map(repRow).join(""):'<div class="tiny">No active sales members.</div>')+
    '<div class="tiny" style="margin-top:10px"><span class="legend-line"></span>Target for 30 days</div></div>'+
    dailyCard(null,"Team bookings per day")+
@@ -1949,6 +1983,7 @@ function nav(){
 function render(scroll){
   var h,showNav=false;
   if(state.notif&&notifKey()){app.innerHTML=vNotif();if(scroll)window.scrollTo(0,0);return}
+  if(state.help){app.innerHTML=vHelp();if(scroll)window.scrollTo(0,0);return}
   state.notif=false;
   if(state.staff){app.innerHTML=nbHtml()+vStaff()+lbHtml();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="login"){app.innerHTML=vLogin();if(scroll)window.scrollTo(0,0);return}
@@ -1962,7 +1997,7 @@ function render(scroll){
   else if(state.view==="doctor")h=vDoctor();
   else if(state.view==="confirm")h=vConfirm();
   else h=vDone();
-  app.innerHTML=nbHtml()+h+(showNav?nav():"")+lbHtml();
+  app.innerHTML=nbHtml()+h+(showNav?helpFoot():"")+(showNav?nav():"")+lbHtml();
   if(scroll)window.scrollTo(0,0);
 }
 
@@ -1990,6 +2025,8 @@ app.addEventListener("click",function(ev){
   var a=b.getAttribute("data-a"),v=b.getAttribute("data-v");
   if(a!=="notif")state.nb=false;
   switch(a){
+    case "help":state.help=true;render(true);break;
+    case "hclose":state.help=false;render(true);break;
     case "notif":openNotif();break;
     case "nclose":state.notif=false;render(true);break;
     case "approve":approveAppt(v);render();break;
@@ -2032,7 +2069,7 @@ app.addEventListener("click",function(ev){
     case "rmlab":(function(){var me=getUser(state.staff);if(!me||me.role!=="admin")return;LABS=LABS.filter(function(l){return l.sample||l.id!==v});saveLabs();render()})();break;
     case "staff":state.view="login";state.login={email:"",pass:"",err:""};render(true);break;
     case "fill":state.login=v==="admin"?{email:"admin@nirog.demo",pass:"Admin@123",err:""}:v==="doctor"?{email:"anjali@nirog.demo",pass:"Doctor@123",err:""}:{email:"riya@nirog.demo",pass:"Sales@123",err:""};render();break;
-    case "logout":state.notif=false;state.staff=null;state.view="list";state.tab="find";state.ask=null;render(true);break;
+    case "logout":state.help=false;state.notif=false;state.staff=null;state.view="list";state.tab="find";state.ask=null;render(true);break;
     case "stab":state.stab=v;state.ask=null;state.addLead=false;schedMsg="";render(true);break;
     case "lf":state.lf=v;render();break;
     case "lead":sLead(v);break;
@@ -2089,6 +2126,8 @@ app.addEventListener("input",function(ev){
   else if(t.id==="city"){state.city=t.value;saveCity(t.value);var cbox=document.getElementById("docs");if(cbox)cbox.innerHTML=docListHtml();var lbx=document.getElementById("labs");if(lbx)lbx.innerHTML=labsListHtml()}
   else if(t.id==="lq"){state.lq=t.value;var lb2=document.getElementById("labs");if(lb2)lb2.innerHTML=labsListHtml()}
   else if(t.id==="pf-value"&&state.pf){state.pf.value=t.value.replace(/[^\d.]/g,"").slice(0,6);t.value=state.pf.value;state.pf.ok="";state.pf.err="";var pfx=document.getElementById("pf-ex");if(pfx){var pv=+state.pf.value||0,pe=state.pf.type==="flat"?Math.round(pv):Math.round(500*pv/100);pfx.innerHTML="Example: on a ₹500 visit the patient sees ₹500 doctor fee + "+money(state.pf.on?pe:0)+" platform fee = <b>"+money(500+(state.pf.on?pe:0))+"</b>."}}
+  else if(t.id==="sup-email"&&state.supf){state.supf.email=t.value;state.supf.ok=""}
+  else if(t.id==="sup-wa"&&state.supf){state.supf.wa=t.value;state.supf.ok=""}
   else if(t.id&&t.id.indexOf("rr-")===0){state.rrs[t.id.slice(3)]=t.value}
   else if(t.id&&t.id.indexOf("rj-")===0){state.rej[t.id.slice(3)]=t.value}
   else if(t.id&&t.id.indexOf("fj-")===0){state.rej["f"+t.id.slice(3)]=t.value}
@@ -2141,6 +2180,7 @@ app.addEventListener("submit",function(ev){
   if(fid==="regForm"){submitReg();return}
   if(fid==="labForm"){submitLab();return}
   if(fid==="pfForm"){savePf();return}
+  if(fid==="supForm"){saveSupForm();return}
   if(fid==="profForm"){saveProfile();return}
   if(fid==="fregForm"){submitFreg();return}
   if(fid==="schedForm"){saveSched();return}
