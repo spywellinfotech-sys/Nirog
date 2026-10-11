@@ -11,3 +11,4 @@ self.addEventListener("fetch",function(e){
   /* network first so updates show up, cache as the offline fallback */
   e.respondWith(fetch(r).then(function(res){var cp=res.clone();caches.open(CACHE).then(function(c){c.put(r,cp)});return res}).catch(function(){return caches.match(r).then(function(m){return m||caches.match("index.html")})}));
 });
+
