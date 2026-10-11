@@ -109,3 +109,4 @@ The same suite runs in GitHub Actions as **Database tests** on every change unde
 - City dropdown now lists ~135 Indian cities (all-India).
 - Doctors can register and sign in with Google (registration form and staff sign-in screen). Facility/lab registration still uses email and password.
 - Photo processing was rewritten (object URLs); upload and submit errors now appear above the Submit button with a code. Not yet verified on a real device.
+- City fields accept any typed city (with suggestions).

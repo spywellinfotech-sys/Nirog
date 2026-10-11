@@ -321,11 +321,13 @@ var CITY_OF={1:"Delhi",2:"Mumbai",3:"Bengaluru",4:"Hyderabad",5:"Delhi",6:"Mumba
 DOCS.forEach(function(d){d.city=CITY_OF[d.id]});
 var CITIES=["Delhi","Mumbai","Bengaluru","Hyderabad","Chennai","Kolkata","Pune","Ahmedabad","Agartala","Agra","Ajmer","Aligarh","Allahabad (Prayagraj)","Alwar","Ambala","Amravati","Amritsar","Anand","Anantapur","Asansol","Aurangabad","Ballari","Bareilly","Belagavi","Bhagalpur","Bharuch","Bhavnagar","Bhilai","Bhopal","Bhubaneswar","Bhuj","Bikaner","Bilaspur","Bokaro","Chandigarh","Coimbatore","Cuttack","Darbhanga","Dehradun","Dhanbad","Dibrugarh","Durgapur","Erode","Faridabad","Gandhinagar","Gangtok","Gaya","Ghaziabad","Gorakhpur","Gulbarga (Kalaburagi)","Guntur","Gurugram","Guwahati","Gwalior","Haldwani","Haridwar","Hisar","Hubballi-Dharwad","Imphal","Indore","Itanagar","Jabalpur","Jaipur","Jalandhar","Jalgaon","Jammu","Jamnagar","Jamshedpur","Jhansi","Jodhpur","Junagadh","Kakinada","Kannur","Kanpur","Karnal","Kochi","Kohima","Kolhapur","Kollam","Kota","Kozhikode","Kurnool","Lucknow","Ludhiana","Madurai","Mangaluru","Mathura","Meerut","Moradabad","Muzaffarpur","Mysuru","Nagpur","Nanded","Nashik","Navi Mumbai","Nellore","Noida","Panaji","Panipat","Patiala","Patna","Puducherry","Raipur","Rajahmundry","Rajkot","Ranchi","Rohtak","Rourkela","Salem","Sambalpur","Sangli","Shillong","Shimla","Siliguri","Silvassa","Solapur","Sonipat","Srinagar","Surat","Thane","Thanjavur","Thiruvananthapuram","Thrissur","Tiruchirappalli","Tirunelveli","Tirupati","Udaipur","Ujjain","Vadodara","Varanasi","Vasai-Virar","Vellore","Vijayawada","Visakhapatnam","Warangal"];
 var ALL_CITIES="All cities";
+function cityNorm(c){c=String(c||"").replace(/[^A-Za-z .'\-]/g," ").replace(/\s+/g," ").trim();if(!c)return "";var hit="";CITIES.forEach(function(x){if(x.toLowerCase()===c.toLowerCase())hit=x});if(hit)return hit;return c.toLowerCase().replace(/(^|[ \-.'])([a-z])/g,function(m,a,b){return a+b.toUpperCase()})}
+function cityIn(id,v){return '<input id="'+id+'" list="citylist" autocomplete="off" autocapitalize="words" maxlength="40" placeholder="Type your city or pick from the list" value="'+esc(v||"")+'"><datalist id="citylist">'+CITIES.map(function(c){return '<option value="'+esc(c)+'"></option>'}).join("")+'</datalist><div class="hint">Your city not listed? Just type it.</div>'}
 /* The location filter lists the cities that actually have listings, so patients are not scrolling through 150 empty cities. */
-function browseCities(){var has={};DOCS.forEach(function(d){has[d.city]=1});LABS.forEach(function(l){has[l.city]=1});if(state&&state.city)has[state.city]=1;return CITIES.filter(function(c){return has[c]})}
+function browseCities(){var has={};DOCS.forEach(function(d){has[d.city]=1});LABS.forEach(function(l){has[l.city]=1});if(state&&state.city)has[state.city]=1;var out=CITIES.filter(function(c){return has[c]});Object.keys(has).sort().forEach(function(c){if(c&&c!==ALL_CITIES&&out.indexOf(c)<0)out.push(c)});return out}
 var SPECS=["All"];
 DOCS.forEach(function(d){if(SPECS.indexOf(d.spec)<0)SPECS.push(d.spec)});
-function loadCity(){try{var c=localStorage.getItem("nirog-city");if(c&&CITIES.indexOf(c)>-1)return c}catch(e){}return ALL_CITIES}
+function loadCity(){try{var c=localStorage.getItem("nirog-city");if(c&&c!==""&&c.length<41)return c}catch(e){}return ALL_CITIES}
 function saveCity(c){try{localStorage.setItem("nirog-city",c)}catch(e){}}
 
 /* Sample clinic sites: [address, PIN, latitude, longitude]. Points are neighbourhood-level, not real clinics. */
@@ -404,7 +406,7 @@ var RKEY="nirog-doctors-v1";
 (function(){
   try{
     var r=localStorage.getItem(RKEY);
-    if(r){var a=JSON.parse(r);if(Array.isArray(a))a.forEach(function(d){if(d&&d.id&&d.name&&Array.isArray(d.days)&&Array.isArray(d.hours)&&CITIES.indexOf(d.city)>-1){d.registered=true;DOCS.push(d)}})}
+    if(r){var a=JSON.parse(r);if(Array.isArray(a))a.forEach(function(d){if(d&&d.id&&d.name&&Array.isArray(d.days)&&Array.isArray(d.hours)&&d.city){d.registered=true;DOCS.push(d)}})}
   }catch(e){}
 })();
 /* Schedule edits made by the sample doctor with a demo login are kept separately. */
@@ -1022,7 +1024,7 @@ function schedHtml(m,ns){
    '<div class="hint" id="'+id+'-cnt">'+(n?'This opens '+n+' slots on each working day.':'No slots yet. Check the times above.')+'</div></div>';
 }
 function newReg(){
-  return {wa:"",name:"",spec:SPECS[1],qual:"",exp:"",clinic:"",city:CITIES[0],addr:"",pin:"",map:"",
+  return {wa:"",name:"",spec:SPECS[1],qual:"",exp:"",clinic:"",city:"",addr:"",pin:"",map:"",
     days:[1,2,3,4,5,6],s1f:"600",s1t:"780",s2f:"1020",s2t:"1200",step:"20",
     fee:"",vfee:"",phone:"",email:"",pass:"",lang:"Hindi, English",about:"",council:"",regno:"",ryear:"",photo:"",gallery:[],docs:{reg:null,id:null,deg:null},upMsg:"",errs:{}};
 }
@@ -1065,7 +1067,7 @@ function vRegister(){
    (r.gallery.length<4?'<label class="pick">Add clinic photos<input type="file" id="up-gal" accept="image/*" multiple></label>':'')+(e.gallery?'<div class="err">'+e.gallery+'</div>':'<div class="hint">Waiting room, reception, consulting room.</div>')+'</div></div>'+
    '<div class="sec">Clinic address</div><div class="card">'+
    fld("clinic","Clinic name",txt("clinic"))+
-   fld("city","City",'<select id="rg-city">'+opts(CITIES.map(function(c){return [c,c]}),r.city)+'</select>')+
+   fld("city","City",cityIn('rg-city',r.city))+
    fld("addr","Full street address",'<textarea id="rg-addr" placeholder="Floor, building, street, area">'+esc(r.addr)+'</textarea>')+
    '<div class="field" style="margin-bottom:0"><label for="rg-pin">PIN code</label><input id="rg-pin" inputmode="numeric" maxlength="6" value="'+esc(r.pin)+'">'+(e.pin?'<div class="err">'+e.pin+'</div>':'')+'</div>'+
    '</div>'+
@@ -1176,6 +1178,7 @@ function submitReg(){
   if(r.qual.trim().length<2)e.qual="Enter your qualifications, for example MBBS, MD, BHMS, BAMS or BPT.";
   if(r.exp===""||!(ex>=0&&ex<=60))e.exp="Enter your years of experience, 0 to 60.";
   if(r.clinic.trim().length<2)e.clinic="Enter the clinic name.";
+  r.city=cityNorm(r.city);if(r.city.length<2)e.city="Enter your city.";
   if(r.addr.trim().length<8)e.addr="Enter the full street address.";
   if(!/^\d{6}$/.test(r.pin))e.pin="Enter a 6-digit PIN code.";
   if(!mp)e.map="Paste a Google Maps link (google.com/maps or maps.app.goo.gl) or coordinates like 12.9352, 77.6245.";
@@ -1427,7 +1430,7 @@ var LABS=[
 ];
 LABS.forEach(function(l){l.sample=true});
 (function(){
-  try{var r=localStorage.getItem(LKEY);if(r){var a=JSON.parse(r);if(Array.isArray(a))a.forEach(function(l){if(l&&l.id&&l.name&&Array.isArray(l.tests)&&CITIES.indexOf(l.city)>-1){l.sample=false;if(!l.kind)l.kind="lab";if(l.registered&&["pending","approved","rejected"].indexOf(l.status)<0)l.status="pending";LABS.push(l)}})}}catch(e){}
+  try{var r=localStorage.getItem(LKEY);if(r){var a=JSON.parse(r);if(Array.isArray(a))a.forEach(function(l){if(l&&l.id&&l.name&&Array.isArray(l.tests)&&l.city){l.sample=false;if(!l.kind)l.kind="lab";if(l.registered&&["pending","approved","rejected"].indexOf(l.status)<0)l.status="pending";LABS.push(l)}})}}catch(e){}
 })();
 if(CLOUD)LABS.length=0;
 function saveLabs(){
@@ -1494,7 +1497,7 @@ function adminLabs(){
    f("kind","Type",'<select id="nb-kind">'+opts(KINDS.map(function(k){return [k[0],k[2]]}),n.kind)+'</select>')+
    (oth?f("sub","Kind of facility",'<select id="nb-sub">'+opts(SUBS.map(function(x){return [x,x]}),n.sub)+'</select>'):'')+
    f("name","Name",'<input id="nb-name" value="'+esc(n.name)+'">')+
-   f("city","City",'<select id="nb-city">'+opts(CITIES.map(function(c){return [c,c]}),n.city)+'</select>')+
+   f("city","City",cityIn('nb-city',n.city))+
    f("addr","Street address",'<input id="nb-addr" value="'+esc(n.addr)+'">')+
    f("pin","PIN code",'<input id="nb-pin" inputmode="numeric" maxlength="6" value="'+esc(n.pin)+'">')+
    f("map","Google Maps link (optional)",'<input id="nb-map" inputmode="url" value="'+esc(n.map)+'" placeholder="https://maps.app.goo.gl/...">')+
@@ -1513,6 +1516,7 @@ function submitLab(){
   var n=state.nlab,mp=n.map.trim()?parseMap(n.map):null,t=parseTests(n.tests),hosp=n.kind==="hospital",oth=n.kind==="other";
   if(n.name.trim().length<3){n.err="Enter the name.";render();return}
   if(n.addr.trim().length<5){n.err="Enter the street address.";render();return}
+  n.city=cityNorm(n.city);if(n.city.length<2){n.err="Enter the city.";render();return}
   if(n.pin&&!/^\d{6}$/.test(n.pin)){n.err="Enter a 6-digit PIN code or leave it blank.";render();return}
   if(n.map.trim()&&!mp){n.err="That does not look like a Google Maps link.";render();return}
   if(!hosp&&!oth&&!t.some(function(x){return x.length>1})){n.err="Add at least one test with a price, for example Lipid profile - 600.";render();return}
@@ -1528,7 +1532,7 @@ function submitLab(){
 
 /* ---------- facility sign-up (labs, diagnostic centres, hospitals, other care) ---------- */
 var FREJ=["Licence or registration certificate is not readable","Licence does not match the facility name or address","Owner or authorised person ID is missing or not valid","Location or address could not be confirmed","Other, contact support"];
-function newFr(){return {wa:"",kind:"lab",sub:SUBS[0],name:"",contact:"",phone:"",email:"",city:CITIES[0],addr:"",pin:"",map:"",hours:"7:00 AM to 9:00 PM",home:true,er:true,amb:true,beds:"",tests:"",
+function newFr(){return {wa:"",kind:"lab",sub:SUBS[0],name:"",contact:"",phone:"",email:"",city:"",addr:"",pin:"",map:"",hours:"7:00 AM to 9:00 PM",home:true,er:true,amb:true,beds:"",tests:"",
   pass:"",licno:"",auth:"",docs:{lic:null,id:null,acc:null},gallery:[],agree:false,upMsg:"",errs:{}}}
 function facById(id){for(var i=0;i<LABS.length;i++)if(LABS[i].id===id)return LABS[i];return null}
 function vChkF(id){state.vchk=state.vchk||{};var k="f"+id;return state.vchk[k]||(state.vchk[k]={a:false,b:false,c:false})}
@@ -1549,7 +1553,7 @@ function vFreg(){
    fld("kind","Type",'<select id="fr-kind">'+opts(KINDS.map(function(k){return [k[0],k[2]]}),r.kind)+'</select>')+
    (oth?fld("sub","Kind of facility",'<select id="fr-sub">'+opts(SUBS.map(function(x){return [x,x]}),r.sub)+'</select>'):'')+
    fld("name","Facility name",txt("name"))+
-   fld("city","City",'<select id="fr-city">'+opts(CITIES.map(function(c){return [c,c]}),r.city)+'</select>')+
+   fld("city","City",cityIn('fr-city',r.city))+
    fld("addr","Street address",txt("addr"))+
    fld("pin","PIN code",txt("pin",'inputmode="numeric" maxlength="6"'))+
    fld("map","Google Maps link",txt("map",'inputmode="url" placeholder="https://maps.app.goo.gl/..."'),'<span id="fr-map-status" class="status-line">'+esc(mapStatus(r.map))+'</span> Open Google Maps, search your facility, tap Share and paste the link. Or paste coordinates like 12.9352, 77.6245.')+
@@ -1610,6 +1614,7 @@ function submitFreg(){
   var r=state.fr,e={},em=r.email.trim().toLowerCase(),dup=false,hosp=r.kind==="hospital",oth=r.kind==="other",t=parseTests(r.tests),mp=parseMap(r.map);
   staffData.users.forEach(function(u){if(u.email&&u.email.toLowerCase()===em)dup=true});
   if(r.name.trim().length<3)e.name="Enter the facility name.";
+  r.city=cityNorm(r.city);if(r.city.length<2)e.city="Enter your city.";
   if(r.addr.trim().length<8)e.addr="Enter the full street address.";
   if(!/^\d{6}$/.test(r.pin))e.pin="Enter a 6-digit PIN code.";
   if(!mp)e.map="Paste a Google Maps link (google.com/maps or maps.app.goo.gl) or coordinates like 12.9352, 77.6245.";
