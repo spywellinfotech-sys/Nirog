@@ -10,7 +10,7 @@ android {
         applicationId = "com.nirog.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = (project.findProperty("buildNo") ?: "1").toString().toInteger()
+        versionCode = (project.findProperty("buildNo") ?: "1").toString().toInt()
         versionName = "1.0.0." + (project.findProperty("buildNo") ?: "1")
     }
 
