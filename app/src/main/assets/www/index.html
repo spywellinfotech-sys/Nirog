@@ -278,7 +278,7 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}
 (function(){
 var BE=(window.NirogBE&&window.NirogBE.on)?window.NirogBE:null,CLOUD=!!BE;
 /* Patients sign in with an SMS code by default; set patientAuth:"email" in config.js to use email codes instead. */
-var SMS=CLOUD&&((window.NIROG_CONFIG||{}).patientAuth!=="email");
+var PAUTH=(window.NIROG_CONFIG||{}).patientAuth||"google",GONLY=CLOUD&&PAUTH==="google",SMS=CLOUD&&PAUTH==="sms";
 "use strict";
 var ic={
  back:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
@@ -1861,8 +1861,8 @@ function staffOtpForm(){
   return '<form id="otpForm" novalidate><div class="card">'+otpPanel(state.otp)+'</div></form>';
 }
 function vOtp(){
-  var o=state.otp,t=o.stage==="phone"?(CLOUD&&!SMS?"Sign in with your email":"Sign in with your mobile number"):"Enter your code",
-   sub=o.stage==="phone"?(CLOUD&&!SMS?(o.after==="confirm"?"Verify your email to confirm this booking.":"We use your email to keep your bookings together."):o.after==="confirm"?"Verify your number to confirm this booking.":"We use your number to keep your bookings together."):"One more step to finish signing in.";
+  var o=state.otp,t=o.stage==="phone"?(GONLY?"Sign in with Google":CLOUD&&!SMS?"Sign in with your email":"Sign in with your mobile number"):"Enter your code",
+   sub=o.stage==="phone"?(GONLY?(o.after==="confirm"?"Sign in to confirm this booking.":"We use your account to keep your bookings together."):CLOUD&&!SMS?(o.after==="confirm"?"Verify your email to confirm this booking.":"We use your email to keep your bookings together."):o.after==="confirm"?"Verify your number to confirm this booking.":"We use your number to keep your bookings together."):"One more step to finish signing in.";
   return '<div class="bar"><button class="back" data-a="home">'+ic.back+'Doctors</button></div>'+
    '<div class="title-block" style="padding-top:2px"><h1>'+t+'</h1><p>'+sub+'</p></div>'+
    '<form id="otpForm" novalidate><div class="card">'+otpPanel(o)+'</div></form>'+
@@ -2173,7 +2173,14 @@ function cloudStaffLogin(){
     cloudSync(true);cloudStartPoll();render(true);
   },function(e){cloud.busy=false;state.login.err=e.message;render()});
 }
+function otpPanelGoogle(o){
+  var err=o.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(o.err)+'</div>':'';
+  return '<div class="demo-note" role="status">Sign in with your Google account. We open Google in your browser and bring you back here.</div>'+err+
+    '<button type="button" class="btn" data-a="google"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Signing in...':'Continue with Google')+'</button>'+
+    '<div class="hint" style="margin-top:12px">Doctors, labs and staff use the staff sign-in instead.</div>';
+}
 function otpPanelCloud(o){
+  if(GONLY)return otpPanelGoogle(o);
   if(SMS)return otpPanelSms(o);
   var err=o.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(o.err)+'</div>':'';
   if(o.stage==="phone"){

@@ -26,7 +26,9 @@ esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 BODY="window.NIROG_CONFIG = {
   supabaseUrl: \"$(esc "$URL")\",
   supabaseAnonKey: \"$(esc "$KEY")\",
-  googleMapsKey: \"$(esc "$MAPS")\"
+  googleMapsKey: \"$(esc "$MAPS")\",
+  patientAuth: \"${PATIENT_AUTH:-google}\",
+  googleLogin: true
 };"
 if [[ -z "$URL" || -z "$KEY" ]]; then echo "No Supabase values supplied: keeping the committed config.js unchanged."; exit 0; fi
 for d in app/src/main/assets/www web; do printf '%s\n' "$BODY" > "$d/config.js"; done

@@ -9,6 +9,7 @@ global.FileReader=function(){};global.Image=function(){};
 const H={};const app={innerHTML:"",addEventListener:(t,f)=>{(H[t]=H[t]||[]).push(f)}};
 const store={};
 global.localStorage={getItem:k=>k in store?store[k]:null,setItem:(k,v)=>{store[k]=String(v)},removeItem:k=>{delete store[k]}};
+global.location={protocol:"file:",hash:"",origin:"null",pathname:"/",search:"",href:""};
 global.window=global;global.scrollTo=()=>{};global.innerWidth=400;
 global.addEventListener=()=>{};
 global.document={hidden:false,activeElement:null,addEventListener(){},getElementById:id=>id==="app"?app:{innerHTML:""},createElement:t=>({style:{},hidden:false,getContext:()=>({})}),body:{appendChild(){}}};
@@ -83,6 +84,17 @@ const day=d=>{const x=new Date();x.setDate(x.getDate()+d);return x.getFullYear()
 (async()=>{
   await wait(100);
   ok(app.innerHTML.includes("Dr. Test Doc"),"directory comes from the database");
+  if(PAUTH==="google"){
+    click("open","7");await wait(100);click("date",day(1));await wait(60);click("slot","10:00");click("cont");
+    ok(app.innerHTML.includes("Sign in with Google")&&app.innerHTML.includes("Continue with Google")&&!app.innerHTML.includes('id="o-phone"')&&!app.innerHTML.includes('id="o-email"'),"Google-only sign-in screen, no phone or email box");
+    click("google");ok(/\/auth\/v1\/authorize\?provider=google&redirect_to=nirog%3A%2F%2Fauth/.test(location.href),"Google button opens the Supabase Google URL with the app return address");
+    window.__nirogAuth("access_token=tok-pat3&refresh_token=r3&expires_in=3600");await wait(150);
+    ok(app.innerHTML.includes("Confirm your visit"),"after Google, lands on the confirm screen");
+    ok(!/id="f-phone"[^>]*readonly/.test(app.innerHTML),"mobile number is typed by the patient (not verified)");
+    input("f-phone","9811100003");input("f-age","28");input("f-sex","Female");submit("bookForm");await wait(100);
+    ok(app.innerHTML.includes("Request sent")&&db.bookings.length===1&&db.bookings[0].patient_phone==="9811100003","booking saved with the typed mobile number");
+    console.log(fails?"\n"+fails+" FAILED":"\nall passed");process.exit(fails?1:0);
+  }
   ok(!app.innerHTML.includes("Anjali Verma"),"demo doctors are not shown in cloud mode");
   click("open","7");await wait(100);
   ok(db.log.some(l=>l.includes("rpc/open_slots")),"slots fetched from the server");
