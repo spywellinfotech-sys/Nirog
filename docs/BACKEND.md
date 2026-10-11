@@ -115,3 +115,9 @@ The same suite runs in GitHub Actions as **Database tests** on every change unde
 - Edge Function `supabase/functions/sms-otp` (deployed, verify_jwt off because it is a public OTP endpoint with its own rate limit: 3 codes per number per 10 min, 5 wrong tries, 5 min expiry; only hashes are stored in `sms_otps`).
 - Secrets needed in Supabase (Edge Functions, Secrets): `APITXT_AUTH_KEY`, optional `APITXT_TEMPLATE_ID`.
 - Turn on in the app by setting `patientAuth:"sms"` in config.js (Google button stays). Not verified live until the key is set and a real SMS arrives.
+
+## Duplicate registrations (migration 0006)
+- One Google/email account can register once (the register functions require the patient role and then change it).
+- One mobile number maps to one account (unique index on profiles.phone); doctor and facility registration reject a number used by another account with `phone_in_use`.
+- Fixed: register_doctor / register_facility take a single `p jsonb`, so the client must send `{p: {...}}` (it was sending the bare object, which PostgREST answered with 404 — the cause of "http_404" on Submit for review).
+- Migrations are additive; existing users and data are untouched.

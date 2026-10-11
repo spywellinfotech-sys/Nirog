@@ -7,7 +7,7 @@
 
 -- Facility registration and review
 select t.login(:'F1');
-select public.register_facility('{"kind":"lab","sub":"Pathology","name":"City Diagnostics","city":"Delhi","address":"7 Lab Road","hours":"7 AM to 9 PM","home_service":true,"services":[["CBC",300],["Lipid profile",600]],"wa":"9811100000","contact_name":"R. Sharma","contact_phone":"9811100001","licence_no":"LIC-77"}'::jsonb);
+select public.register_facility('{"contact_phone":"9811100000","kind":"lab","sub":"Pathology","name":"City Diagnostics","city":"Delhi","address":"7 Lab Road","hours":"7 AM to 9 PM","home_service":true,"services":[["CBC",300],["Lipid profile",600]],"wa":"9811100000","contact_name":"R. Sharma","contact_phone":"9811100001","licence_no":"LIC-77"}'::jsonb);
 select t.ok((select count(*) from public.facility_private) = 1, 'facility owner can read own private details');
 select t.root();
 select t.anon();

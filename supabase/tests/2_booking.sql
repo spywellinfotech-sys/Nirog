@@ -7,10 +7,10 @@
 
 -- Doctors register; they start pending and invisible.
 select t.login(:'D1');
-select public.register_doctor('{"name":"Dr. Anjali Verma","spec":"General Physician","qual":"MBBS","exp_years":14,"fee_inr":500,"video_fee_inr":350,"city":"Delhi","clinic":"Shanti Clinic","address":"12 Park Road","pin":"110001","map_url":"https://www.google.com/maps/place/x/@28.6,77.2,17z","council":"Delhi Medical Council","reg_no":"DMC-1","reg_year":2008,"days":[0,1,2,3,4,5,6],"sessions":[{"s":600,"e":780}],"step":20,"wa":"9811122244"}'::jsonb);
+select public.register_doctor('{"phone":"9876500001","name":"Dr. Anjali Verma","spec":"General Physician","qual":"MBBS","exp_years":14,"fee_inr":500,"video_fee_inr":350,"city":"Delhi","clinic":"Shanti Clinic","address":"12 Park Road","pin":"110001","map_url":"https://www.google.com/maps/place/x/@28.6,77.2,17z","council":"Delhi Medical Council","reg_no":"DMC-1","reg_year":2008,"days":[0,1,2,3,4,5,6],"sessions":[{"s":600,"e":780}],"step":20,"wa":"9811122244"}'::jsonb);
 select t.root();
 select t.login(:'D2');
-select public.register_doctor('{"name":"Dr. Rohit Malhotra","spec":"Cardiologist","fee_inr":900,"city":"Delhi","address":"5 Heart Lane","council":"DMC","reg_no":"DMC-2","reg_year":2001,"days":[1,2,3,4,5],"sessions":[{"s":600,"e":720}],"step":30}'::jsonb);
+select public.register_doctor('{"phone":"9876500002","name":"Dr. Rohit Malhotra","spec":"Cardiologist","fee_inr":900,"city":"Delhi","address":"5 Heart Lane","council":"DMC","reg_no":"DMC-2","reg_year":2001,"days":[1,2,3,4,5],"sessions":[{"s":600,"e":720}],"step":30}'::jsonb);
 select t.root();
 select t.ok((select role from public.profiles where id = :'D1') = 'doctor', 'registering makes the profile a doctor');
 select t.ok((select status from public.doctors where id = 1) = 'pending', 'new doctor starts pending');

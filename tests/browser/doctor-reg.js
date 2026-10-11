@@ -14,7 +14,12 @@ const www = path.resolve(__dirname, "../../app/src/main/assets/www/index.html");
     if (u.pathname === "/auth/v1/signup") return j(200, { access_token: "t", refresh_token: "r", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: "11111111-1111-1111-1111-111111111111" } });
     if (u.pathname === "/auth/v1/token") return j(200, { access_token: "t", refresh_token: "r", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: "11111111-1111-1111-1111-111111111111" } });
     if (u.pathname.startsWith("/storage/")) return j(200, { Key: "x" });
-    if (u.pathname.endsWith("/rpc/register_doctor")) return j(200, { id: 9, ref: "DR-TEST1" });
+    if (u.pathname.endsWith("/rpc/register_doctor")) {
+      // PostgREST: the function is register_doctor(p jsonb), so the body must be {"p": {...}}; anything else is a 404 (PGRST202).
+      let body = {}; try { body = JSON.parse(r.request().postData() || "{}"); } catch (e) {}
+      if (!body || typeof body.p !== "object" || !/^[6-9]\d{9}$/.test(body.p.phone || "")) return j(404, { code: "PGRST202", message: "Could not find the function public.register_doctor" });
+      return j(200, { id: 9, ref: "DR-TEST1" });
+    }
     if (u.pathname.endsWith("/rpc/my_doctor_id")) return j(200, null);
     if (m === "GET") return j(200, []);
     return j(200, {});

@@ -2329,7 +2329,7 @@ function cloudSubmitReg(doc,r,mp,yr,em){
     ["reg","id","deg"].forEach(function(k){var f=r.docs[k];if(f&&f.data){var ty=(/^data:([^;]+)/.exec(f.data)||[])[1]||"image/jpeg";ups.push(["verification-docs",uid+"/"+k+"-"+t+"."+ext(ty),f.data,k,f.name])}});
     return ups.reduce(function(p,u){return p.then(function(){return BE.upload(u[0],u[1],u[2])})},Promise.resolve());
   }).then(function(){
-    return BE.registerDoctor({name:doc.name,spec:doc.spec,qual:doc.qual,exp_years:doc.exp,fee_inr:doc.fee,video_fee_inr:doc.vfee,languages:doc.lang,about:r.about.trim(),clinic:doc.clinic,city:doc.city,wa:doc.wa||"",
+    return BE.registerDoctor({phone:r.phone,name:doc.name,spec:doc.spec,qual:doc.qual,exp_years:doc.exp,fee_inr:doc.fee,video_fee_inr:doc.vfee,languages:doc.lang,about:r.about.trim(),clinic:doc.clinic,city:doc.city,wa:doc.wa||"",
       council:doc.council,reg_no:doc.regno,reg_year:yr,address:doc.address,pin:doc.pin,map_url:mp.url,lat:isNum(mp.lat)?mp.lat:null,lng:isNum(mp.lat)?mp.lng:null,days:doc.days,sessions:doc.hours.map(function(h){return {s:h[0],e:h[1]}}),step:doc.step});
   }).then(function(row){
     doc.id=row.id;doc.ref=row.ref;
