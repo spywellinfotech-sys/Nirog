@@ -104,3 +104,8 @@ The same suite runs in GitHub Actions as **Database tests** on every change unde
 9. The `appointment_slots` table in the original brief was replaced by generating slots on demand (`open_slots`), which avoids stale slot rows. One active booking per slot is still enforced.
 10. Account deletion and data export are not built.
 11. Existing local demo data is not migrated.
+
+## Update: cities, doctor Google login, uploads
+- City dropdown now lists ~135 Indian cities (all-India).
+- Doctors can register and sign in with Google (registration form and staff sign-in screen). Facility/lab registration still uses email and password.
+- Photo processing was rewritten (object URLs); upload and submit errors now appear above the Submit button with a code. Not yet verified on a real device.

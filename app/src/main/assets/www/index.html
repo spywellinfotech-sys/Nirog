@@ -319,8 +319,10 @@ DOCS.push(
 );
 var CITY_OF={1:"Delhi",2:"Mumbai",3:"Bengaluru",4:"Hyderabad",5:"Delhi",6:"Mumbai",7:"Bengaluru",8:"Hyderabad",9:"Mumbai",10:"Hyderabad",11:"Delhi",12:"Bengaluru",13:"Mumbai",14:"Bengaluru",15:"Hyderabad",16:"Bengaluru",17:"Delhi",18:"Delhi",19:"Mumbai",20:"Hyderabad",21:"Bengaluru"};
 DOCS.forEach(function(d){d.city=CITY_OF[d.id]});
-var CITIES=["Delhi","Mumbai","Bengaluru","Hyderabad"];
+var CITIES=["Delhi","Mumbai","Bengaluru","Hyderabad","Chennai","Kolkata","Pune","Ahmedabad","Agartala","Agra","Ajmer","Aligarh","Allahabad (Prayagraj)","Alwar","Ambala","Amravati","Amritsar","Anand","Anantapur","Asansol","Aurangabad","Ballari","Bareilly","Belagavi","Bhagalpur","Bharuch","Bhavnagar","Bhilai","Bhopal","Bhubaneswar","Bhuj","Bikaner","Bilaspur","Bokaro","Chandigarh","Coimbatore","Cuttack","Darbhanga","Dehradun","Dhanbad","Dibrugarh","Durgapur","Erode","Faridabad","Gandhinagar","Gangtok","Gaya","Ghaziabad","Gorakhpur","Gulbarga (Kalaburagi)","Guntur","Gurugram","Guwahati","Gwalior","Haldwani","Haridwar","Hisar","Hubballi-Dharwad","Imphal","Indore","Itanagar","Jabalpur","Jaipur","Jalandhar","Jalgaon","Jammu","Jamnagar","Jamshedpur","Jhansi","Jodhpur","Junagadh","Kakinada","Kannur","Kanpur","Karnal","Kochi","Kohima","Kolhapur","Kollam","Kota","Kozhikode","Kurnool","Lucknow","Ludhiana","Madurai","Mangaluru","Mathura","Meerut","Moradabad","Muzaffarpur","Mysuru","Nagpur","Nanded","Nashik","Navi Mumbai","Nellore","Noida","Panaji","Panipat","Patiala","Patna","Puducherry","Raipur","Rajahmundry","Rajkot","Ranchi","Rohtak","Rourkela","Salem","Sambalpur","Sangli","Shillong","Shimla","Siliguri","Silvassa","Solapur","Sonipat","Srinagar","Surat","Thane","Thanjavur","Thiruvananthapuram","Thrissur","Tiruchirappalli","Tirunelveli","Tirupati","Udaipur","Ujjain","Vadodara","Varanasi","Vasai-Virar","Vellore","Vijayawada","Visakhapatnam","Warangal"];
 var ALL_CITIES="All cities";
+/* The location filter lists the cities that actually have listings, so patients are not scrolling through 150 empty cities. */
+function browseCities(){var has={};DOCS.forEach(function(d){has[d.city]=1});LABS.forEach(function(l){has[l.city]=1});if(state&&state.city)has[state.city]=1;return CITIES.filter(function(c){return has[c]})}
 var SPECS=["All"];
 DOCS.forEach(function(d){if(SPECS.indexOf(d.spec)<0)SPECS.push(d.spec)});
 function loadCity(){try{var c=localStorage.getItem("nirog-city");if(c&&CITIES.indexOf(c)>-1)return c}catch(e){}return ALL_CITIES}
@@ -807,7 +809,7 @@ function vLogin(){
    '<div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="username" value="'+esc(l.email)+'" placeholder="you@nirog.demo"></div>'+
    '<div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password" value="'+esc(l.pass)+'" placeholder="Password"></div>'+
    (l.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(l.err)+'</div>':'')+
-   '<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Signing in...':'Sign in')+'</button></div></form>')+
+   '<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Signing in...':'Sign in')+'</button>'+(CLOUD?'<div class="hint" style="text-align:center;margin:12px 0 8px">or</div><button type="button" class="btn ghost" data-a="gstaff">Continue with Google</button>':'')+'</div></form>')+
    (CLOUD?'<div class="foot" style="text-align:left">Doctors use the email and password they registered with. Admin accounts are created by the Nirog team.</div>':'<div class="sec">Demo accounts</div><div class="card">'+
    '<div class="who sumrow"><div><b>Super admin</b><div class="tiny tnum sel">admin@nirog.demo<br>Admin@123<br>Mobile 9000000001</div></div><button class="btn sm ghost" data-a="fill" data-v="admin">Use</button></div>'+
    '<div class="who sumrow"><div><b>Sales team</b><div class="tiny tnum sel">riya@nirog.demo<br>Sales@123<br>Mobile 9000000002</div></div><button class="btn sm ghost" data-a="fill" data-v="sales">Use</button></div>'+
@@ -1079,9 +1081,10 @@ function vRegister(){
    '<div class="sec">Contact and login</div><div class="card">'+
    fld("phone","Mobile number",'<input id="rg-phone" inputmode="numeric" maxlength="10" autocomplete="tel" value="'+esc(r.phone)+'">')+
    fld("wa","WhatsApp number for patients (optional)",'<input id="rg-wa" inputmode="numeric" maxlength="10" autocomplete="off" value="'+esc(r.wa)+'">',"Patients can message you on WhatsApp from your profile. Leave empty to hide it.")+
+   (CLOUD&&cloud.greg?'<div class="field" style="margin-bottom:0"><div class="demo-note" role="status">Signed in with Google as <b>'+esc(cloud.greg)+'</b>. You will sign in to the doctor app with Google.</div></div></div></div>':((CLOUD?'<div class="field"><div class="hint" style="margin-bottom:8px">Fastest: use your Google account.</div><button type="button" class="btn ghost" data-a="gdoc">Continue with Google</button><div class="hint" style="margin:10px 0 0">Or use an email and password below.</div></div>':'')+
    fld("email","Email (your login)",'<input id="rg-email" type="email" autocomplete="username" value="'+esc(r.email)+'">')+
-   '<div class="field" style="margin-bottom:0"><label for="rg-pass">Password</label><input id="rg-pass" type="password" autocomplete="new-password" value="'+esc(r.pass)+'">'+(e.pass?'<div class="err">'+e.pass+'</div>':'<div class="hint">At least 8 characters. Demo only: stored in this browser.</div>')+'</div></div>'+
-   (r.sendErr?'<div class="err" role="alert" style="margin:12px 16px 0">'+esc(r.sendErr)+'</div>':'')+'<div style="height:16px"></div><div class="stick"><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Submitting...':'Submit for review')+'</button></div></form>';
+   '<div class="field" style="margin-bottom:0"><label for="rg-pass">Password</label><input id="rg-pass" type="password" autocomplete="new-password" value="'+esc(r.pass)+'">'+(e.pass?'<div class="err">'+e.pass+'</div>':'<div class="hint">At least 8 characters. Demo only: stored in this browser.</div>')+'</div></div>'))+
+   '<div style="height:16px"></div><div class="stick">'+(r.sendErr?'<div class="err" role="alert" style="margin:0 0 8px">'+esc(r.sendErr)+'</div>':'')+'<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Submitting...':'Submit for review')+'</button></div></form>';
 }
 
 /* ---------- uploads (registration) ---------- */
@@ -1090,19 +1093,26 @@ function docUp(k,label,f,err){
    '<label class="pick">'+(f?'Replace file':'Choose file')+'<input type="file" id="up-'+k+'" accept="image/*,application/pdf"></label>'+(err?'<div class="err">'+err+'</div>':'')+'</div>';
 }
 function shrink(file,maxDim,q,cb){
-  var fr=new FileReader();
-  fr.onerror=function(){cb(null)};
-  fr.onload=function(){
+  /* Uses an object URL when the browser has one: big phone photos are decoded without first turning them into a huge text string. */
+  var url=null,done=false;
+  function fin(v){if(done)return;done=true;if(url){try{URL.revokeObjectURL(url)}catch(e){}}cb(v)}
+  function draw(src){
     var im=new Image();
-    im.onerror=function(){cb(null)};
+    im.onerror=function(){fin(null)};
     im.onload=function(){
-      var sc=Math.min(1,maxDim/Math.max(im.width,im.height)),w=Math.max(1,Math.round(im.width*sc)),h=Math.max(1,Math.round(im.height*sc));
-      var c=document.createElement("canvas");c.width=w;c.height=h;
-      var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);
-      try{cb(c.toDataURL("image/jpeg",q))}catch(e){cb(null)}
+      try{
+        var sc=Math.min(1,maxDim/Math.max(im.width,im.height)),w=Math.max(1,Math.round(im.width*sc)),h=Math.max(1,Math.round(im.height*sc));
+        var c=document.createElement("canvas");c.width=w;c.height=h;
+        var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);
+        fin(c.toDataURL("image/jpeg",q));
+      }catch(e){fin(null)}
     };
-    im.src=fr.result;
-  };
+    im.src=src;
+  }
+  try{if(window.URL&&URL.createObjectURL){url=URL.createObjectURL(file);draw(url);return}}catch(e){url=null}
+  var fr=new FileReader();
+  fr.onerror=function(){fin(null)};
+  fr.onload=function(){draw(fr.result)};
   fr.readAsDataURL(file);
 }
 function onUpload(id,files){
@@ -1113,12 +1123,12 @@ function onUpload(id,files){
   if(k==="photo"){
     shrink(files[0],480,.78,function(d){if(!d)return fail("That file could not be read as a photo.");r.photo=d;if(r.errs)delete r.errs.photo;render()});
   }else if(k==="gal"){
-    var list=Array.prototype.slice.call(files,0,4-r.gallery.length),n=0;
+    var list=Array.prototype.slice.call(files,0,4-r.gallery.length),bad=0;
     if(!list.length)return;
-    list.forEach(function(f){shrink(f,900,.72,function(d){
-      if(d&&r.gallery.length<4)r.gallery.push(d);
-      if(++n===list.length){if(r.errs&&r.gallery.length)delete r.errs.gallery;render()}
-    })});
+    (function next(i){
+      if(i>=list.length){if(r.errs&&r.gallery.length)delete r.errs.gallery;if(bad)r.upMsg=bad+" photo"+(bad>1?"s":"")+" could not be read. Try choosing them again.";render();return}
+      shrink(list[i],900,.72,function(d){if(d&&r.gallery.length<4)r.gallery.push(d);else bad++;next(i+1)});
+    })(0);
   }else if(k==="reg"||k==="id"||k==="deg"){
     var f=files[0];
     if(f.type==="application/pdf"){
@@ -1159,7 +1169,7 @@ function viewImg(v){
   if(src){state.lb=src;render()}
 }
 function submitReg(){
-  var r=state.reg,e={},em=r.email.trim().toLowerCase(),dup=false;
+  var r=state.reg,e={},G=CLOUD&&cloud.greg,em=G?G.toLowerCase():r.email.trim().toLowerCase(),dup=false;
   staffData.users.forEach(function(u){if(u.email.toLowerCase()===em)dup=true});
   var nm=r.name.trim().replace(/^dr\.?\s+/i,""),ex=+r.exp,fee=+r.fee,vf=r.vfee===""?0:+r.vfee,mp=parseMap(r.map);
   if(nm.length<3)e.name="Enter your full name.";
@@ -1183,9 +1193,11 @@ function submitReg(){
   if(!/^[6-9]\d{9}$/.test(r.phone))e.phone="Enter a valid 10-digit mobile number.";
   if(r.wa&&!/^[6-9]\d{9}$/.test(r.wa))e.wa="Enter a valid 10-digit WhatsApp number, or leave it empty.";
   else if(staffByPhone(r.phone))e.phone="That mobile number already has an account.";
+  if(!G){
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))e.email="Enter a valid email address.";
   else if(dup)e.email="That email already has an account.";
   if(r.pass.length<8)e.pass="Use a password with at least 8 characters.";
+  }
   r.errs=e;
   var keys=Object.keys(e);
   if(keys.length){
@@ -1467,7 +1479,7 @@ function vLabs(){
   return '<div class="top"><div class="brand">Nirog<small>Hospitals and labs</small></div>'+profBtn()+'</div>'+
    '<div class="title-block"><h1>Find care near you</h1><p>Super speciality hospitals, diagnostic labs and centres, and other medical facilities. Open any of them in Google Maps.</p></div>'+
    '<div class="loc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'+
-   '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(CITIES).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
+   '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(browseCities()).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
    '<div class="callout" style="margin-bottom:10px"><span><b>Own a lab, diagnostic centre or hospital?</b><br>List it on Nirog. A super admin verifies your licence first.</span><button class="btn sm" data-a="fregstart">Sign up</button></div>'+
    '<div class="search"><input id="lq" type="search" placeholder="Search a name, test or speciality, for example MRI" value="'+esc(state.lq)+'" aria-label="Search facilities"></div>'+
    kindChips()+
@@ -1561,7 +1573,7 @@ function vFreg(){
    fld("wa","WhatsApp number for patients (optional)",txt("wa",'inputmode="numeric" maxlength="10" autocomplete="off"'),"Shown on your listing as a Chat on WhatsApp button. Leave empty to hide it.")+
    fld("email",CLOUD?"Email (your login)":"Email",txt("email",'type="email" autocomplete="email"'))+(CLOUD?fld("pass","Password",txt("pass",'type="password" autocomplete="new-password"'),"At least 8 characters. You sign in with this email and password to see your listing status."):"")+
    '<div class="field" style="margin-bottom:0"><button type="button" class="chk" data-a="fftog" data-v="agree" aria-pressed="'+r.agree+'"><i>'+(r.agree?"✓":"")+'</i><span>I confirm these details and documents are true and I am allowed to list this facility.</span></button>'+(e.agree?'<div class="err">'+e.agree+'</div>':'')+'</div></div>'+
-   (r.sendErr?'<div class="err" role="alert" style="margin:12px 16px 0">'+esc(r.sendErr)+'</div>':'')+'<div style="height:16px"></div><div class="stick"><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Submitting...':'Submit for review')+'</button></div></form>';
+   '<div style="height:16px"></div><div class="stick">'+(r.sendErr?'<div class="err" role="alert" style="margin:0 0 8px">'+esc(r.sendErr)+'</div>':'')+'<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Submitting...':'Submit for review')+'</button></div></form>';
 }
 function onFacUpload(id,files){
   var r=state.fr;if(!r||!files||!files.length)return;
@@ -1569,12 +1581,12 @@ function onFacUpload(id,files){
   var k=id.slice(3);
   function fail(m){r.upMsg=m;render()}
   if(k==="gal"){
-    var list=Array.prototype.slice.call(files,0,4-r.gallery.length),n=0;
+    var list=Array.prototype.slice.call(files,0,4-r.gallery.length),bad=0;
     if(!list.length)return;
-    list.forEach(function(f){shrink(f,900,.72,function(d){
-      if(d&&r.gallery.length<4)r.gallery.push(d);
-      if(++n===list.length){if(r.errs&&r.gallery.length)delete r.errs.gallery;render()}
-    })});
+    (function next(i){
+      if(i>=list.length){if(r.errs&&r.gallery.length)delete r.errs.gallery;if(bad)r.upMsg=bad+" photo"+(bad>1?"s":"")+" could not be read. Try choosing them again.";render();return}
+      shrink(list[i],900,.72,function(d){if(d&&r.gallery.length<4)r.gallery.push(d);else bad++;next(i+1)});
+    })(0);
   }else if(k==="lic"||k==="id"||k==="acc"){
     var f=files[0];
     if(f.type==="application/pdf"){
@@ -1896,7 +1908,7 @@ function vList(){
    '<div class="title-block"><h1>Book a doctor in a few taps</h1><p>Pick a specialist, choose a time, and get your booking reference.</p>'+
    '<div class="tiny" style="margin-top:8px">'+(state.pat?'Signed in as '+patLine():'<button class="link" data-a="psignin" style="padding:0">Sign in with your mobile number</button>')+'</div></div>'+
    '<div class="loc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'+
-   '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(CITIES).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
+   '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(browseCities()).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
    '<label class="search">'+ic.search+'<input id="q" type="search" placeholder="Search doctor, specialty or clinic" value="'+esc(state.q)+'" autocomplete="off"></label>'+
    '<div class="chips" role="group" aria-label="Specialty">'+chips+'</div>'+
    '<div id="docs">'+docListHtml()+'</div>'+
@@ -2027,10 +2039,10 @@ function cloudLoadDir(){
   cloud.err="";cloud.ready=false;render();
   return BE.loadDirectory().then(function(list){
     var mine=DOCS.filter(function(d){return d.mine});
-    return BE.loadFacilities().then(function(rows){var ml=LABS.filter(function(l){return l.mine});LABS.length=0;rows.forEach(function(f){if(CITIES.indexOf(f.city)>-1)LABS.push(labFromRow(f))});ml.forEach(function(m){var i=-1;LABS.forEach(function(x,j){if(x.id===m.id)i=j});if(i<0)LABS.push(m);else{LABS[i]=m}});return list});
+    return BE.loadFacilities().then(function(rows){var ml=LABS.filter(function(l){return l.mine});LABS.length=0;rows.forEach(function(f){if(f.city)LABS.push(labFromRow(f))});ml.forEach(function(m){var i=-1;LABS.forEach(function(x,j){if(x.id===m.id)i=j});if(i<0)LABS.push(m);else{LABS[i]=m}});return list});
   }).then(function(list){
     var mine=DOCS.filter(function(d){return d.mine});
-    DOCS.length=0;list.forEach(function(d){if(CITIES.indexOf(d.city)>-1)DOCS.push(d)});
+    DOCS.length=0;list.forEach(function(d){if(d.city)DOCS.push(d)});
     mine.forEach(function(m){var i=-1;DOCS.forEach(function(d,j){if(d.id===m.id)i=j});if(i<0)DOCS.push(m);else{m.mine=true;DOCS[i]=m}});
     cloudApplySettings();cloud.ready=true;
   }).catch(function(e){cloud.err=e.message}).then(function(){render()});
@@ -2207,8 +2219,8 @@ function googleBtn(){
   if(!CLOUD||(window.NIROG_CONFIG||{}).googleLogin===false)return "";
   return '<div class="hint" style="text-align:center;margin:12px 0 8px">or</div><button type="button" class="btn ghost" data-a="google">Continue with Google</button>';
 }
-function googleStart(){
-  var o=state.otp;cloud.gafter=o?o.after:null;
+function googleStart(kind){
+  var o=state.otp;cloud.gafter=kind||(o?o.after:null);
   var isFile=location.protocol==="file:";
   var back=isFile?"nirog://auth":(location.origin+location.pathname);
   location.href=BE.googleUrl(back);
@@ -2216,12 +2228,23 @@ function googleStart(){
 function googleDone(frag){
   if(!CLOUD)return;
   cloud.busy=true;render();
+  var af0=cloud.gafter;
   BE.finishOAuth(frag).then(function(info){return BE.me().then(function(pf){
     if(!pf)throw new Error("Could not load your account.");
+    if(af0==="docreg"){
+      if(pf.role!=="patient")throw new Error("This Google account is already used by a "+pf.role+" account. Use a different Google account.");
+      cloud.greg=String(pf.email||info.email||(BE.sess&&BE.sess.user.email)||"").toLowerCase();
+      return "docreg";
+    }
+    if(af0==="staff"&&pf.role==="patient"){
+      return BE.signOut().then(function(){return "nostaff"});
+    }
     var fresh=!pf.full_name&&info.name?BE.setName(info.name).then(function(){pf.full_name=info.name}):Promise.resolve();
     return fresh.then(function(){return cloudWho(pf,info.name)});
   })}).then(function(msg){
     cloud.busy=false;
+    if(msg==="docreg"){cloud.gafter=null;state.view="register";if(!state.reg)state.reg=newReg();state.reg.sendErr="";render(true);return}
+    if(msg==="nostaff"){cloud.gafter=null;state.view="login";state.login.err="No doctor or staff account uses this Google email. Register as a doctor first.";render(true);return}
     if(msg){state.otp=state.otp||newOtp("patient",null);state.otp.err=msg;state.view="otp";render(true);return}
     var af=cloud.gafter;state.otp=null;
     if(state.staff){state.view="list"}
@@ -2229,7 +2252,10 @@ function googleDone(frag){
     else if(af==="appts"){state.tab="appts";state.view="list"}
     else{state.view="list";state.tab="find"}
     cloudSync(true);cloudStartPoll();render(true);
-  },function(e){cloud.busy=false;state.otp=state.otp||newOtp("patient",null);state.otp.err=e.message||"Google sign-in did not complete.";state.view="otp";render(true)});
+  },function(e){cloud.busy=false;var af=cloud.gafter;cloud.gafter=null;
+    if(af==="docreg"){state.view="register";if(!state.reg)state.reg=newReg();state.reg.sendErr=e.message||"Google sign-in did not complete.";render(true);return}
+    if(af==="staff"){state.view="login";state.login.err=e.message||"Google sign-in did not complete.";render(true);return}
+    state.otp=state.otp||newOtp("patient",null);state.otp.err=e.message||"Google sign-in did not complete.";state.view="otp";render(true)});
 }
 window.__nirogAuth=googleDone;
 function otpId(o){return SMS?o.phone:o.email}
@@ -2269,7 +2295,7 @@ function cloudSubmitReg(doc,r,mp,yr,em){
   if(cloud.busy)return;cloud.busy=true;r.errs={};r.sendErr="";render();
   var uid=null,ext=function(t){return /pdf/.test(t)?"pdf":/png/.test(t)?"png":/webp/.test(t)?"webp":"jpg"};
   var ups=[];
-  var auth=BE.signUpPassword(em,r.pass).catch(function(e){
+  var auth=(cloud.greg&&BE.signedIn())?Promise.resolve():BE.signUpPassword(em,r.pass).catch(function(e){
     if(e.code==="user_already_exists"||e.code==="email_exists")return BE.signInPassword(em,r.pass).catch(function(){throw new Error("That email already has an account. Sign in, or use a different email.")});
     throw e;
   });
@@ -2290,7 +2316,7 @@ function cloudSubmitReg(doc,r,mp,yr,em){
   }).then(function(){
     return BE.setPhone(r.phone);
   }).then(function(){
-    cloud.busy=false;state.regDone=doc;BE.signOut();cloud.sc={};render(true);
+    cloud.busy=false;cloud.greg=null;state.regDone=doc;BE.signOut();cloud.sc={};render(true);
   },function(e){cloud.busy=false;r.sendErr=e.message||"Could not submit. Try again.";render()});
 }
 
@@ -2456,6 +2482,8 @@ app.addEventListener("click",function(ev){
     case "notif":openNotif();break;
     case "cretry":cloudLoadDir();break;
     case "google":googleStart();break;
+    case "gdoc":googleStart("docreg");break;
+    case "gstaff":googleStart("staff");break;
     case "ctab":cloud.tab=v;cloud.adminMsg="";cloud.adminErr="";render();break;
     case "cfapprove":cloudReviewF(+v,"approve");break;
     case "cfreject":cloudReviewF(+v,"reject");break;
