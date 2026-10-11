@@ -1064,7 +1064,7 @@ function vRegister(){
    '<div class="upl"><b>Profile photo (required)</b>'+(r.photo?'<div class="thumbs"><div class="thumb"><img src="'+esc(r.photo)+'" alt="Your profile photo"><button type="button" class="x" data-a="rmup" data-v="photo" aria-label="Remove profile photo">×</button></div></div>':'')+
    '<label class="pick">'+(r.photo?'Change photo':'Choose photo')+'<input type="file" id="up-photo" accept="image/*"></label>'+(e.photo?'<div class="err">'+e.photo+'</div>':'')+'</div>'+
    '<div class="upl" style="margin-bottom:0"><b>Clinic photos (1 to 4)</b>'+(r.gallery.length?'<div class="thumbs">'+r.gallery.map(function(g,i){return '<div class="thumb"><img src="'+esc(g)+'" alt="Clinic photo '+(i+1)+'"><button type="button" class="x" data-a="rmup" data-v="gal:'+i+'" aria-label="Remove clinic photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'')+
-   (r.gallery.length<4?'<label class="pick">Add clinic photos<input type="file" id="up-gal" accept="image/*" multiple></label>':'')+(e.gallery?'<div class="err">'+e.gallery+'</div>':'<div class="hint">Waiting room, reception, consulting room.</div>')+'</div></div>'+
+   (r.gallery.length<4?'<label class="pick">Add clinic photos<input type="file" id="up-gal" accept="image/*" multiple></label>':'')+(r.galMsg?'<div class="err">'+esc(r.galMsg)+'</div>':'')+(e.gallery?'<div class="err">'+e.gallery+'</div>':'<div class="hint">Waiting room, reception, consulting room.</div>')+'</div></div>'+
    '<div class="sec">Clinic address</div><div class="card">'+
    fld("clinic","Clinic name",txt("clinic"))+
    fld("city","City",cityIn('rg-city',r.city))+
@@ -1095,28 +1095,44 @@ function docUp(k,label,f,err){
    '<label class="pick">'+(f?'Replace file':'Choose file')+'<input type="file" id="up-'+k+'" accept="image/*,application/pdf"></label>'+(err?'<div class="err">'+err+'</div>':'')+'</div>';
 }
 function shrink(file,maxDim,q,cb){
-  /* Uses an object URL when the browser has one: big phone photos are decoded without first turning them into a huge text string. */
-  var url=null,done=false;
-  function fin(v){if(done)return;done=true;if(url){try{URL.revokeObjectURL(url)}catch(e){}}cb(v)}
-  function draw(src){
-    var im=new Image();
-    im.onerror=function(){fin(null)};
-    im.onload=function(){
-      try{
-        var sc=Math.min(1,maxDim/Math.max(im.width,im.height)),w=Math.max(1,Math.round(im.width*sc)),h=Math.max(1,Math.round(im.height*sc));
-        var c=document.createElement("canvas");c.width=w;c.height=h;
-        var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);
-        fin(c.toDataURL("image/jpeg",q));
-      }catch(e){fin(null)}
-    };
-    im.src=src;
+  /* Tries three ways to read a phone photo, each with a time limit: createImageBitmap (handles big photos and rotation), an object URL, then a data URL. */
+  var finished=false;
+  function fin(v){if(finished)return;finished=true;cb(v)}
+  function toJpeg(src,w0,h0){
+    var sc=Math.min(1,maxDim/Math.max(w0,h0)),w=Math.max(1,Math.round(w0*sc)),h=Math.max(1,Math.round(h0*sc));
+    var c=document.createElement("canvas");c.width=w;c.height=h;
+    var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(src,0,0,w,h);
+    var d=c.toDataURL("image/jpeg",q);
+    return d&&d.length>200&&d.indexOf("data:image/jpeg")===0?d:null;
   }
-  try{if(window.URL&&URL.createObjectURL){url=URL.createObjectURL(file);draw(url);return}}catch(e){url=null}
-  var fr=new FileReader();
-  fr.onerror=function(){fin(null)};
-  fr.onload=function(){draw(fr.result)};
-  fr.readAsDataURL(file);
+  function viaImg(url,next,revoke){
+    var im=new Image(),to=setTimeout(function(){im.onload=im.onerror=null;next()},12000);
+    im.onerror=function(){clearTimeout(to);if(revoke)try{URL.revokeObjectURL(url)}catch(e){}next()};
+    im.onload=function(){clearTimeout(to);var d=null;try{d=toJpeg(im,im.naturalWidth||im.width,im.naturalHeight||im.height)}catch(e){}if(revoke)try{URL.revokeObjectURL(url)}catch(e){}if(d)fin(d);else next()};
+    im.src=url;
+  }
+  function m3(){
+    try{var fr=new FileReader();fr.onerror=function(){fin(null)};fr.onload=function(){viaImg(fr.result,function(){fin(null)},false)};fr.readAsDataURL(file)}catch(e){fin(null)}
+  }
+  function m2(){
+    try{if(window.URL&&URL.createObjectURL){viaImg(URL.createObjectURL(file),m3,true);return}}catch(e){}
+    m3();
+  }
+  function m1(){
+    if(!window.createImageBitmap){m2();return}
+    var to=setTimeout(m2,12000),gone=false;
+    function go(){if(gone)return;gone=true;clearTimeout(to);m2()}
+    createImageBitmap(file).then(function(bm){
+      if(gone){try{bm.close()}catch(e){}return}
+      var d=null;try{d=toJpeg(bm,bm.width,bm.height)}catch(e){}
+      try{bm.close()}catch(e){}
+      if(d&&!gone){gone=true;clearTimeout(to);fin(d)}else go();
+    },go);
+  }
+  m1();
 }
+function errSummary(e){var k=Object.keys(e),first=e[k[0]];return "Cannot submit yet: "+first+(k.length>1?" ("+(k.length-1)+" more problem"+(k.length>2?"s":"")+" marked in red above.)":"")}
+function showFirstErr(){setTimeout(function(){var x=document.querySelector("#app .err:not([role=alert])");if(x&&x.scrollIntoView)x.scrollIntoView({block:"center"})},60)}
 function onUpload(id,files){
   var r=state.reg;if(!r||!files||!files.length)return;
   r.upMsg="";
@@ -1125,11 +1141,11 @@ function onUpload(id,files){
   if(k==="photo"){
     shrink(files[0],480,.78,function(d){if(!d)return fail("That file could not be read as a photo.");r.photo=d;if(r.errs)delete r.errs.photo;render()});
   }else if(k==="gal"){
-    var list=Array.prototype.slice.call(files,0,4-r.gallery.length),bad=0;
+    var list=Array.prototype.slice.call(files,0,4-r.gallery.length),bad=0,badInfo="";r.galMsg="";
     if(!list.length)return;
     (function next(i){
-      if(i>=list.length){if(r.errs&&r.gallery.length)delete r.errs.gallery;if(bad)r.upMsg=bad+" photo"+(bad>1?"s":"")+" could not be read. Try choosing them again.";render();return}
-      shrink(list[i],900,.72,function(d){if(d&&r.gallery.length<4)r.gallery.push(d);else bad++;next(i+1)});
+      if(i>=list.length){if(r.errs&&r.gallery.length)delete r.errs.gallery;if(bad)r.galMsg=bad+" photo"+(bad>1?"s":"")+" could not be read"+(badInfo?" ("+badInfo+")":"")+". Try another photo or take a new one with the camera.";render();return}
+      shrink(list[i],900,.72,function(d){if(d&&r.gallery.length<4)r.gallery.push(d);else{bad++;if(!badInfo)badInfo=(list[i].type||"unknown type")+", "+Math.round((list[i].size||0)/1024)+" KB"}next(i+1)});
     })(0);
   }else if(k==="reg"||k==="id"||k==="deg"){
     var f=files[0];
@@ -1201,10 +1217,12 @@ function submitReg(){
   else if(dup)e.email="That email already has an account.";
   if(r.pass.length<8)e.pass="Use a password with at least 8 characters.";
   }
-  r.errs=e;
+  r.errs=e;r.sendErr="";
   var keys=Object.keys(e);
   if(keys.length){
-    render();
+    r.sendErr=errSummary(e);
+    render();showFirstErr();
+    return;
     var fk=keys[0]==="s1"?"s1f":keys[0]==="s2"?"s2f":keys[0],el=document.getElementById("rg-"+fk)||document.getElementById("up-"+fk);if(el&&el.scrollIntoView&&!el.focus)el.scrollIntoView();
     if(el&&el.focus)el.focus();
     return;
@@ -1570,7 +1588,7 @@ function vFreg(){
    (r.upMsg?'<div class="err">'+esc(r.upMsg)+'</div>':'')+
    '<div class="hint">Photos of documents or PDF. Photos are shrunk to save space; PDFs must be under '+(CLOUD?'2 MB':'300 KB')+'.</div></div>'+
    '<div class="sec">Photos</div><div class="card"><div class="upl" style="margin-bottom:0"><b>Facility photos (1 to 4)</b>'+(r.gallery.length?'<div class="thumbs">'+r.gallery.map(function(g,i){return '<div class="thumb"><img src="'+esc(g)+'" alt="Facility photo '+(i+1)+'"><button type="button" class="x" data-a="frm" data-v="gal:'+i+'" aria-label="Remove photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'')+
-   (r.gallery.length<4?'<label class="pick">Add photos<input type="file" id="fu-gal" accept="image/*" multiple></label>':'')+(e.gallery?'<div class="err">'+e.gallery+'</div>':'<div class="hint">Front of the building, reception, equipment.</div>')+'</div></div>'+
+   (r.gallery.length<4?'<label class="pick">Add photos<input type="file" id="fu-gal" accept="image/*" multiple></label>':'')+(r.galMsg?'<div class="err">'+esc(r.galMsg)+'</div>':'')+(e.gallery?'<div class="err">'+e.gallery+'</div>':'<div class="hint">Front of the building, reception, equipment.</div>')+'</div></div>'+
    '<div class="sec">Contact and login</div><div class="card">'+
    fld("contact","Contact person",txt("contact",'autocomplete="name"'))+
    fld("phone","Mobile number (you sign in with a one-time code)",txt("phone",'inputmode="numeric" maxlength="10" autocomplete="tel"'))+
@@ -1585,11 +1603,11 @@ function onFacUpload(id,files){
   var k=id.slice(3);
   function fail(m){r.upMsg=m;render()}
   if(k==="gal"){
-    var list=Array.prototype.slice.call(files,0,4-r.gallery.length),bad=0;
+    var list=Array.prototype.slice.call(files,0,4-r.gallery.length),bad=0,badInfo="";r.galMsg="";
     if(!list.length)return;
     (function next(i){
-      if(i>=list.length){if(r.errs&&r.gallery.length)delete r.errs.gallery;if(bad)r.upMsg=bad+" photo"+(bad>1?"s":"")+" could not be read. Try choosing them again.";render();return}
-      shrink(list[i],900,.72,function(d){if(d&&r.gallery.length<4)r.gallery.push(d);else bad++;next(i+1)});
+      if(i>=list.length){if(r.errs&&r.gallery.length)delete r.errs.gallery;if(bad)r.galMsg=bad+" photo"+(bad>1?"s":"")+" could not be read"+(badInfo?" ("+badInfo+")":"")+". Try another photo or take a new one with the camera.";render();return}
+      shrink(list[i],900,.72,function(d){if(d&&r.gallery.length<4)r.gallery.push(d);else{bad++;if(!badInfo)badInfo=(list[i].type||"unknown type")+", "+Math.round((list[i].size||0)/1024)+" KB"}next(i+1)});
     })(0);
   }else if(k==="lic"||k==="id"||k==="acc"){
     var f=files[0];
@@ -1634,10 +1652,12 @@ function submitFreg(){
   else if(dup)e.email="That email already has an account.";
   if(!r.agree)e.agree="Please confirm before submitting.";
   if(CLOUD&&(r.pass||"").length<8)e.pass="Use a password with at least 8 characters.";
-  r.errs=e;
+  r.errs=e;r.sendErr="";
   var keys=Object.keys(e);
   if(keys.length){
-    render();
+    r.sendErr=errSummary(e);
+    render();showFirstErr();
+    return;
     var el=document.getElementById("fr-"+keys[0])||document.getElementById("fu-"+keys[0]);
     if(el&&el.scrollIntoView&&!el.focus)el.scrollIntoView();
     if(el&&el.focus)el.focus();
