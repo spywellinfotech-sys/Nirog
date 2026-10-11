@@ -1055,7 +1055,7 @@ function vRegister(){
    docUp("id","Government photo ID (required)",r.docs.id,e.id)+
    docUp("deg","Degree certificate (optional)",r.docs.deg,e.deg)+
    (r.upMsg?'<div class="err">'+esc(r.upMsg)+'</div>':'')+
-   '<div class="hint">Photos of documents or PDF. Photos are shrunk to save space; PDFs must be under 300 KB.</div></div>'+
+   '<div class="hint">Photos of documents or PDF. Photos are shrunk to save space; PDFs must be under '+(CLOUD?'2 MB':'300 KB')+'.</div></div>'+
    '<div class="sec">Photos</div><div class="card">'+
    '<div class="upl"><b>Profile photo (required)</b>'+(r.photo?'<div class="thumbs"><div class="thumb"><img src="'+esc(r.photo)+'" alt="Your profile photo"><button type="button" class="x" data-a="rmup" data-v="photo" aria-label="Remove profile photo">×</button></div></div>':'')+
    '<label class="pick">'+(r.photo?'Change photo':'Choose photo')+'<input type="file" id="up-photo" accept="image/*"></label>'+(e.photo?'<div class="err">'+e.photo+'</div>':'')+'</div>'+
@@ -1122,7 +1122,7 @@ function onUpload(id,files){
   }else if(k==="reg"||k==="id"||k==="deg"){
     var f=files[0];
     if(f.type==="application/pdf"){
-      if(f.size>300*1024)return fail("That PDF is larger than 300 KB. Upload a photo of the document instead, or a smaller PDF.");
+      if(f.size>(CLOUD?2048:300)*1024)return fail("That PDF is larger than "+(CLOUD?"2 MB":"300 KB")+". Upload a photo of the document instead, or a smaller PDF.");
       var fr=new FileReader();
       fr.onload=function(){r.docs[k]={name:f.name,type:"application/pdf",data:fr.result};if(r.errs)delete r.errs[k];render()};
       fr.onerror=function(){fail("That file could not be read.")};
@@ -1552,7 +1552,7 @@ function vFreg(){
    fdocUp("id","Photo ID of owner or authorised person (required)",r.docs.id,e.id)+
    fdocUp("acc","NABL, NABH or other accreditation (optional)",r.docs.acc,e.acc)+
    (r.upMsg?'<div class="err">'+esc(r.upMsg)+'</div>':'')+
-   '<div class="hint">Photos of documents or PDF. Photos are shrunk to save space; PDFs must be under 300 KB.</div></div>'+
+   '<div class="hint">Photos of documents or PDF. Photos are shrunk to save space; PDFs must be under '+(CLOUD?'2 MB':'300 KB')+'.</div></div>'+
    '<div class="sec">Photos</div><div class="card"><div class="upl" style="margin-bottom:0"><b>Facility photos (1 to 4)</b>'+(r.gallery.length?'<div class="thumbs">'+r.gallery.map(function(g,i){return '<div class="thumb"><img src="'+esc(g)+'" alt="Facility photo '+(i+1)+'"><button type="button" class="x" data-a="frm" data-v="gal:'+i+'" aria-label="Remove photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'')+
    (r.gallery.length<4?'<label class="pick">Add photos<input type="file" id="fu-gal" accept="image/*" multiple></label>':'')+(e.gallery?'<div class="err">'+e.gallery+'</div>':'<div class="hint">Front of the building, reception, equipment.</div>')+'</div></div>'+
    '<div class="sec">Contact and login</div><div class="card">'+
@@ -1578,7 +1578,7 @@ function onFacUpload(id,files){
   }else if(k==="lic"||k==="id"||k==="acc"){
     var f=files[0];
     if(f.type==="application/pdf"){
-      if(f.size>300*1024)return fail("That PDF is larger than 300 KB. Upload a photo of the document instead, or a smaller PDF.");
+      if(f.size>(CLOUD?2048:300)*1024)return fail("That PDF is larger than "+(CLOUD?"2 MB":"300 KB")+". Upload a photo of the document instead, or a smaller PDF.");
       var fr=new FileReader();
       fr.onload=function(){r.docs[k]={name:f.name,type:"application/pdf",data:fr.result};if(r.errs)delete r.errs[k];render()};
       fr.onerror=function(){fail("That file could not be read.")};

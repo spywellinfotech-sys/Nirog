@@ -5,6 +5,8 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -19,6 +21,8 @@ public class MainActivity extends Activity {
 
     private static final String START_URL = "file:///android_asset/www/index.html";
     private WebView webView;
+    private static final int FILE_REQ = 1001;
+    private ValueCallback<Uri[]> filePathCallback; // pending file picker for <input type="file">
     private String pendingAuth; // fragment of a nirog://auth#... sign-in return, delivered once the page is ready
 
     @Override
@@ -34,6 +38,24 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(true);
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
+
+        // Without this, "Choose file" buttons in the web app do nothing inside an Android WebView.
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (filePathCallback != null) {
+                    filePathCallback.onReceiveValue(null);
+                }
+                filePathCallback = callback;
+                try {
+                    startActivityForResult(params.createIntent(), FILE_REQ);
+                } catch (ActivityNotFoundException e) {
+                    filePathCallback = null;
+                    return false;
+                }
+                return true;
+            }
+        });
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -63,6 +85,19 @@ public class MainActivity extends Activity {
         } else {
             webView.loadUrl(START_URL);
         }
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == FILE_REQ) {
+            if (filePathCallback != null) {
+                filePathCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+                filePathCallback = null;
+            }
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     @Override
