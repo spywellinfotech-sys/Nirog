@@ -28,6 +28,12 @@ const uid2={"p1@x.in":"pat1","p2@x.in":"pat2","+919811100001":"pat1","+919811100
 global.fetch=(url,o)=>{
   const u=new URL(url),p=u.pathname,q=u.searchParams,m=o.method||"GET",h=o.headers||{},me=who(h),b=o.body?JSON.parse(o.body):null;
   db.log.push(m+" "+p);
+  if(p==="/functions/v1/sms-otp"){
+    if(b.action==="send")return reply(200,{ok:true});
+    if(b.code!=="123456")return reply(400,{error:"invalid_otp"});
+    const id=uid2["+91"+b.mobile];db.profiles[id]=db.profiles[id]||{id,role:"patient",full_name:"",phone:"+91"+b.mobile,email:null};
+    return reply(200,mkSess(id,{phone:"91"+b.mobile}));
+  }
   if(p==="/auth/v1/otp")return reply(200,{});
   if(p==="/auth/v1/verify"){if(b.token!=="123456")return reply(400,{error_code:"otp_expired",msg:"Token has expired or is invalid"});const key=b.email||b.phone,id=uid2[key];db.profiles[id]=db.profiles[id]||{id,role:"patient",full_name:"",phone:b.phone||null,email:b.email||null};if(b.type!==(b.email?"email":"sms"))return reply(400,{error_code:"bad_type"});return reply(200,mkSess(id,b.email?{email:b.email}:{phone:b.phone.slice(1)}))}
   if(p==="/auth/v1/token"){if(b.password!=="docpass12")return reply(400,{error_code:"invalid_credentials",msg:"Invalid login credentials"});

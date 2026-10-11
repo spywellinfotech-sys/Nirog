@@ -110,3 +110,8 @@ The same suite runs in GitHub Actions as **Database tests** on every change unde
 - Doctors can register and sign in with Google (registration form and staff sign-in screen). Facility/lab registration still uses email and password.
 - Photo processing was rewritten (object URLs); upload and submit errors now appear above the Submit button with a code. Not yet verified on a real device.
 - City fields accept any typed city (with suggestions).
+
+## SMS OTP (apitxt)
+- Edge Function `supabase/functions/sms-otp` (deployed, verify_jwt off because it is a public OTP endpoint with its own rate limit: 3 codes per number per 10 min, 5 wrong tries, 5 min expiry; only hashes are stored in `sms_otps`).
+- Secrets needed in Supabase (Edge Functions, Secrets): `APITXT_AUTH_KEY`, optional `APITXT_TEMPLATE_ID`.
+- Turn on in the app by setting `patientAuth:"sms"` in config.js (Google button stays). Not verified live until the key is set and a real SMS arrives.
