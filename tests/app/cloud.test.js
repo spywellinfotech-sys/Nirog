@@ -18,7 +18,7 @@ global.NIROG_CONFIG={supabaseUrl:"https://fake.supabase.co",supabaseAnonKey:"sb_
 const db={users:{},profiles:{},doctors:[{id:7,name:"Dr. Test Doc",spec:"Cardiologist",qual:"MBBS",exp_years:5,fee_inr:500,video_fee_inr:0,video:false,languages:"Hindi",about:"x",clinic:"C1",city:"Delhi",photo_path:null,wa:null,status:"approved",verified:true,review_reason:null,ref:"DR-1"}],
  loc:[{id:1,doctor_id:7,name:"C1",address:"1 Main Road Delhi",city:"Delhi",pin:"110001",map_url:null,lat:null,lng:null}],
  av:[{doctor_id:7,weekday:0,start_min:600,end_min:720,step_min:30},{doctor_id:7,weekday:1,start_min:600,end_min:720,step_min:30},{doctor_id:7,weekday:2,start_min:600,end_min:720,step_min:30},{doctor_id:7,weekday:3,start_min:600,end_min:720,step_min:30},{doctor_id:7,weekday:4,start_min:600,end_min:720,step_min:30},{doctor_id:7,weekday:5,start_min:600,end_min:720,step_min:30},{doctor_id:7,weekday:6,start_min:600,end_min:720,step_min:30}],
- bookings:[],notes:[],log:[]};
+ bookings:[],notes:[],log:[],leads:[],facs:[{id:1,kind:"lab",sub:"",name:"City Diagnostics Lab",city:"Delhi",address:"7 Lab Road Delhi",pin:"110001",map_url:null,hours:"7 AM to 9 PM",beds:null,emergency:false,ambulance:false,home_service:true,services:[["CBC",300]],wa:null,status:"approved",verified:true,review_reason:null,ref:"FC-1"},{id:2,kind:"hospital",sub:"",name:"Pending Care Hospital",city:"Delhi",address:"9 Hosp Road Delhi",pin:"110002",map_url:null,hours:"24h",beds:50,emergency:true,ambulance:true,home_service:false,services:[["Cardiology"]],wa:null,status:"pending",verified:false,review_reason:null,ref:"FC-2"}]};
 const mkSess=(id,extra)=>({access_token:"tok-"+id,refresh_token:"r-"+id,expires_at:Math.floor(Date.now()/1000)+3600,user:Object.assign({id},extra)});
 function who(h){const t=(h.Authorization||"").replace("Bearer ","");return t.startsWith("tok-")?t.slice(4):null}
 function reply(status,body){return Promise.resolve({ok:status<300,status,text:()=>Promise.resolve(body==null?"":JSON.stringify(body))})}
@@ -28,7 +28,18 @@ global.fetch=(url,o)=>{
   db.log.push(m+" "+p);
   if(p==="/auth/v1/otp")return reply(200,{});
   if(p==="/auth/v1/verify"){if(b.token!=="123456")return reply(400,{error_code:"otp_expired",msg:"Token has expired or is invalid"});const id=uid2[b.email];db.profiles[id]=db.profiles[id]||{id,role:"patient",full_name:"",phone:null,email:b.email};return reply(200,mkSess(id,{email:b.email}))}
-  if(p==="/auth/v1/token"){if(b.password!=="docpass12")return reply(400,{error_code:"invalid_credentials",msg:"Invalid login credentials"});db.profiles.doc1={id:"doc1",role:"doctor",full_name:"Dr. Test Doc",phone:null,email:b.email};return reply(200,mkSess("doc1",{email:b.email}))}
+  if(p==="/auth/v1/token"){if(b.password!=="docpass12")return reply(400,{error_code:"invalid_credentials",msg:"Invalid login credentials"});
+    const role=b.email.startsWith("admin")?"admin":b.email.startsWith("sales")?"sales":"doctor",id=role==="doctor"?"doc1":role;
+    db.profiles[id]={id,role,full_name:role==="doctor"?"Dr. Test Doc":role,phone:null,email:b.email};return reply(200,mkSess(id,{email:b.email}))}
+  if(p==="/rest/v1/facilities"){const all=db.facs;return reply(200,q.get("status")?all.filter(f=>f.status==="approved"):all)}
+  if(p==="/rest/v1/facility_private")return reply(200,[{facility_id:1,contact_name:"R S",contact_phone:"9811100009",licence_no:"LIC1"},{facility_id:2,contact_name:"T",contact_phone:"9811100008",licence_no:"LIC2"}]);
+  if(p==="/rest/v1/facility_documents")return reply(200,[]);
+  if(p==="/rest/v1/doctor_verification"||p==="/rest/v1/doctor_documents")return reply(200,[]);
+  if(p==="/rest/v1/rpc/admin_review_facility"){const f=db.facs.find(x=>x.id===b.p_facility);f.status=b.p_decision==="approve"?"approved":"rejected";return reply(200,f)}
+  if(p==="/rest/v1/leads"&&m==="GET")return reply(200,db.leads);
+  if(p==="/rest/v1/leads"&&m==="POST"){db.leads.push(Object.assign({id:db.leads.length+1,status:"new"},b));return reply(201,null)}
+  if(p==="/rest/v1/leads"&&m==="PATCH"){const id=+q.get("id").replace("eq.","");db.leads.find(x=>x.id===id).status=b.status;return reply(204,null)}
+  if(p==="/rest/v1/platform_settings"&&m==="PATCH"){db.settings=b;return reply(204,null)}
   if(p==="/rest/v1/doctors")return reply(200,db.doctors);
   if(p==="/rest/v1/clinic_locations")return reply(200,db.loc);
   if(p==="/rest/v1/doctor_availability")return reply(200,db.av);
@@ -108,5 +119,26 @@ const day=d=>{const x=new Date();x.setDate(x.getDate()+d);return x.getFullYear()
   click("logout");await wait();
   click("tab","appts");input("o-email","p1@x.in");submit("otpForm");await wait();input("o-code","123456");submit("otpForm");await wait(100);
   ok(app.innerHTML.includes("Your appointments")&&!app.innerHTML.includes("No upcoming"),"patient sees the confirmed booking after signing in again");
+  // admin
+  click("logout");await wait();
+  click("staff");input("l-email","admin@x.in");input("l-pass","docpass12");submit("loginForm");await wait(150);
+  ok(app.innerHTML.includes("Doctor")&&app.innerHTML.includes("Facilities"),"admin sees review tabs");
+  click("ctab","fac");await wait(100);
+  ok(app.innerHTML.includes("Pending Care Hospital")&&app.innerHTML.includes("LIC2"),"admin sees pending facility with private details");
+  click("cfapprove","2");await wait(100);
+  ok(db.facs[1].status==="approved","admin approval of facility stored");
+  click("ctab","set");input("cs-value","60");submit("csForm");await wait(60);
+  ok(db.settings&&db.settings.fee_value===60,"admin platform fee saved to the server");
+  // sales
+  click("logout");await wait();
+  click("staff");input("l-email","sales@x.in");input("l-pass","docpass12");submit("loginForm");await wait(150);
+  ok(app.innerHTML.includes("Add lead")&&!app.innerHTML.includes("Settings"),"sales sees only leads");
+  input("cl-name","Lead One");input("cl-phone","9811100077");submit("clForm");await wait(100);
+  ok(db.leads.length===1&&app.innerHTML.includes("Lead One"),"sales lead saved and listed");
+  click("clstat","1|contacted");await wait(100);
+  ok(db.leads[0].status==="contacted","lead status stored");
+  // labs tab shows facilities from the database
+  click("logout");await wait();click("tab","labs");
+  ok(app.innerHTML.includes("City Diagnostics Lab")&&!app.innerHTML.includes("Sample Diagnostics"),"labs come from the database, not demo data");
   console.log(fails?"\n"+fails+" FAILED":"\nall passed");process.exit(fails?1:0);
 })();

@@ -1515,7 +1515,7 @@ function submitLab(){
 /* ---------- facility sign-up (labs, diagnostic centres, hospitals, other care) ---------- */
 var FREJ=["Licence or registration certificate is not readable","Licence does not match the facility name or address","Owner or authorised person ID is missing or not valid","Location or address could not be confirmed","Other, contact support"];
 function newFr(){return {wa:"",kind:"lab",sub:SUBS[0],name:"",contact:"",phone:"",email:"",city:CITIES[0],addr:"",pin:"",map:"",hours:"7:00 AM to 9:00 PM",home:true,er:true,amb:true,beds:"",tests:"",
-  licno:"",auth:"",docs:{lic:null,id:null,acc:null},gallery:[],agree:false,upMsg:"",errs:{}}}
+  pass:"",licno:"",auth:"",docs:{lic:null,id:null,acc:null},gallery:[],agree:false,upMsg:"",errs:{}}}
 function facById(id){for(var i=0;i<LABS.length;i++)if(LABS[i].id===id)return LABS[i];return null}
 function vChkF(id){state.vchk=state.vchk||{};var k="f"+id;return state.vchk[k]||(state.vchk[k]={a:false,b:false,c:false})}
 function fdocUp(k,label,f,err){
@@ -1557,9 +1557,9 @@ function vFreg(){
    fld("contact","Contact person",txt("contact",'autocomplete="name"'))+
    fld("phone","Mobile number (you sign in with a one-time code)",txt("phone",'inputmode="numeric" maxlength="10" autocomplete="tel"'))+
    fld("wa","WhatsApp number for patients (optional)",txt("wa",'inputmode="numeric" maxlength="10" autocomplete="off"'),"Shown on your listing as a Chat on WhatsApp button. Leave empty to hide it.")+
-   fld("email","Email",txt("email",'type="email" autocomplete="email"'))+
+   fld("email",CLOUD?"Email (your login)":"Email",txt("email",'type="email" autocomplete="email"'))+(CLOUD?fld("pass","Password",txt("pass",'type="password" autocomplete="new-password"'),"At least 8 characters. You sign in with this email and password to see your listing status."):"")+
    '<div class="field" style="margin-bottom:0"><button type="button" class="chk" data-a="fftog" data-v="agree" aria-pressed="'+r.agree+'"><i>'+(r.agree?"✓":"")+'</i><span>I confirm these details and documents are true and I am allowed to list this facility.</span></button>'+(e.agree?'<div class="err">'+e.agree+'</div>':'')+'</div></div>'+
-   '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">Submit for review</button></div></form>';
+   (r.sendErr?'<div class="err" role="alert" style="margin:12px 16px 0">'+esc(r.sendErr)+'</div>':'')+'<div style="height:16px"></div><div class="stick"><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Submitting...':'Submit for review')+'</button></div></form>';
 }
 function onFacUpload(id,files){
   var r=state.fr;if(!r||!files||!files.length)return;
@@ -1593,7 +1593,6 @@ function frRemove(v){
   render();
 }
 function submitFreg(){
-  if(CLOUD){state.fr.errs={name:"Lab and hospital registration is not connected to the live backend yet."};render();return}
   var r=state.fr,e={},em=r.email.trim().toLowerCase(),dup=false,hosp=r.kind==="hospital",oth=r.kind==="other",t=parseTests(r.tests),mp=parseMap(r.map);
   staffData.users.forEach(function(u){if(u.email&&u.email.toLowerCase()===em)dup=true});
   if(r.name.trim().length<3)e.name="Enter the facility name.";
@@ -1615,6 +1614,7 @@ function submitFreg(){
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))e.email="Enter a valid email address.";
   else if(dup)e.email="That email already has an account.";
   if(!r.agree)e.agree="Please confirm before submitting.";
+  if(CLOUD&&(r.pass||"").length<8)e.pass="Use a password with at least 8 characters.";
   r.errs=e;
   var keys=Object.keys(e);
   if(keys.length){
@@ -1624,6 +1624,7 @@ function submitFreg(){
     if(el&&el.focus)el.focus();
     return;
   }
+  if(CLOUD){cloudSubmitFreg(r,t,mp,em);return}
   var id="l"+Date.now();
   var l={id:id,kind:r.kind,name:r.name.trim(),city:r.city,address:r.addr.trim(),pin:r.pin,hours:r.hours.trim(),tests:t,sample:false,
     registered:true,status:"pending",verified:false,ref:"FC-"+rand5(),contact:r.contact.trim(),phone:r.phone,wa:r.wa||"",email:em,licno:r.licno.trim(),auth:r.auth.trim(),
@@ -2008,7 +2009,7 @@ function nav(){
 /* ---------- cloud mode (Supabase backend) ----------
    Active only when config.js holds a project URL and publishable key. Otherwise the app runs on local demo data as before.
    Nothing about patients is kept in localStorage in cloud mode; the database (with Row Level Security) is the source of truth. */
-var cloud={ready:!CLOUD,err:"",busy:false,sc:{},hash:"",admin:null,adminErr:"",adminMsg:"",timer:null};
+var cloud={ready:!CLOUD,err:"",busy:false,sc:{},hash:"",admin:null,facs:null,leads:null,tab:"doc",lf:null,sf:null,adminErr:"",adminMsg:"",timer:null};
 function last10(p){return String(p||"").replace(/\D/g,"").slice(-10)}
 function vCloudWait(){
   return '<div class="top"><div class="brand">Nirog</div></div><div class="title-block"><h1>'+(cloud.err?'Cannot connect':'Loading doctors')+'</h1>'+
@@ -2022,6 +2023,9 @@ function cloudApplySettings(){
 function cloudLoadDir(){
   cloud.err="";cloud.ready=false;render();
   return BE.loadDirectory().then(function(list){
+    var mine=DOCS.filter(function(d){return d.mine});
+    return BE.loadFacilities().then(function(rows){var ml=LABS.filter(function(l){return l.mine});LABS.length=0;rows.forEach(function(f){if(CITIES.indexOf(f.city)>-1)LABS.push(labFromRow(f))});ml.forEach(function(m){var i=-1;LABS.forEach(function(x,j){if(x.id===m.id)i=j});if(i<0)LABS.push(m);else{LABS[i]=m}});return list});
+  }).then(function(list){
     var mine=DOCS.filter(function(d){return d.mine});
     DOCS.length=0;list.forEach(function(d){if(CITIES.indexOf(d.city)>-1)DOCS.push(d)});
     mine.forEach(function(m){var i=-1;DOCS.forEach(function(d,j){if(d.id===m.id)i=j});if(i<0)DOCS.push(m);else{m.mine=true;DOCS[i]=m}});
@@ -2050,7 +2054,15 @@ function cloudWho(pf,name){
     staffData.users=[{id:"cloud",name:pf.full_name||pf.email||"Staff",email:pf.email||"",role:r,active:true}];
     state.pat=null;state.staff="cloud";state.nb=true;state.stab="ov";return Promise.resolve("");
   }
-  return BE.signOut().then(function(){return "Lab and hospital sign-in is not available in the app yet."});
+  if(r==="facility"){
+    return BE.myFacility().then(function(id){return BE.sel("facilities","select=id,kind,sub,name,city,address,pin,map_url,hours,beds,emergency,ambulance,home_service,services,wa,status,verified,review_reason,ref&id=eq."+id)}).then(function(rows){
+      if(!rows||!rows[0])return "Your listing could not be found.";
+      var l=labFromRow(rows[0]);l.mine=true;var i=-1;LABS.forEach(function(x,j){if(x.id===l.id)i=j});if(i<0)LABS.push(l);else LABS[i]=l;
+      staffData.users=[{id:"cloud",name:l.name,email:pf.email||"",role:"facility",facId:l.id,active:true}];
+      state.pat=null;state.staff="cloud";state.nb=true;state.stab="st";return "";
+    });
+  }
+  return BE.signOut().then(function(){return "This account type cannot sign in here."});
 }
 function cloudRestore(){
   if(!BE.signedIn())return Promise.resolve();
@@ -2079,7 +2091,7 @@ function cloudStartPoll(){
 }
 function cloudLogout(expired){
   var p=BE.signOut();
-  state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;
+  state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;cloud.facs=null;cloud.leads=null;cloud.sf=null;cloud.adminMsg="";cloud.adminErr="";
   DOCS.forEach(function(d){d.mine=false});
   state.view="list";state.tab="find";state.notif=false;state.help=false;state.ask=null;render(true);
   return p;
@@ -2229,8 +2241,36 @@ function cloudSubmitReg(doc,r,mp,yr,em){
     cloud.busy=false;state.regDone=doc;BE.signOut();cloud.sc={};render(true);
   },function(e){cloud.busy=false;r.sendErr=e.message||"Could not submit. Try again.";render()});
 }
+
+function labFromRow(f){
+  var l={id:"f"+f.id,fid:f.id,kind:f.kind,sub:f.sub||"",name:f.name,city:f.city,address:f.address,pin:f.pin||"",mapUrl:f.map_url||"",hours:f.hours||"",tests:Array.isArray(f.services)?f.services:[],
+    registered:true,cloud:true,status:f.status,verified:!!f.verified,reason:f.review_reason||"",ref:f.ref,wa:f.wa||"",home:!!f.home_service,er:!!f.emergency,ambulance:!!f.ambulance};
+  if(f.beds!=null)l.beds=f.beds;return l;
+}
+function cloudSubmitFreg(r,t,mp,em){
+  if(cloud.busy)return;cloud.busy=true;r.errs={};r.sendErr="";render();
+  var ups=[],uid=null,ext=function(ty){return /pdf/.test(ty)?"pdf":/png/.test(ty)?"png":/webp/.test(ty)?"webp":"jpg"};
+  var auth=BE.signUpPassword(em,r.pass).catch(function(e){
+    if(e.code==="user_already_exists"||e.code==="email_exists")return BE.signInPassword(em,r.pass).catch(function(){throw new Error("That email already has an account. Sign in, or use a different email.")});
+    throw e;
+  });
+  auth.then(function(){
+    uid=BE.userId();var ts=Date.now();
+    r.gallery.forEach(function(g,i){ups.push(["doctor-media",uid+"/facility-"+ts+"-"+i+".jpg",g,"photo"])});
+    ["lic","id","acc"].forEach(function(k){var f=r.docs[k];if(f&&f.data){var ty=(/^data:([^;]+)/.exec(f.data)||[])[1]||"image/jpeg";ups.push(["verification-docs",uid+"/"+k+"-"+ts+"."+ext(ty),f.data,k])}});
+    return ups.reduce(function(p,u){return p.then(function(){return BE.upload(u[0],u[1],u[2])})},Promise.resolve());
+  }).then(function(){
+    var hosp=r.kind==="hospital";
+    return BE.registerFacility({kind:r.kind,sub:r.kind==="other"?r.sub:"",name:r.name.trim(),contact_name:r.contact.trim(),contact_phone:r.phone,city:r.city,address:r.addr.trim(),pin:r.pin,map_url:mp.url,hours:r.hours.trim(),
+      beds:hosp&&/^\d{1,5}$/.test(r.beds)?+r.beds:null,emergency:hosp?!!r.er:false,ambulance:hosp?!!r.amb:false,home_service:hosp?false:!!r.home,services:t,wa:r.wa||"",licence_no:r.licno.trim()});
+  }).then(function(row){
+    return Promise.all(ups.map(function(u){return BE.addFacDoc(row.id,u[3],u[1])})).then(function(){return row});
+  }).then(function(row){
+    var l=labFromRow(row);l.contact=r.contact.trim();state.frDone=l;cloud.busy=false;BE.signOut();render(true);
+  },function(e){cloud.busy=false;r.sendErr=e.message||"Could not submit. Try again.";render()});
+}
 function cloudAdminLoad(){
-  cloud.adminErr="";
+  cloud.adminErr="";cloud.admin=cloud.admin||[];
   return BE.adminDoctors().then(function(l){cloud.admin=l;render()},function(e){cloud.adminErr=e.message;cloud.admin=cloud.admin||[];render()});
 }
 function cloudReview(id,decision){
@@ -2241,32 +2281,84 @@ function cloudReview(id,decision){
 function cloudViewDoc(path,bucket){
   BE.signedUrl(bucket,path).then(function(u){if(/\.pdf(\?|$)/i.test(path)){window.open(u,"_blank")}else{state.lb=u;render()}},function(e){cloud.adminMsg=e.message;render()});
 }
-function vCloudAdmin(){
-  var u=getUser(state.staff),L=cloud.admin;
-  if(u.role!=="admin")return '<div class="top"><div class="brand">Nirog<small>Sales</small></div><button class="btn sm ghost" data-a="logout">Sign out</button></div><div class="title-block"><h1>Sales dashboard</h1></div><div class="empty">The sales dashboard is not connected to the live backend yet. Your account works, but there is nothing to show here in this version.</div>';
-  if(L===null){cloud.admin=[];cloudAdminLoad()}
-  var pend=(L||[]).filter(function(d){return d.status==="pending"}),oth=(L||[]).filter(function(d){return d.status!=="pending"});
-  function card(d){
-    var docs=(d.docs||[]).map(function(x){return '<button class="btn sm ghost" data-a="cdoc" data-v="'+esc((x.kind==="photo"||x.kind==="clinic"?"doctor-media":"verification-docs")+"|"+x.storage_path)+'">View '+esc(x.kind)+'</button>'}).join("");
-    return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(d.name)+'</div><div class="tiny">'+esc(d.spec)+' · '+esc(d.city)+' · '+esc(d.ref)+'</div></div><span class="pill'+(d.status==="pending"?' warn':'')+'">'+esc(d.status)+'</span></div>'+
-     '<div class="tiny">'+esc(d.qual)+' · '+d.exp_years+' yrs · Fee '+money(d.fee_inr)+'</div>'+
-     (d.ver?'<div class="tiny">Council: '+esc(d.ver.council)+' · Reg no '+esc(d.ver.reg_no)+' ('+d.ver.reg_year+')</div>':'')+
-     (docs?'<div class="acts" style="margin-top:8px;flex-wrap:wrap">'+docs+'</div>':'')+
-     '<div class="acts"><button class="btn sm" data-a="capprove" data-v="'+d.id+'">Approve</button><button class="btn sm ghost" data-a="creject" data-v="'+d.id+'" style="color:var(--bad)">Reject</button></div></div>';
-  }
-  return '<div class="top"><div class="brand">Nirog<small>Admin</small></div><button class="btn sm ghost" data-a="logout">Sign out</button></div>'+
-   '<div class="title-block"><h1>Doctor reviews</h1><p>Check the certificate and ID before approving.</p></div>'+
-   (cloud.adminMsg?'<div class="status-line" role="status" style="margin:0 16px 10px">'+esc(cloud.adminMsg)+'</div>':'')+(cloud.adminErr?'<div class="err" style="margin:0 16px 10px">'+esc(cloud.adminErr)+'</div>':'')+
-   '<div class="sec">Waiting for review ('+pend.length+')</div>'+(pend.length?pend.map(card).join(""):'<div class="empty">No doctors waiting.</div>')+
-   (oth.length?'<div class="sec">Reviewed</div>'+oth.map(card).join(""):'')+'<div class="foot" style="text-align:left">Labs, hospitals, leads, team and platform fee screens are not connected to the live backend yet.</div>';
+function cloudCard(d,kind){
+  var isF=kind==="fac";
+  var docs=(d.docs||[]).map(function(x){var bk=(x.kind==="photo"||x.kind==="clinic")?"doctor-media":"verification-docs";return '<button class="btn sm ghost" data-a="cdoc" data-v="'+esc(bk+"|"+x.storage_path)+'">View '+esc(x.kind)+'</button>'}).join("");
+  var det=isF?'<div class="tiny">'+esc(d.address)+', '+esc(d.city)+' '+esc(d.pin||"")+(d.priv?' · Contact '+esc(d.priv.contact_name)+' '+esc(d.priv.contact_phone)+' · Licence '+esc(d.priv.licence_no):'')+'</div>'
+    :'<div class="tiny">'+esc(d.qual)+' · '+d.exp_years+' yrs · Fee '+money(d.fee_inr)+'</div>'+(d.ver?'<div class="tiny">Council: '+esc(d.ver.council)+' · Reg no '+esc(d.ver.reg_no)+' ('+d.ver.reg_year+')</div>':'');
+  return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(d.name)+'</div><div class="tiny">'+esc(isF?kindName(d.kind):d.spec)+' · '+esc(d.city)+' · '+esc(d.ref)+'</div></div><span class="pill'+(d.status==="pending"?' warn':d.status==="rejected"?' bad':'')+'">'+esc(d.status)+'</span></div>'+det+
+   (d.map_url?'<div class="tiny">'+mapLink(d.map_url,"Check on Google Maps","maplink")+'</div>':'')+
+   (docs?'<div class="acts" style="margin-top:8px;flex-wrap:wrap">'+docs+'</div>':'')+
+   '<div class="acts"><button class="btn sm" data-a="'+(isF?"cfapprove":"capprove")+'" data-v="'+d.id+'">Approve</button><button class="btn sm ghost" data-a="'+(isF?"cfreject":"creject")+'" data-v="'+d.id+'" style="color:var(--bad)">Reject</button></div></div>';
 }
+function cloudTabLoad(){
+  var t=cloud.tab;
+  if(t==="doc"&&cloud.admin===null)cloudAdminLoad();
+  if(t==="fac"&&cloud.facs===null)BE.adminFacilities().then(function(l){cloud.facs=l;render()},function(e){cloud.facs=[];cloud.adminErr=e.message;render()});
+  if(t==="lead"&&cloud.leads===null)BE.sel("leads","select=*&order=created_at.desc&limit=300").then(function(l){cloud.leads=l;render()},function(e){cloud.leads=[];cloud.adminErr=e.message;render()});
+}
+function cloudReviewF(id,decision){
+  if(cloud.busy)return;cloud.busy=true;cloud.adminMsg="";render();
+  BE.reviewFacility(id,decision,decision==="reject"?FREJ[0]:null).then(function(){cloud.busy=false;cloud.adminMsg=decision==="approve"?"Facility approved and now listed.":"Facility rejected.";cloud.facs=null;render()},function(e){cloud.busy=false;cloud.adminMsg=e.message;render()});
+}
+function cloudAddLead(){
+  var f=cloud.lf||{name:"",phone:"",spec:SPECS[1]};
+  if(f.name.trim().length<2){cloud.adminMsg="Enter the patient name.";render();return}
+  if(!/^[6-9]\d{9}$/.test(f.phone)){cloud.adminMsg="Enter a valid 10-digit mobile number.";render();return}
+  cloud.busy=true;cloud.adminMsg="";render();
+  BE.sel("leads","select=id").then(function(){return BE.addLead({owner_id:BE.userId(),name:f.name.trim(),phone:f.phone,spec:f.spec})}).then(function(){cloud.busy=false;cloud.lf={name:"",phone:"",spec:SPECS[1]};cloud.adminMsg="Lead added.";cloud.leads=null;render()},function(e){cloud.busy=false;cloud.adminMsg=e.message;render()});
+}
+function cloudLeadStatus(v){
+  var p=v.split("|");
+  BE.setLeadStatus(+p[0],p[1]).then(function(){cloud.leads=null;render()},function(e){cloud.adminMsg=e.message;render()});
+}
+function cloudSaveSettings(){
+  var f=cloud.sf,v=+f.value;
+  if(!(v>=0)||(f.type==="flat"&&v>5000)||(f.type==="percent"&&v>50)){cloud.adminMsg="Fee must be 0 to 5000 rupees, or 0 to 50 percent.";render();return}
+  if(f.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)){cloud.adminMsg="Enter a valid support email, or leave it empty.";render();return}
+  if(f.wa&&!/^[6-9]\d{9}$/.test(f.wa)){cloud.adminMsg="Enter a valid 10-digit WhatsApp number, or leave it empty.";render();return}
+  cloud.busy=true;cloud.adminMsg="";render();
+  BE.saveSettings({fee_on:!!f.on,fee_type:f.type,fee_value:v,support_email:f.email||"",support_whatsapp:f.wa||""}).then(function(){cloud.busy=false;cloud.adminMsg="Saved.";PLAT.on=!!f.on;PLAT.type=f.type;PLAT.value=v;SUP.email=f.email||"";SUP.wa=f.wa||"";render()},function(e){cloud.busy=false;cloud.adminMsg=e.message;render()});
+}
+function vCloudAdmin(){
+  var u=getUser(state.staff),admin=u.role==="admin";
+  var tabs=admin?[["doc","Doctors"],["fac","Facilities"],["lead","Leads"],["set","Settings"]]:[["lead","Leads"]];
+  if(!tabs.some(function(t){return t[0]===cloud.tab}))cloud.tab=tabs[0][0];
+  cloudTabLoad();
+  var t=cloud.tab,body="";
+  if(t==="doc"){
+    var L=cloud.admin||[],pend=L.filter(function(d){return d.status==="pending"}),oth=L.filter(function(d){return d.status!=="pending"});
+    body='<div class="sec">Waiting for review ('+pend.length+')</div>'+(pend.length?pend.map(function(d){return cloudCard(d,"doc")}).join(""):'<div class="empty">No doctors waiting.</div>')+(oth.length?'<div class="sec">Reviewed</div>'+oth.map(function(d){return cloudCard(d,"doc")}).join(""):'');
+  }else if(t==="fac"){
+    var F=cloud.facs||[],fp=F.filter(function(d){return d.status==="pending"}),fo=F.filter(function(d){return d.status!=="pending"});
+    body='<div class="sec">Waiting for review ('+fp.length+')</div>'+(fp.length?fp.map(function(d){return cloudCard(d,"fac")}).join(""):'<div class="empty">No facilities waiting.</div>')+(fo.length?'<div class="sec">Reviewed</div>'+fo.map(function(d){return cloudCard(d,"fac")}).join(""):'');
+  }else if(t==="lead"){
+    var f=cloud.lf=cloud.lf||{name:"",phone:"",spec:SPECS[1]},Ls=cloud.leads||[];
+    body='<form id="clForm" novalidate><div class="card"><div class="field"><label for="cl-name">Patient name</label><input id="cl-name" value="'+esc(f.name)+'"></div><div class="field"><label for="cl-phone">Mobile number</label><input id="cl-phone" inputmode="numeric" maxlength="10" value="'+esc(f.phone)+'"></div>'+
+     '<div class="field"><label for="cl-spec">Speciality</label><select id="cl-spec">'+SPECS.map(function(x){return '<option'+(f.spec===x?' selected':'')+'>'+esc(x)+'</option>'}).join("")+'</select></div><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>Add lead</button></div></form>'+
+     '<div class="sec">Leads ('+Ls.length+')</div>'+(Ls.length?Ls.map(function(l){return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(l.name)+'</div><div class="tiny tnum">'+esc(l.phone)+' · '+esc(l.spec)+'</div></div><span class="pill">'+esc(STATUS[l.status]||l.status)+'</span></div><div class="acts" style="flex-wrap:wrap">'+
+       ["new","contacted","booked","lost"].filter(function(x){return x!==l.status}).map(function(x){return '<button class="btn sm ghost" data-a="clstat" data-v="'+l.id+'|'+x+'">'+esc(STATUS[x])+'</button>'}).join("")+'</div></div>'}).join(""):'<div class="empty">No leads yet.</div>');
+  }else{
+    var sf=cloud.sf=cloud.sf||{on:PLAT.on,type:PLAT.type,value:String(PLAT.value),email:SUP.email,wa:SUP.wa};
+    body='<form id="csForm" novalidate><div class="sec">Platform fee</div><div class="card"><div class="field"><button type="button" class="chk" data-a="csfee" aria-pressed="'+sf.on+'"><i>'+(sf.on?"✓":"")+'</i><span>Charge a platform fee on bookings</span></button></div>'+
+     '<div class="field"><label for="cs-type">Fee type</label><select id="cs-type"><option value="flat"'+(sf.type==="flat"?" selected":"")+'>Flat amount (rupees)</option><option value="percent"'+(sf.type==="percent"?" selected":"")+'>Percent of doctor fee</option></select></div>'+
+     '<div class="field" style="margin-bottom:0"><label for="cs-value">Value</label><input id="cs-value" inputmode="decimal" value="'+esc(sf.value)+'"></div></div>'+
+     '<div class="sec">Help and support</div><div class="card"><div class="field"><label for="cs-email">Support email</label><input id="cs-email" type="email" value="'+esc(sf.email)+'"></div><div class="field" style="margin-bottom:0"><label for="cs-wa">Support WhatsApp number</label><input id="cs-wa" inputmode="numeric" maxlength="10" value="'+esc(sf.wa)+'"></div></div>'+
+     '<div style="height:12px"></div><div style="padding:0 16px"><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>Save settings</button></div></form>';
+  }
+  return '<div class="top"><div class="brand">Nirog<small>'+(admin?"Admin":"Sales")+'</small></div><button class="btn sm ghost" data-a="logout">Sign out</button></div>'+
+   '<div class="seg" style="margin:0 16px 12px" role="group" aria-label="Sections">'+tabs.map(function(x){return '<button type="button" data-a="ctab" data-v="'+x[0]+'" aria-pressed="'+(t===x[0])+'">'+x[1]+'</button>'}).join("")+'</div>'+
+   (cloud.adminMsg?'<div class="status-line" role="status" style="margin:0 16px 10px">'+esc(cloud.adminMsg)+'</div>':'')+(cloud.adminErr?'<div class="err" style="margin:0 16px 10px">'+esc(cloud.adminErr)+'</div>':'')+body+
+   (admin?'<div class="foot" style="text-align:left">Team management and revenue reports are not connected to the live backend yet. Add staff by running the SQL in docs/BACKEND.md.</div>':'');
+}
+
 function render(scroll){
   var h,showNav=false;
   if(CLOUD&&!cloud.ready){app.innerHTML=vCloudWait();return}
   if(state.notif&&notifKey()){app.innerHTML=vNotif();if(scroll)window.scrollTo(0,0);return}
   if(state.help){app.innerHTML=vHelp();if(scroll)window.scrollTo(0,0);return}
   state.notif=false;
-  if(state.staff){var _su=getUser(state.staff);app.innerHTML=nbHtml()+(CLOUD&&_su&&_su.role!=="doctor"?vCloudAdmin():vStaff())+lbHtml();if(scroll)window.scrollTo(0,0);return}
+  if(state.staff){var _su=getUser(state.staff);app.innerHTML=nbHtml()+(CLOUD&&_su&&(_su.role==="admin"||_su.role==="sales")?vCloudAdmin():vStaff())+lbHtml();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="login"){app.innerHTML=vLogin();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="profile"&&state.pat&&state.prof){app.innerHTML=vProfile();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="freg"){app.innerHTML=vFreg();if(scroll)window.scrollTo(0,0);return}
@@ -2311,6 +2403,11 @@ app.addEventListener("click",function(ev){
     case "hclose":state.help=false;render(true);break;
     case "notif":openNotif();break;
     case "cretry":cloudLoadDir();break;
+    case "ctab":cloud.tab=v;cloud.adminMsg="";cloud.adminErr="";render();break;
+    case "cfapprove":cloudReviewF(+v,"approve");break;
+    case "cfreject":cloudReviewF(+v,"reject");break;
+    case "clstat":cloudLeadStatus(v);break;
+    case "csfee":if(cloud.sf){cloud.sf.on=!cloud.sf.on;render()}break;
     case "cdoc":(function(){var p=v.split("|");cloudViewDoc(p.slice(1).join("|"),p[0])})();break;
     case "capprove":cloudReview(+v,"approve");break;
     case "creject":cloudReview(+v,"reject");break;
@@ -2441,6 +2538,13 @@ app.addEventListener("input",function(ev){
   else if(t.id==="o-phone"&&state.otp){t.value=t.value.replace(/\D/g,"").slice(0,10);state.otp.phone=t.value}
   else if(t.id==="o-code"&&state.otp){t.value=t.value.replace(/\D/g,"").slice(0,8);state.otp.code=t.value}
   else if(t.id==="o-email"&&state.otp)state.otp.email=t.value.trim();
+  else if(t.id==="cl-name"&&cloud.lf)cloud.lf.name=t.value;
+  else if(t.id==="cl-phone"&&cloud.lf){t.value=t.value.replace(/\D/g,"").slice(0,10);cloud.lf.phone=t.value}
+  else if(t.id==="cl-spec"&&cloud.lf)cloud.lf.spec=t.value;
+  else if(t.id==="cs-type"&&cloud.sf)cloud.sf.type=t.value;
+  else if(t.id==="cs-value"&&cloud.sf)cloud.sf.value=t.value.replace(/[^\d.]/g,"").slice(0,6);
+  else if(t.id==="cs-email"&&cloud.sf)cloud.sf.email=t.value.trim();
+  else if(t.id==="cs-wa"&&cloud.sf){t.value=t.value.replace(/\D/g,"").slice(0,10);cloud.sf.wa=t.value}
   else if(t.id==="o-name"&&state.otp)state.otp.name=t.value;
   else if(t.id==="nm-phone"){t.value=t.value.replace(/\D/g,"").slice(0,10);state.nmem.phone=t.value}
   else if(t.id==="l-email")state.login.email=t.value;
@@ -2463,6 +2567,8 @@ app.addEventListener("change",function(ev){
 app.addEventListener("submit",function(ev){
   ev.preventDefault();
   var fid=ev.target.id;
+  if(fid==="clForm"){cloudAddLead();return}
+  if(fid==="csForm"){cloudSaveSettings();return}
   if(fid==="otpForm"){if(state.otp&&state.otp.stage==="code")otpVerify();else otpSend(false);return}
   if(fid==="regForm"){submitReg();return}
   if(fid==="labForm"){submitLab();return}

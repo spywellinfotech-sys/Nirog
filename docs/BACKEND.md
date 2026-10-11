@@ -7,7 +7,7 @@
 | Area | Where | State |
 |---|---|---|
 | Schema, RLS, booking functions | `supabase/migrations/0001_init.sql` | Done, 105 automated checks pass on PostgreSQL 16 |
-| Storage buckets and policies | `supabase/migrations/0002_storage.sql` | Written; only checked against a local stand-in for Supabase Storage |
+| Storage buckets and policies | `supabase/migrations/0002_storage.sql`, `0004_facility_documents.sql` | Written; only checked against a local stand-in for Supabase Storage |
 | SQL tests (roles, RLS, double booking, 12-way race, persistence) | `supabase/tests/`, `supabase/run_tests.sh` | Passing locally |
 | Public config for Android and iOS builds | `scripts/make-config.sh`, `config.js`, `.env.example`, workflows | Done |
 | Secret scanning | `scripts/check-no-secrets.sh`, `.github/workflows/db-tests.yml` | Done |
@@ -94,8 +94,8 @@ The same suite runs in GitHub Actions as **Database tests** on every change unde
 
 1. **Nothing has been tested against the live project or on a device yet.** See the manual checklist.
 2. **Mobile OTP is not built.** Only email OTP. SMS needs a provider that can deliver in India under DLT rules.
-3. Not yet connected to the backend: lab and hospital registration and listing, the sales dashboard and leads, the admin screens for team, facilities, bookings overview and platform fee. These show a message or stay empty in backend mode.
-4. The clinic photo gallery is uploaded but not shown to patients; only the profile photo is.
+3. Now connected but **only tested against a fake server**: lab and hospital registration with uploads and listing, admin review of doctors and facilities, the platform fee and support contacts, sales leads. Still not connected: admin team management (adding sales staff; use SQL or `admin_set_staff` for now) and the revenue/bookings overview charts.
+4. The doctor clinic photo gallery is uploaded but not shown to patients; only the profile photo is.
 5. Offline: the app shows an error and keeps typed details, but there is no cached read-only browsing.
 6. Doctors' mobile numbers are saved on their account but not shown anywhere yet.
 7. Patient profile edits (name, age, sex) are kept on the device only; age and sex are sent with each booking.

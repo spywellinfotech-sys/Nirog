@@ -170,6 +170,14 @@ BE.upload=function(bucket,path,dataUrl){
 };
 BE.addDocRow=function(docId,kind,path,name){return api("/rest/v1/doctor_documents",{method:"POST",body:{doctor_id:docId,kind:kind,storage_path:path,file_name:name||""}})};
 BE.setDoctorPhoto=function(docId,path){return api("/rest/v1/doctors?id=eq."+docId,{method:"PATCH",body:{photo_path:path}})};
+BE.loadFacilities=function(){return sel("facilities","select=id,kind,sub,name,city,address,pin,map_url,hours,beds,emergency,ambulance,home_service,services,wa,status,verified,review_reason,ref&status=eq.approved&order=id")};
+BE.adminFacilities=function(){return Promise.all([sel("facilities","select=id,kind,sub,name,city,address,pin,map_url,hours,wa,status,verified,review_reason,ref&order=id.desc&limit=200"),sel("facility_private","select=facility_id,contact_name,contact_phone,licence_no"),sel("facility_documents","select=facility_id,kind,storage_path")]).then(function(r){return r[0].map(function(f){f.priv=r[1].filter(function(p){return p.facility_id===f.id})[0]||null;f.docs=r[2].filter(function(x){return x.facility_id===f.id});return f})})};
+BE.reviewFacility=function(id,decision,reason){return rpc("admin_review_facility",{p_facility:id,p_decision:decision,p_verified:decision==="approve",p_reason:reason||null})};
+BE.myFacility=function(){return rpc("my_facility_id")};
+BE.addFacDoc=function(fid,kind,path){return api("/rest/v1/facility_documents",{method:"POST",body:{facility_id:fid,kind:kind,storage_path:path,file_name:""}})};
+BE.addLead=function(o){return api("/rest/v1/leads",{method:"POST",body:o})};
+BE.setLeadStatus=function(id,st){return api("/rest/v1/leads?id=eq."+id,{method:"PATCH",body:{status:st}})};
+BE.saveSettings=function(o){return api("/rest/v1/platform_settings?id=eq.1",{method:"PATCH",body:o})};
 BE.registerFacility=function(p){return rpc("register_facility",p)};
 BE.myDoctor=function(){return rpc("my_doctor_id")};
 BE.saveSchedule=function(docId,days,sessions,step,offDays,blocked){

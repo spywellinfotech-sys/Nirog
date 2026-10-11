@@ -14,6 +14,7 @@ $P -f tests/harness_setup.sql
 $P -f migrations/0001_init.sql
 $P -f migrations/0002_storage.sql
 $P -f migrations/0003_fix_search_path.sql
+$P -f migrations/0004_facility_documents.sql
 for t in tests/[0-9]*.sql; do echo "== $t"; $P -f "$t" ; done
 
 echo "== concurrency: 12 patients race for one slot"
