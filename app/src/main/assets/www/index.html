@@ -1063,7 +1063,7 @@ function vRegister(){
    '<div class="sec">Photos</div><div class="card">'+
    '<div class="upl"><b>Profile photo (required)</b>'+(r.photo?'<div class="thumbs"><div class="thumb"><img src="'+esc(r.photo)+'" alt="Your profile photo"><button type="button" class="x" data-a="rmup" data-v="photo" aria-label="Remove profile photo">×</button></div></div>':'')+
    '<label class="pick">'+(r.photo?'Change photo':'Choose photo')+'<input type="file" id="up-photo" accept="image/*"></label>'+(e.photo?'<div class="err">'+e.photo+'</div>':'')+'</div>'+
-   '<div class="upl" style="margin-bottom:0"><b>Clinic photos (1 to 4)</b>'+(r.gallery.length?'<div class="thumbs">'+r.gallery.map(function(g,i){return '<div class="thumb"><img src="'+esc(g)+'" alt="Clinic photo '+(i+1)+'"><button type="button" class="x" data-a="rmup" data-v="gal:'+i+'" aria-label="Remove clinic photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'')+
+   '<div class="upl" style="margin-bottom:0"><b>Clinic photos (optional, up to 4)</b>'+(r.gallery.length?'<div class="thumbs">'+r.gallery.map(function(g,i){return '<div class="thumb"><img src="'+esc(g)+'" alt="Clinic photo '+(i+1)+'"><button type="button" class="x" data-a="rmup" data-v="gal:'+i+'" aria-label="Remove clinic photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'')+
    (r.gallery.length<4?'<label class="pick">Add clinic photos<input type="file" id="up-gal" accept="image/*" multiple></label>':'')+(r.galMsg?'<div class="err">'+esc(r.galMsg)+'</div>':'')+(e.gallery?'<div class="err">'+e.gallery+'</div>':'<div class="hint">Waiting room, reception, consulting room.</div>')+'</div></div>'+
    '<div class="sec">Clinic address</div><div class="card">'+
    fld("clinic","Clinic name",txt("clinic"))+
@@ -1205,7 +1205,6 @@ function submitReg(){
   if(!r.docs.reg)e.reg="Upload your registration certificate.";
   if(!r.docs.id)e.id="Upload a government photo ID.";
   if(!r.photo)e.photo="Add a profile photo.";
-  if(!r.gallery.length)e.gallery="Add at least one clinic photo.";
   var se=checkSched(r);Object.keys(se).forEach(function(k){e[k]=se[k]});
   if(!(fee>=100&&fee<=20000))e.fee="Enter a fee between ₹100 and ₹20,000.";
   if(r.vfee!==""&&!(vf>=50&&vf<=20000))e.vfee="Enter a video fee between ₹50 and ₹20,000, or leave it blank.";
@@ -1587,7 +1586,7 @@ function vFreg(){
    fdocUp("acc","NABL, NABH or other accreditation (optional)",r.docs.acc,e.acc)+
    (r.upMsg?'<div class="err">'+esc(r.upMsg)+'</div>':'')+
    '<div class="hint">Photos of documents or PDF. Photos are shrunk to save space; PDFs must be under '+(CLOUD?'2 MB':'300 KB')+'.</div></div>'+
-   '<div class="sec">Photos</div><div class="card"><div class="upl" style="margin-bottom:0"><b>Facility photos (1 to 4)</b>'+(r.gallery.length?'<div class="thumbs">'+r.gallery.map(function(g,i){return '<div class="thumb"><img src="'+esc(g)+'" alt="Facility photo '+(i+1)+'"><button type="button" class="x" data-a="frm" data-v="gal:'+i+'" aria-label="Remove photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'')+
+   '<div class="sec">Photos</div><div class="card"><div class="upl" style="margin-bottom:0"><b>Facility photos (optional, up to 4)</b>'+(r.gallery.length?'<div class="thumbs">'+r.gallery.map(function(g,i){return '<div class="thumb"><img src="'+esc(g)+'" alt="Facility photo '+(i+1)+'"><button type="button" class="x" data-a="frm" data-v="gal:'+i+'" aria-label="Remove photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'')+
    (r.gallery.length<4?'<label class="pick">Add photos<input type="file" id="fu-gal" accept="image/*" multiple></label>':'')+(r.galMsg?'<div class="err">'+esc(r.galMsg)+'</div>':'')+(e.gallery?'<div class="err">'+e.gallery+'</div>':'<div class="hint">Front of the building, reception, equipment.</div>')+'</div></div>'+
    '<div class="sec">Contact and login</div><div class="card">'+
    fld("contact","Contact person",txt("contact",'autocomplete="name"'))+
@@ -1643,7 +1642,6 @@ function submitFreg(){
   if(r.auth.trim().length<2)e.auth="Enter who issued the licence.";
   if(!r.docs.lic)e.lic="Upload your licence or registration certificate.";
   if(!r.docs.id)e.id="Upload a photo ID.";
-  if(!r.gallery.length)e.gallery="Add at least one facility photo.";
   if(r.contact.trim().length<2)e.contact="Enter the contact person's name.";
   if(!/^[6-9]\d{9}$/.test(r.phone))e.phone="Enter a valid 10-digit mobile number.";
   if(r.wa&&!/^[6-9]\d{9}$/.test(r.wa))e.wa="Enter a valid 10-digit WhatsApp number, or leave it empty.";

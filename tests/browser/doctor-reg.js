@@ -31,7 +31,7 @@ const www = path.resolve(__dirname, "../../app/src/main/assets/www/index.html");
   await fill("#rg-fee", "600"); await fill("#rg-phone", "9876543210"); await fill("#rg-email", "t" + Date.now() + "@example.com"); await fill("#rg-pass", "Sample#12345");
   await pg.setInputFiles("#up-photo", path.join(KIT, "doctor-profile-photo.jpg"));
   await pg.waitForTimeout(500);
-  await pg.setInputFiles("#up-gal", [path.join(KIT, "clinic-photo-front.jpg"), path.join(KIT, "clinic-photo-room.jpg")]);
+  if (!process.env.NOGAL) await pg.setInputFiles("#up-gal", [path.join(KIT, "clinic-photo-front.jpg"), path.join(KIT, "clinic-photo-room.jpg")]);
   await pg.waitForTimeout(800);
   const docs = await pg.locator('input[type=file][id^="up-"]').evaluateAll((els) => els.map((e) => e.id));
   console.log("file inputs:", docs.join(","));
