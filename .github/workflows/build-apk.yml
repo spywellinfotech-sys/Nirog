@@ -33,7 +33,7 @@ jobs:
       - name: Build debug APK
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+          ./gradlew assembleDebug -PbuildNo=${{ github.run_number }} --no-daemon --stacktrace 2>&1 | tee build.log
           exit ${PIPESTATUS[0]}
         shell: bash
 
@@ -54,6 +54,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk Nirog-debug.apk
+          V=1.0.0.${{ github.run_number }}
+          cp app/build/outputs/apk/debug/app-debug.apk Nirog-v$V.apk
           gh release delete latest-apk --yes --cleanup-tag 2>/dev/null || true
-          gh release create latest-apk Nirog-debug.apk --title "Nirog Android app (debug build)" --notes "Debug-signed test build. Install on an Android phone for testing." --target "${{ github.sha }}"
+          gh release create latest-apk Nirog-v$V.apk --title "Nirog Android app v$V (debug build)" --notes "Version $V. Debug-signed test build. Install on an Android phone for testing." --target "${{ github.sha }}"
