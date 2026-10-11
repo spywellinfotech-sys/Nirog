@@ -62,8 +62,10 @@ BE.rpc=rpc;BE.sel=sel;BE.friendly=friendly;
 /* ---------- auth ---------- */
 BE.signedIn=function(){return !!BE.sess};
 BE.userId=function(){return BE.sess?BE.sess.user.id:null};
-BE.sendOtp=function(email){return rawFetch("/auth/v1/otp",{method:"POST",body:{email:email,create_user:true}}).then(function(){return true})};
-BE.verifyOtp=function(email,code){return rawFetch("/auth/v1/verify",{method:"POST",body:{type:"email",email:email,token:code}}).then(function(j){if(!j||!j.access_token)throw BEErr("invalid_otp",400);saveSess(j);return j})};
+/* id is an email address or a 10-digit Indian mobile number */
+function isMail(id){return String(id).indexOf("@")>-1}
+BE.sendOtp=function(id){var body=isMail(id)?{email:id,create_user:true}:{phone:"+91"+id,create_user:true};return rawFetch("/auth/v1/otp",{method:"POST",body:body}).then(function(){return true})};
+BE.verifyOtp=function(id,code){var body=isMail(id)?{type:"email",email:id,token:code}:{type:"sms",phone:"+91"+id,token:code};return rawFetch("/auth/v1/verify",{method:"POST",body:body}).then(function(j){if(!j||!j.access_token)throw BEErr("invalid_otp",400);saveSess(j);return j})};
 BE.signInPassword=function(email,pw){return rawFetch("/auth/v1/token?grant_type=password",{method:"POST",body:{email:email,password:pw}}).then(function(j){saveSess(j);return j})};
 BE.signUpPassword=function(email,pw){return rawFetch("/auth/v1/signup",{method:"POST",body:{email:email,password:pw}}).then(function(j){if(j&&j.access_token){saveSess(j);return j}throw BEErr("confirm_email",400)})};
 BE.signOut=function(){var t=BE.sess&&BE.sess.access_token;saveSess(null);if(t)return rawFetch("/auth/v1/logout",{method:"POST"},t).catch(function(){});return Promise.resolve()};

@@ -1,6 +1,6 @@
 # Nirog backend (Supabase): setup, testing and status
 
-**Status: Phase 2 is built but only tested against a fake Supabase server.** The app now runs in backend mode when `config.js` holds a project URL and key (it does: project `rxhanrtoaplwphmwpgqg`). Patients sign in with an **email one-time code**; doctors and admins sign in with email and password. The following has **not** been verified against the live project or on a phone: sign-in, booking, approval, uploads. Do not call the platform fully working until you have run the manual checklist at the end of the Tests section on two real devices.
+**Status: Phase 2 is built but only tested against a fake Supabase server.** The app now runs in backend mode when `config.js` holds a project URL and key (it does: project `rxhanrtoaplwphmwpgqg`). Patients sign in with an **SMS one-time code** (Twilio). Email codes are still supported: set `patientAuth: "email"` in `config.js`. doctors and admins sign in with email and password. The following has **not** been verified against the live project or on a phone: sign-in, booking, approval, uploads. Do not call the platform fully working until you have run the manual checklist at the end of the Tests section on two real devices.
 
 ## What exists today
 
@@ -29,9 +29,9 @@
 1. Create a project at supabase.com (free tier is fine). Choose the region closest to your users, for example Mumbai.
 2. **SQL editor** > New query. Paste `supabase/migrations/0001_init.sql` and run it. Then paste and run `0002_storage.sql`.
 3. **Authentication > Providers**:
-   - **Email** (used by everyone): turn **Confirm email OFF** (doctor registration needs an immediate session). Then go to **Authentication > Emails** and edit both **Confirm signup** and **Magic Link** templates so the body is `<h2>Your Nirog code</h2><p style="font-size:28px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p>` and contains no `{{ .ConfirmationURL }}`. Patients then receive a code instead of a link. Keep the OTP length at 6 to 8 digits.
-   - Add your own SMTP under **Project Settings > Authentication > SMTP Settings**. Supabase's built-in sender allows only a few emails per hour.
-   - **Phone/SMS is not used.** Mobile OTP would need a provider that can deliver to India (DLT registration), for example Twilio Verify or MSG91. It is not built.
+   - **Phone (patients):** Authentication > Providers > Phone > enable, choose **Twilio Verify** (recommended for India: it handles the sender registration) or **Twilio**. Paste the Account SID, Auth Token and Verify Service SID (or Messaging Service SID / number) from the Twilio console, into Supabase only. Set the OTP length to 6. A Twilio *trial* account can only text numbers you have verified in Twilio, so upgrade it before real patients use the app. Twilio charges per SMS.
+   - **Email (doctors, labs, admins):** turn **Confirm email OFF** (registration needs an immediate session). Optional: add custom SMTP under Project Settings > Authentication > SMTP Settings.
+   - To use email codes for patients instead: set `patientAuth: "email"` in `config.js` and edit the **Confirm signup** and **Magic Link** templates to show `{{ .Token }}` instead of `{{ .ConfirmationURL }}`.
 4. **Authentication > Rate limits**: keep the defaults or tighten OTP sending limits.
 5. **Project Settings > API**: copy the **Project URL** and the **anon public key**. Never copy the `service_role` key into the app or this repository.
 6. Create the first admin. Sign up once with your admin email in the app (or **Authentication > Users > Add user**), then in the SQL editor run, replacing the email:
@@ -75,7 +75,7 @@ The same suite runs in GitHub Actions as **Database tests** on every change unde
 `node tests/app/cloud.test.js` runs the real `index.html` and `backend.js` against a fake in-memory Supabase: directory load, email-OTP sign-in (wrong and right code), booking, double-booking refusal, doctor sign-in, approval, and that no patient data lands in localStorage.
 
 ### Manual checklist (needed before calling it working; needs two phones)
-1. Phone A: My appointments > enter email > receive a **code** (not a link) > sign in.
+1. Phone A: My appointments > enter mobile number > receive an SMS code > sign in.
 2. Phone A: book a doctor. It shows "Request sent".
 3. Phone B (patient 2, different email): try the same slot. It must be refused or show as taken.
 4. Doctor registers in the app (with certificate, ID, photo); you approve the doctor from the admin sign-in; the doctor then appears for patients on both phones.
@@ -93,7 +93,7 @@ The same suite runs in GitHub Actions as **Database tests** on every change unde
 ## Incomplete features (be honest about these)
 
 1. **Nothing has been tested against the live project or on a device yet.** See the manual checklist.
-2. **Mobile OTP is not built.** Only email OTP. SMS needs a provider that can deliver in India under DLT rules.
+2. SMS delivery depends on your Twilio account (trial limits, India sender rules). Not tested live.
 3. Now connected but **only tested against a fake server**: lab and hospital registration with uploads and listing, admin review of doctors and facilities, the platform fee and support contacts, sales leads. Still not connected: admin team management (adding sales staff; use SQL or `admin_set_staff` for now) and the revenue/bookings overview charts.
 4. The doctor clinic photo gallery is uploaded but not shown to patients; only the profile photo is.
 5. Offline: the app shows an error and keeps typed details, but there is no cached read-only browsing.
