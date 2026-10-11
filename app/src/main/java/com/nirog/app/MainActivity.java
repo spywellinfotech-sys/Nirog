@@ -9,6 +9,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import org.json.JSONObject;
 
 /**
  * Shows the bundled Nirog web app full screen.
@@ -18,6 +19,7 @@ public class MainActivity extends Activity {
 
     private static final String START_URL = "file:///android_asset/www/index.html";
     private WebView webView;
+    private String pendingAuth; // fragment of a nirog://auth#... sign-in return, delivered once the page is ready
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,6 +37,11 @@ public class MainActivity extends Activity {
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
+            public void onPageFinished(WebView view, String url) {
+                deliverAuth();
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 if ("file".equals(uri.getScheme())) {
@@ -50,11 +57,37 @@ public class MainActivity extends Activity {
             }
         });
 
+        captureAuth(getIntent());
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
         } else {
             webView.loadUrl(START_URL);
         }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        captureAuth(intent);
+        deliverAuth();
+    }
+
+    private void captureAuth(Intent intent) {
+        Uri data = intent == null ? null : intent.getData();
+        if (data != null && "nirog".equals(data.getScheme()) && "auth".equals(data.getHost())) {
+            String frag = data.getEncodedFragment();
+            String query = data.getEncodedQuery();
+            pendingAuth = frag != null ? frag : (query != null ? query : "");
+        }
+    }
+
+    private void deliverAuth() {
+        if (pendingAuth == null || webView == null) return;
+        String f = pendingAuth;
+        pendingAuth = null;
+        webView.evaluateJavascript(
+                "window.__nirogAuth && window.__nirogAuth(" + JSONObject.quote(f) + ")", null);
     }
 
     @Override

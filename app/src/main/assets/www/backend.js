@@ -19,7 +19,7 @@ function friendly(code,status){
     not_authenticated:"Please sign in again.",patients_only:"Only patient accounts can book appointments.",too_many_active_bookings:"You have too many active bookings. Cancel one first.",
     not_pending:"This request was already handled.",not_cancellable:"This appointment can no longer be cancelled.",booking_not_found:"Appointment not found.",admins_only:"Only admins can do this.",
     doctors_only:"Only doctors can do this.",already_registered:"This account is already registered as a doctor, facility or staff member.",account_has_bookings:"This account already has bookings, so it cannot become a doctor or facility. Use a different number or email.",
-    user_already_exists:"That email already has an account.",email_exists:"That email already has an account.",confirm_email:"Check your email to confirm your address, then register again.",invalid_credentials:"Email or password is incorrect.",invalid_otp:"That code is not right or has expired.",otp_expired:"That code has expired. Send a new one.",over_sms_send_rate_limit:"Too many codes requested. Wait a minute and try again.",upload_failed:"A file could not be uploaded. Try a smaller file.",invalid_name:"Enter a valid name.",invalid_phone:"Enter a valid 10-digit mobile number.",invalid_age:"Enter a valid age.",invalid_sex:"Choose a sex.",invalid_mode:"Choose clinic or video.",invalid_days:"Choose at least one working day.",invalid_sessions:"Add one to three sessions."};
+    user_already_exists:"That email already has an account.",email_exists:"That email already has an account.",confirm_email:"Check your email to confirm your address, then register again.",invalid_credentials:"Email or password is incorrect.",invalid_otp:"That code is not right or has expired.",otp_expired:"That code has expired. Send a new one.",over_sms_send_rate_limit:"Too many codes requested. Wait a minute and try again.",upload_failed:"A file could not be uploaded. Try a smaller file.",oauth_failed:"Google sign-in did not complete. Please try again.",invalid_name:"Enter a valid name.",invalid_phone:"Enter a valid 10-digit mobile number.",invalid_age:"Enter a valid age.",invalid_sex:"Choose a sex.",invalid_mode:"Choose clinic or video.",invalid_days:"Choose at least one working day.",invalid_sessions:"Add one to three sessions."};
   if(m[code])return m[code];
   if(status===0)return "You look offline. Check your connection and try again.";
   if(status===401||status===403)return "Please sign in again.";
@@ -66,6 +66,17 @@ BE.userId=function(){return BE.sess?BE.sess.user.id:null};
 function isMail(id){return String(id).indexOf("@")>-1}
 BE.sendOtp=function(id){var body=isMail(id)?{email:id,create_user:true}:{phone:"+91"+id,create_user:true};return rawFetch("/auth/v1/otp",{method:"POST",body:body}).then(function(){return true})};
 BE.verifyOtp=function(id,code){var body=isMail(id)?{type:"email",email:id,token:code}:{type:"sms",phone:"+91"+id,token:code};return rawFetch("/auth/v1/verify",{method:"POST",body:body}).then(function(j){if(!j||!j.access_token)throw BEErr("invalid_otp",400);saveSess(j);return j})};
+/* Google sign-in: the app opens the browser at this URL; Supabase returns to redirectTo with the session in the URL fragment. */
+BE.googleUrl=function(redirectTo){return URL_+"/auth/v1/authorize?provider=google&redirect_to="+encodeURIComponent(redirectTo)};
+BE.finishOAuth=function(frag){
+  var q={};String(frag||"").replace(/^[#?]/,"").split("&").forEach(function(kv){var i=kv.indexOf("=");if(i>0)q[decodeURIComponent(kv.slice(0,i))]=decodeURIComponent(kv.slice(i+1).replace(/\+/g," "))});
+  if(q.error||q.error_description)return Promise.reject(BEErr("oauth_failed",400));
+  if(!q.access_token)return Promise.reject(BEErr("oauth_failed",400));
+  return rawFetch("/auth/v1/user",{},q.access_token).then(function(u){
+    saveSess({access_token:q.access_token,refresh_token:q.refresh_token||"",expires_at:q.expires_at?+q.expires_at:Math.floor(Date.now()/1000)+(+q.expires_in||3600),user:{id:u.id,email:u.email,phone:u.phone}});
+    var m=u.user_metadata||{};return {name:String(m.full_name||m.name||"").slice(0,80)};
+  });
+};
 BE.signInPassword=function(email,pw){return rawFetch("/auth/v1/token?grant_type=password",{method:"POST",body:{email:email,password:pw}}).then(function(j){saveSess(j);return j})};
 BE.signUpPassword=function(email,pw){return rawFetch("/auth/v1/signup",{method:"POST",body:{email:email,password:pw}}).then(function(j){if(j&&j.access_token){saveSess(j);return j}throw BEErr("confirm_email",400)})};
 BE.signOut=function(){var t=BE.sess&&BE.sess.access_token;saveSess(null);if(t)return rawFetch("/auth/v1/logout",{method:"POST"},t).catch(function(){});return Promise.resolve()};

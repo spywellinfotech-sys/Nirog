@@ -1728,7 +1728,7 @@ function profBtn0(){
   return '<button class="pbtn" data-a="profile" aria-label="My profile">'+patAvatar(32)+'<span>'+esc(first)+'</span></button>';
 }
 function patLine(){
-  return patAvatar(26)+esc(state.pat.name)+' · '+esc(CLOUD&&!SMS?state.pat.phone:maskPhone(state.pat.phone))+' <button class="link" data-a="psignout">Sign out</button>';
+  return patAvatar(26)+esc(state.pat.name)+' · '+esc(CLOUD?patLabel():maskPhone(state.pat.phone))+' <button class="link" data-a="psignout">Sign out</button>';
 }
 function openProfile(){
   if(!state.pat){openOtp("patient",null);return}
@@ -1747,7 +1747,7 @@ function vProfile(){
    fld("name","Full name",'<input id="pr-name" autocomplete="name" value="'+esc(r.name)+'">')+
    fld("age","Age (years)",'<input id="pr-age" inputmode="numeric" maxlength="3" value="'+esc(r.age)+'">')+
    fld("sex","Sex",'<select id="pr-sex"><option value="">Select</option>'+SEXES.map(function(x){return '<option'+(r.sex===x?' selected':'')+'>'+x+'</option>'}).join("")+'</select>')+
-   '<div class="field" style="margin-bottom:0"><div class="foot" style="text-align:left;padding:0">'+(CLOUD&&!SMS?'Email: <span class="tnum">'+esc(state.pat.phone)+'</span> (verified)':'Mobile number: <span class="tnum">'+esc(maskPhone(state.pat.phone))+'</span> (verified)')+'</div></div></div>'+
+   '<div class="field" style="margin-bottom:0"><div class="foot" style="text-align:left;padding:0">'+(CLOUD&&state.pat.phone.indexOf('@')>-1?'Email: <span class="tnum">'+esc(state.pat.phone)+'</span> (verified)':'Mobile number: <span class="tnum">'+esc(maskPhone(state.pat.phone))+'</span> (verified)')+'</div></div></div>'+
    (r.ok?'<div class="status-line" style="margin:12px 16px 0">'+esc(r.ok)+'</div>':'')+
    '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">Save profile</button></div></form>'+
    '<div class="card" style="margin-top:12px"><div class="cardhead"><h2>Help and support</h2></div><div class="hint" style="margin-bottom:10px">Questions about a booking or your account? Chat with us on WhatsApp or send an email.</div><button class="btn ghost" data-a="help">Help and support</button></div><div style="height:16px"></div>';
@@ -1794,6 +1794,7 @@ function genCode(){
   if(typeof crypto!=="undefined"&&crypto.getRandomValues)crypto.getRandomValues(a);else a[0]=Math.floor(Math.random()*4294967295);
   return String(100000+a[0]%900000);
 }
+function patLabel(){var k=state.pat?state.pat.phone:"";return k.indexOf("@")>-1?k:maskPhone(k)}
 function maskPhone(p){return "+91 "+p.slice(0,5)+" "+p.slice(5)}
 function staffByPhone(ph){for(var i=0;i<staffData.users.length;i++)if(staffData.users[i].phone===ph)return staffData.users[i];return null}
 function myAppts(){if(CLOUD)return state.pat?appts:[];return state.pat?appts.filter(function(a){return a.phone===state.pat.phone}):[]}
@@ -1954,7 +1955,7 @@ function vConfirm(){
    '<form id="bookForm" novalidate style="display:flex;flex-direction:column;flex:1">'+
    '<div class="sec">Patient details</div><div class="card">'+
    '<div class="field"><label for="f-name">Patient name</label><input id="f-name" name="name" autocomplete="name" value="'+esc(f.name)+'" placeholder="Full name">'+(e.name?'<div class="err">'+e.name+'</div>':'')+'</div>'+
-   '<div class="field"><label for="f-phone">Mobile number</label><input id="f-phone" name="phone" inputmode="numeric" autocomplete="tel" maxlength="10" value="'+esc(f.phone)+'" placeholder="10-digit number"'+(state.pat&&(!CLOUD||SMS)?' readonly':'')+'>'+(e.phone?'<div class="err">'+e.phone+'</div>':'<div class="hint">'+(state.pat&&(!CLOUD||SMS)?'Verified with a one-time code. The clinic will use this number to reach you.':'The clinic will use this to reach you about your booking.')+'</div>')+'</div>'+
+   '<div class="field"><label for="f-phone">Mobile number</label><input id="f-phone" name="phone" inputmode="numeric" autocomplete="tel" maxlength="10" value="'+esc(f.phone)+'" placeholder="10-digit number"'+(state.pat&&(!CLOUD||state.pat.vph)?' readonly':'')+'>'+(e.phone?'<div class="err">'+e.phone+'</div>':'<div class="hint">'+(state.pat&&(!CLOUD||state.pat.vph)?'Verified with a one-time code. The clinic will use this number to reach you.':'The clinic will use this to reach you about your booking.')+'</div>')+'</div>'+
    '<div class="two"><div class="field"><label for="f-age">Age (years)</label><input id="f-age" inputmode="numeric" maxlength="3" value="'+esc(f.age)+'">'+(e.age?'<div class="err">'+e.age+'</div>':'')+'</div>'+
    '<div class="field"><label for="f-sex">Sex</label><select id="f-sex"><option value="">Select</option>'+SEXES.map(function(x){return '<option'+(f.sex===x?' selected':'')+'>'+x+'</option>'}).join("")+'</select>'+(e.sex?'<div class="err">'+e.sex+'</div>':'')+'</div></div>'+
    '<div class="field" style="margin-bottom:0"><label for="f-reason">Reason for visit <span class="muted" style="font-weight:400">(optional)</span></label><textarea id="f-reason" name="reason" placeholder="For example: fever for two days">'+esc(f.reason)+'</textarea></div></div>'+
@@ -2040,8 +2041,8 @@ function cloudWho(pf,name){
   cloud.sc={};
   if(r==="patient"){
     state.staff=null;staffData.users=[];
-    var em=SMS?last10(pf.phone||(BE.sess&&BE.sess.user.phone)):String(pf.email||(BE.sess&&BE.sess.user.email)||"").toLowerCase(),pr=getProf(em)||{};
-    state.pat={phone:em,mobile:SMS?em:(pr.mobile||""),name:pf.full_name||name||"Patient"};state.nb=true;
+    var ph10=last10(pf.phone||(BE.sess&&BE.sess.user.phone)),em=ph10||String(pf.email||(BE.sess&&BE.sess.user.email)||"").toLowerCase(),pr=getProf(em)||{};
+    state.pat={phone:em,vph:!!ph10,mobile:ph10||(pr.mobile||""),name:pf.full_name||name||"Patient"};state.nb=true;
     return Promise.resolve("");
   }
   if(r==="doctor"){
@@ -2176,7 +2177,7 @@ function otpPanelCloud(o){
   if(SMS)return otpPanelSms(o);
   var err=o.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(o.err)+'</div>':'';
   if(o.stage==="phone"){
-    return '<div class="field"><label for="o-email">Email address</label><input id="o-email" type="email" inputmode="email" autocomplete="email" value="'+esc(o.email)+'" placeholder="you@example.com"><div class="hint">We will email you a one-time code.</div></div>'+err+'<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Sending...':'Send code')+'</button>';
+    return '<div class="field"><label for="o-email">Email address</label><input id="o-email" type="email" inputmode="email" autocomplete="email" value="'+esc(o.email)+'" placeholder="you@example.com"><div class="hint">We will email you a one-time code.</div></div>'+err+'<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Sending...':'Send code')+'</button>'+googleBtn();
   }
   return '<div class="demo-note" role="status">We emailed a code to '+esc(o.email)+'. Check your spam folder if it does not arrive.</div>'+
     '<div class="field"><label for="o-code">Code from your email</label><input id="o-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" value="'+esc(o.code)+'" placeholder="Code"></div>'+
@@ -2187,7 +2188,7 @@ function otpPanelCloud(o){
 function otpPanelSms(o){
   var err=o.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(o.err)+'</div>':'';
   if(o.stage==="phone"){
-    return '<div class="field"><label for="o-phone">Mobile number</label><div class="phoneio"><span class="cc">+91</span><input id="o-phone" inputmode="numeric" maxlength="10" autocomplete="tel-national" value="'+esc(o.phone)+'" placeholder="10-digit number"></div><div class="hint">We will send a 6-digit code by SMS.</div></div>'+err+'<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Sending...':'Send code')+'</button>';
+    return '<div class="field"><label for="o-phone">Mobile number</label><div class="phoneio"><span class="cc">+91</span><input id="o-phone" inputmode="numeric" maxlength="10" autocomplete="tel-national" value="'+esc(o.phone)+'" placeholder="10-digit number"></div><div class="hint">We will send a 6-digit code by SMS.</div></div>'+err+'<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Sending...':'Send code')+'</button>'+googleBtn();
   }
   return '<div class="demo-note" role="status">We sent a code by SMS to '+esc(maskPhone(o.phone))+'.</div>'+
     '<div class="field"><label for="o-code">6-digit code</label><input id="o-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="'+esc(o.code)+'" placeholder="______"></div>'+
@@ -2195,6 +2196,35 @@ function otpPanelSms(o){
     err+'<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Checking...':'Verify and continue')+'</button>'+
     '<div class="acts" style="margin-top:12px"><button type="button" class="btn sm ghost" data-a="otpresend">Send a new code</button><button type="button" class="btn sm ghost" data-a="otpchange">Change number</button></div>';
 }
+function googleBtn(){
+  if(!CLOUD||(window.NIROG_CONFIG||{}).googleLogin===false)return "";
+  return '<div class="hint" style="text-align:center;margin:12px 0 8px">or</div><button type="button" class="btn ghost" data-a="google">Continue with Google</button>';
+}
+function googleStart(){
+  var o=state.otp;cloud.gafter=o?o.after:null;
+  var isFile=location.protocol==="file:";
+  var back=isFile?"nirog://auth":(location.origin+location.pathname);
+  location.href=BE.googleUrl(back);
+}
+function googleDone(frag){
+  if(!CLOUD)return;
+  cloud.busy=true;render();
+  BE.finishOAuth(frag).then(function(info){return BE.me().then(function(pf){
+    if(!pf)throw new Error("Could not load your account.");
+    var fresh=!pf.full_name&&info.name?BE.setName(info.name).then(function(){pf.full_name=info.name}):Promise.resolve();
+    return fresh.then(function(){return cloudWho(pf,info.name)});
+  })}).then(function(msg){
+    cloud.busy=false;
+    if(msg){state.otp=state.otp||newOtp("patient",null);state.otp.err=msg;state.view="otp";render(true);return}
+    var af=cloud.gafter;state.otp=null;
+    if(state.staff){state.view="list"}
+    else if(af==="confirm"&&state.docId&&state.dateKey&&state.time){state.form.name=state.pat.name;state.form.phone=state.pat.mobile||"";state.errors={};state.view="confirm";state.tab="find"}
+    else if(af==="appts"){state.tab="appts";state.view="list"}
+    else{state.view="list";state.tab="find"}
+    cloudSync(true);cloudStartPoll();render(true);
+  },function(e){cloud.busy=false;state.otp=state.otp||newOtp("patient",null);state.otp.err=e.message||"Google sign-in did not complete.";state.view="otp";render(true)});
+}
+window.__nirogAuth=googleDone;
 function otpId(o){return SMS?o.phone:o.email}
 function cloudOtpSend(resend){
   var o=state.otp;if(!o||cloud.busy)return;
@@ -2418,6 +2448,7 @@ app.addEventListener("click",function(ev){
     case "hclose":state.help=false;render(true);break;
     case "notif":openNotif();break;
     case "cretry":cloudLoadDir();break;
+    case "google":googleStart();break;
     case "ctab":cloud.tab=v;cloud.adminMsg="";cloud.adminErr="";render();break;
     case "cfapprove":cloudReviewF(+v,"approve");break;
     case "cfreject":cloudReviewF(+v,"reject");break;
@@ -2636,8 +2667,12 @@ function hashRoute(){
   return false;
 }
 try{window.addEventListener("hashchange",function(){if(hashRoute())render(true)})}catch(e){}
+var _oh="";try{_oh=location.hash}catch(e){}
+if(CLOUD&&/access_token=|error_description=/.test(_oh)){try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}}
+else _oh="";
 hashRoute();
 render();
+if(CLOUD&&_oh){setTimeout(function(){googleDone(_oh)},0)}
 if(CLOUD){cloudLoadDir().then(function(){return cloudRestore()}).then(function(){if(BE.signedIn())cloudStartPoll()})}
 })();
 </script>

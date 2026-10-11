@@ -41,6 +41,7 @@ global.fetch=(url,o)=>{
   if(p==="/rest/v1/leads"&&m==="POST"){db.leads.push(Object.assign({id:db.leads.length+1,status:"new"},b));return reply(201,null)}
   if(p==="/rest/v1/leads"&&m==="PATCH"){const id=+q.get("id").replace("eq.","");db.leads.find(x=>x.id===id).status=b.status;return reply(204,null)}
   if(p==="/rest/v1/platform_settings"&&m==="PATCH"){db.settings=b;return reply(204,null)}
+  if(p==="/auth/v1/user"){db.profiles.pat3=db.profiles.pat3||{id:"pat3",role:"patient",full_name:"",phone:null,email:"g@x.in"};return reply(200,{id:"pat3",email:"g@x.in",phone:"",user_metadata:{full_name:"Gina G"}})}
   if(p==="/rest/v1/doctors")return reply(200,db.doctors);
   if(p==="/rest/v1/clinic_locations")return reply(200,db.loc);
   if(p==="/rest/v1/doctor_availability")return reply(200,db.av);
@@ -142,5 +143,12 @@ const day=d=>{const x=new Date();x.setDate(x.getDate()+d);return x.getFullYear()
   // labs tab shows facilities from the database
   click("logout");await wait();click("tab","labs");
   ok(app.innerHTML.includes("City Diagnostics Lab")&&!app.innerHTML.includes("Sample Diagnostics"),"labs come from the database, not demo data");
+  // Google sign-in return (the app is opened with the session in the URL fragment)
+  click("logout");await wait();
+  click("tab","appts");ok(app.innerHTML.includes("Continue with Google"),"Google button offered on the sign-in screen");
+  window.__nirogAuth("access_token=tok-pat3&refresh_token=r3&expires_in=3600&token_type=bearer");await wait(150);
+  ok(app.innerHTML.includes("Your appointments")||app.innerHTML.includes("Find doctors"),"Google return signs the patient in");
+  ok(db.profiles.pat3.full_name==="Gina G","name taken from the Google account");
+  ok(/g@x\.in/.test(app.innerHTML),"signed-in patient identified by email");
   console.log(fails?"\n"+fails+" FAILED":"\nall passed");process.exit(fails?1:0);
 })();
