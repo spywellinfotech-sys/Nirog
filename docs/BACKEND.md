@@ -122,3 +122,7 @@ The same suite runs in GitHub Actions as **Database tests** on every change unde
 - Fixed: register_doctor / register_facility take a single `p jsonb`, so the client must send `{p: {...}}` (it was sending the bare object, which PostgREST answered with 404 — the cause of "http_404" on Submit for review).
 - Migrations are additive; existing users and data are untouched.
 - Admin screens: Full profile, Edit and Delete for doctors and facilities (needs migration 0007 applied in Supabase).
+
+## Ratings and reviews (migration 0008)
+- Patients rate a confirmed past visit (1-5 stars, optional comment, one per booking, editable). Doctor page shows the average and reviews (first name only). Admin can delete a review from a doctor's Full profile.
+- The app tolerates the migration being missing (no ratings shown, submitting a review shows an error) until it is run.

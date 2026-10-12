@@ -1967,7 +1967,7 @@ function vDoctor(){
    '<div class="facts"><div class="fact"><b class="tnum">'+d.exp+' yrs</b><span>Experience</span></div><div class="fact"><b class="tnum">'+(d.reviews?d.rating.toFixed(1):"New")+'</b><span>'+(d.reviews?d.reviews.toLocaleString("en-IN")+' reviews':'No reviews yet')+'</span></div><div class="fact"><b class="tnum">'+d.step+' min</b><span>Per visit</span></div></div>'+
    (d.wa?'<div style="margin:0 0 12px">'+mapLink(waLink(d.wa,d.name),"Chat with the clinic on WhatsApp","btn sm")+'</div>':'')+'<div class="about">'+esc(d.about)+'<br><span style="font-size:13px">'+esc(d.clinic)+', '+esc(d.city)+' · '+esc(d.lang)+'</span></div>'+
    ((d.gallery&&d.gallery.length)?'<div class="sec">Clinic photos</div><div class="gal">'+d.gallery.map(function(g,i){return '<button data-a="viewimg" data-v="'+d.id+'|g|'+i+'" aria-label="View clinic photo '+(i+1)+'"><img src="'+esc(g)+'" alt="Clinic photo '+(i+1)+'"></button>'}).join("")+'</div>':'')+
-   '<div class="sec">Clinic location</div><div class="card"><div class="locrow"><div class="pinbox">'+ic2.pin+'</div><div style="min-width:0"><b>'+esc(d.clinic)+'</b><div class="tiny">'+esc(d.address||"")+(d.address?", ":"")+esc(d.city)+(d.pin?" "+esc(d.pin):"")+'</div></div></div>'+
+   reviewList(d)+'<div class="sec">Clinic location</div><div class="card"><div class="locrow"><div class="pinbox">'+ic2.pin+'</div><div style="min-width:0"><b>'+esc(d.clinic)+'</b><div class="tiny">'+esc(d.address||"")+(d.address?", ":"")+esc(d.city)+(d.pin?" "+esc(d.pin):"")+'</div></div></div>'+
    '<div class="acts" style="margin-top:12px">'+mapLink(siteOpen(d),"Open in Google Maps","btn sm")+mapLink(siteDir(d),"Directions","btn sm ghost")+'</div></div>'+
    '<div class="sec">Visit type</div>'+seg+
    '<div class="sec">Choose a date</div><div class="dates">'+dates+'</div>'+
@@ -2010,6 +2010,36 @@ function vDone(){
    (a.mode==="video"?'':'<div class="sumrow"><span>Address</span><span>'+esc(d.address||d.clinic)+', '+esc(d.city)+'<br>'+mapLink(siteDir(d),"Get directions","maplink")+'</span></div>')+'</div>'+
    '<div class="stick" style="display:flex;flex-direction:column;gap:8px"><button class="btn" data-a="mine">View my appointments</button><button class="btn ghost" data-a="home">Book another</button></div>';
 }
+function stars(n){var o="";for(var i=1;i<=5;i++)o+=(i<=Math.round(n)?"★":"☆");return '<span aria-label="'+n+' out of 5 stars" style="color:#e0a100;letter-spacing:1px">'+o+'</span>'}
+function visitPast(a){var t=new Date(a.dateKey+"T"+(a.time||"00:00")+":00");return t.getTime()<Date.now()}
+function reviewBox(a){
+  var my=(cloud.myrev||{})[a.id],f=cloud.rf;
+  if(f&&f.bid===a.id){
+    return '<div class="confirm" style="margin-top:8px"><div><b>Rate this visit</b></div><div class="acts" role="group" aria-label="Stars" style="margin:8px 0">'+[1,2,3,4,5].map(function(n){return '<button type="button" class="btn sm'+(f.rating===n?'':' ghost')+'" data-a="rstar" data-v="'+n+'" aria-pressed="'+(f.rating===n)+'">'+n+' ★</button>'}).join("")+'</div>'+
+     '<div class="field"><label for="rv-comment">Your review (optional)</label><textarea id="rv-comment" rows="3" maxlength="500" placeholder="How was your visit?">'+esc(f.comment)+'</textarea></div>'+
+     (f.err?'<div class="err" role="alert">'+esc(f.err)+'</div>':'')+
+     '<div class="acts"><button class="btn sm" data-a="rsub"'+(cloud.busy?' disabled':'')+'>Submit review</button><button class="btn sm ghost" data-a="rcancel">Cancel</button></div></div>';
+  }
+  return my?'<div class="row" style="margin-top:6px"><span>Your rating: '+stars(my.rating)+'</span><button class="btn sm ghost" data-a="rstart" data-v="'+a.id+'">Edit</button></div>'
+    :'<div class="acts" style="margin-top:6px"><button class="btn sm" data-a="rstart" data-v="'+a.id+'">Rate this visit</button></div>';
+}
+function cloudReviewSubmit(){
+  var f=cloud.rf;if(!f||cloud.busy)return;
+  if(!(f.rating>=1))return(f.err="Choose 1 to 5 stars.",render());
+  cloud.busy=true;f.err="";render();
+  BE.submitReview(f.bid,f.rating,f.comment.trim()).then(function(){
+    cloud.busy=false;cloud.myrev=cloud.myrev||{};cloud.myrev[f.bid]={rating:f.rating,comment:f.comment.trim()};cloud.rf=null;cloud.rev={};
+    cloudLoadDir&&cloudLoadDir();render();
+  },function(e){cloud.busy=false;f.err=e.message;render()});
+}
+function cloudLoadReviews(id){
+  BE.loadReviews(id).then(function(l){cloud.rev=cloud.rev||{};cloud.rev[id]=l;if(state.view==="doctor"&&state.docId===id)render()});
+}
+function reviewList(d){
+  if(!CLOUD)return "";
+  var L=(cloud.rev||{})[d.id];if(!L)return "";
+  return '<div class="sec">Patient reviews'+(d.reviews?' ('+d.reviews+')':'')+'</div>'+(L.length?'<div class="card">'+L.map(function(r){return '<div style="padding:6px 0;border-bottom:1px solid var(--line,#eee)"><div>'+stars(r.rating)+' <b>'+esc(r.patient_name||"Patient")+'</b> <span class="tiny">'+esc(String(r.created_at).slice(0,10))+'</span></div>'+(r.comment?'<div class="tiny" style="margin-top:2px">'+esc(r.comment)+'</div>':'')+'</div>'}).join("")+'</div>':'<div class="empty">No reviews yet. Patients can rate after their visit.</div>');
+}
 function apptCard(a){
   var d=byId(a.docId),conf=a.status==="upcoming",up=conf||a.status==="pending";
   var acts="";
@@ -2026,15 +2056,18 @@ function apptCard(a){
    '<div class="doc-sub">'+(a.mode==="video"?'Video consult':esc(d.clinic)+', '+esc(d.city))+' · For '+esc(a.name)+(a.reason?' · '+esc(a.reason):'')+'</div>'+
    (a.status==="rejected"?'<div class="doc-sub" style="color:var(--bad)">The doctor could not accept this request'+(a.rreason?': '+esc(a.rreason):'.')+' Please book another time.</div>':'')+
    (a.mode==="clinic"&&conf?'<div>'+mapLink(siteDir(d),"Get directions on Google Maps","maplink")+'</div>':'')+
-   '<div class="row"><span class="hint tnum">Ref '+esc(a.ref)+' · '+money(a.fee!=null?a.fee:visitFee(d,a.mode))+(a.pf?' + '+money(a.pf)+' platform fee':'')+'</span>'+(a.sample?'<span class="pill warn">Example</span>':'')+'</div>'+acts+'</div>';
+   '<div class="row"><span class="hint tnum">Ref '+esc(a.ref)+' · '+money(a.fee!=null?a.fee:visitFee(d,a.mode))+(a.pf?' + '+money(a.pf)+' platform fee':'')+'</span>'+(a.sample?'<span class="pill warn">Example</span>':'')+'</div>'+acts+(CLOUD&&conf&&a.cloud&&visitPast(a)?reviewBox(a):'')+'</div>';
 }
 function vAppts(){
   var mineA=myAppts();
-  var up=mineA.filter(function(a){return a.status==="upcoming"||a.status==="pending"}).sort(function(x,y){return (x.dateKey+x.time)<(y.dateKey+y.time)?-1:1});
+  var upAll=mineA.filter(function(a){return a.status==="upcoming"||a.status==="pending"}).sort(function(x,y){return (x.dateKey+x.time)<(y.dateKey+y.time)?-1:1});
+  var done=CLOUD?upAll.filter(function(a){return a.status==="upcoming"&&a.cloud&&visitPast(a)}):[];
+  var up=CLOUD?upAll.filter(function(a){return done.indexOf(a)<0}):upAll;
   var cx=mineA.filter(function(a){return a.status==="cancelled"||a.status==="rejected"});
   return '<div class="top"><div class="brand">Nirog<small>My appointments</small></div>'+profBtn()+'</div>'+
    (state.dmsg?'<div class="err" role="alert" style="margin:0 16px 10px">'+esc(state.dmsg)+'</div>':'')+'<div class="title-block"><h1>Your appointments</h1>'+(state.pat?'<div class="tiny" style="margin-top:8px">'+patLine()+'</div>':'')+'</div>'+
    (up.length?up.map(apptCard).join(""):'<div class="empty">No upcoming appointments. Book a doctor from the first tab and it will show up here.</div>')+
+   (done.length?'<div class="sec">Past visits</div>'+done.map(apptCard).join(""):'')+
    (cx.length?'<div class="sec">Cancelled or rejected</div>'+cx.map(apptCard).join(""):'')+
    '<div style="height:16px"></div>';
 }
@@ -2106,12 +2139,12 @@ function cloudRestore(){
   if(!BE.signedIn())return Promise.resolve();
   return BE.me().then(function(pf){if(!pf)throw new Error("x");return cloudWho(pf,"")}).then(function(m){if(!m){cloudSync(true)}}).catch(function(e){if(e&&e.status!==0)BE.signOut()}).then(function(){render()});
 }
-function cloudSig(){return JSON.stringify(appts.map(function(a){return [a.id,a.status,a.time,a.dateKey]}))+"|"+NOTIF.length+"|"+NOTIF.filter(function(n){return !n.read}).length}
+function cloudSig(){return JSON.stringify(appts.map(function(a){return [a.id,a.status,a.time,a.dateKey]}))+"|"+Object.keys(cloud.myrev||{}).length+"|"+NOTIF.length+"|"+NOTIF.filter(function(n){return !n.read}).length}
 function cloudSync(force){
   if(!CLOUD||!BE.signedIn())return Promise.resolve();
   var key=notifKey();
-  return Promise.all([BE.myBookings(),BE.notifications()]).then(function(r){
-    appts=r[0];
+  return Promise.all([BE.myBookings(),BE.notifications(),state.staff?Promise.resolve([]):BE.myReviews()]).then(function(r){
+    appts=r[0];cloud.myrev={};(r[2]||[]).forEach(function(x){cloud.myrev[x.booking_id]={rating:x.rating,comment:x.comment}});
     var k=notifKey();
     NOTIF=r[1].map(function(n){return {id:"n"+n.id,to:k,text:n.body,ts:Date.parse(n.created_at),read:!!n.read_at}});
     var h=cloudSig(),ae=document.activeElement,typing=ae&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName);
@@ -2394,7 +2427,8 @@ function pvHtml(pv){
   else{var v=D.verification||{},loc=(D.locations||[])[0]||{};
     var av=(D.availability||[]).map(function(a){return dayName(a.weekday)+" "+fmtMin(a.start_min)+"-"+fmtMin(a.end_min)}).join(", ");
     rows=pvRows([["Ref",r.ref],["Status",r.status+(r.verified?" (verified)":"")],["Name",r.name],["Speciality",r.spec],["Qualification",r.qual],["Experience",r.exp_years+" years"],["In-clinic fee","Rs "+r.fee_inr],["Video fee",r.video_fee_inr?"Rs "+r.video_fee_inr:"Not offered"],["Languages",r.languages],["About",r.about],["Clinic",r.clinic],["City",r.city],["Address",loc.address],["PIN",loc.pin],["Map",loc.map_url],["WhatsApp",r.wa],["Council",v.council],["Registration no",v.reg_no],["Registration year",v.reg_year],["Working slots",av],["Bookings",D.bookings],["Login email",D.email],["Login mobile",D.phone],["Registered",String(r.created_at||"").slice(0,10)],["Review note",r.review_reason]])}
-  return '<div class="card" style="margin:10px 0 0">'+rows+(docs?'<div class="acts" style="margin-top:8px;flex-wrap:wrap">'+docs+'</div>':'')+'<div class="acts" style="margin-top:8px"><button class="btn sm ghost" data-a="cprofx">Close</button></div></div>';
+  var rv=(pv.reviews||[]).map(function(r){return '<div class="sumrow"><span>'+stars(r.rating)+' '+esc(r.patient_name||"")+(r.comment?'<br><span class="tiny">'+esc(r.comment)+'</span>':'')+'</span><button class="btn sm ghost" data-a="rdel" data-v="'+r.id+'" style="color:var(--bad)">Delete review</button></div>'}).join("");
+  return '<div class="card" style="margin:10px 0 0">'+rows+(rv?'<div class="sec" style="padding-left:0">Reviews</div>'+rv:'')+(docs?'<div class="acts" style="margin-top:8px;flex-wrap:wrap">'+docs+'</div>':'')+'<div class="acts" style="margin-top:8px"><button class="btn sm ghost" data-a="cprofx">Close</button></div></div>';
 }
 function editHtml(ed){
   var fields=ed.kind==="fac"?FACF:DOCF,f=ed.f;
@@ -2416,7 +2450,7 @@ function cloudProfOpen(kind,id,mode){
       if(kind==="fac"){var pr=D.private||{};f={name:r.name,sub:r.sub,city:r.city,address:r.address,pin:r.pin||"",map_url:r.map_url||"",hours:r.hours,beds:r.beds==null?"":r.beds,wa:r.wa||"",contact_name:pr.contact_name||"",contact_phone:pr.contact_phone||"",licence_no:pr.licence_no||""}}
       else{var v=D.verification||{},loc=(D.locations||[])[0]||{};f={name:r.name,spec:r.spec,qual:r.qual,exp_years:r.exp_years,fee_inr:r.fee_inr,video_fee_inr:r.video_fee_inr,languages:r.languages,clinic:r.clinic,city:r.city,address:loc.address||"",pin:loc.pin||"",map_url:loc.map_url||"",wa:r.wa||"",phone:String(D.phone||"").replace(/^\+91/,""),council:v.council||"",reg_no:v.reg_no||"",reg_year:v.reg_year||"",about:r.about||""}}
       cloud.edit={key:key,kind:kind,id:id,f:f,err:""};
-    }else cloud.pv={key:key,data:D};
+    }else{cloud.pv={key:key,data:D,reviews:[]};if(kind!=="fac")BE.loadReviews(id).then(function(l){if(cloud.pv&&cloud.pv.key===key){cloud.pv.reviews=l;render()}})}
     render();
   },function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
 }
@@ -2440,6 +2474,10 @@ function cloudEditSave(){
   BE.adminUpdate(ed.kind,ed.id,p).then(function(){
     cloud.busy=false;cloud.edit=null;cloud.adminMsg="Profile updated.";cloud.admin=null;cloud.facs=null;render();
   },function(e){cloud.busy=false;ed.err=e.message;render()});
+}
+function cloudDelReview(id){
+  if(cloud.busy||!cloud.pv)return;cloud.busy=true;render();
+  BE.deleteReview(id).then(function(){cloud.busy=false;cloud.pv.reviews=cloud.pv.reviews.filter(function(r){return r.id!==id});cloud.adminMsg="Review deleted.";render()},function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
 }
 function cloudDelete(kind,id){
   var key=pvKey(kind,id);
@@ -2583,6 +2621,11 @@ app.addEventListener("click",function(ev){
     case "cprof":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"view")})();break;
     case "cedit":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"edit")})();break;
     case "cdel":(function(){var q=v.split("|");cloudDelete(q[0],+q[1])})();break;
+    case "rstart":(function(){var my=(cloud.myrev||{})[v];cloud.rf={bid:v,rating:my?my.rating:0,comment:my?my.comment||"":"",err:""};render()})();break;
+    case "rstar":if(cloud.rf){cloud.rf.rating=+v;cloud.rf.err="";render()}break;
+    case "rsub":cloudReviewSubmit();break;
+    case "rcancel":cloud.rf=null;render();break;
+    case "rdel":cloudDelReview(+v);break;
     case "cprofx":cloud.pv=null;render();break;
     case "cedx":cloud.edit=null;render();break;
     case "cesave":cloudEditSave();break;
@@ -2638,7 +2681,7 @@ app.addEventListener("click",function(ev){
     case "toggle":sToggle(v);break;
     case "spec":state.spec=v;render();break;
     case "open":
-      state.docId=+v;resetPick();var d=byId(state.docId);state.dateKey=firstDate(d);state.view="doctor";state.tab="find";state.bookErr="";render(true);if(CLOUD)ensureSlots(d,week());break;
+      state.docId=+v;resetPick();var d=byId(state.docId);state.dateKey=firstDate(d);state.view="doctor";state.tab="find";state.bookErr="";render(true);if(CLOUD){ensureSlots(d,week());cloudLoadReviews(d.id)}break;
     case "back":state.view="list";state.resched=null;render(true);break;
     case "date":state.dateKey=v;state.time=null;render();if(CLOUD)ensureSlots(byId(state.docId),[v]);break;
     case "slot":state.time=v;render();break;
@@ -2701,6 +2744,7 @@ app.addEventListener("input",function(ev){
     if(fk==="map"){var fms=document.getElementById("fr-map-status");if(fms)fms.textContent=mapStatus(fv)}
   }
   else if(t.id&&t.id.indexOf("nb-")===0){var nk=t.id.slice(3),nv=t.value;if(nk==="pin"){nv=nv.replace(/\D/g,"").slice(0,6);t.value=nv}state.nlab[nk]=nv;if(nk==="kind")render()}
+  else if(t.id==="rv-comment"&&cloud.rf){cloud.rf.comment=t.value}
   else if(t.id&&t.id.indexOf("ce-")===0&&cloud.edit){cloud.edit.f[t.id.slice(3)]=t.value}
   else if(t.id&&t.id.indexOf("rg-")===0&&state.reg){
     var rk=t.id.slice(3),rv=t.value;
