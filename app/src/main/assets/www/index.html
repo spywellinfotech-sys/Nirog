@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif;background:#fafafa}img{max-width:100%}[hidden]{display:none!important}</style>
-<meta name="theme-color" content="#E8820C">
+<meta name="theme-color" content="#C8102E">
 <meta name="description" content="Nirog: find doctors, labs and hospitals, and book appointments.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -18,25 +18,25 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: one phone-width column, centered on larger screens. Doctor list -> doctor + slot picker -> confirm -> appointments tab. */
+/* red and white: crimson for text and buttons, brighter red for fills, white surfaces */
 :root{
   --font-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
   --font-body:"Figtree","Segoe UI",system-ui,sans-serif;
-  /* saffron: deep saffron for text and buttons, bright saffron (#FF9933 family) for fills and charts, green as the flag counterpart */
-  --bg:#FFF7EC; --surface:#FFFFFF; --line:#F0DCC2; --ink:#3A2312; --muted:#7A5E47;
-  --brand:#A94B00; --brand-ink:#FFFFFF; --soft:#FFE6C8; --accent:#9A5B00; --accent-soft:#FFF0C2;
-  --bright:#E8820C; --on-bright:#2A1600; --green:#1B7F5C; --green-soft:#DDF1E7;
-  --bad:#B3261E; --bad-soft:#FBE4E1; --busy:#F3E8D8;
+  --bg:#FFF5F5; --surface:#FFFFFF; --line:#F3D6D8; --ink:#2B1214; --muted:#6E4B4E;
+  --brand:#C8102E; --brand-ink:#FFFFFF; --soft:#FDE3E6; --accent:#A30D25; --accent-soft:#FFECEE;
+  --bright:#D91E36; --on-bright:#FFFFFF; --green:#1B7F5C; --green-soft:#DDF1E7;
+  --bad:#8E1B1B; --bad-soft:#FBE4E1; --busy:#F5E6E7;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#17110A; --surface:#231A10; --line:#3A2B1B; --ink:#F7EADB; --muted:#C2A78C;
-  --brand:#FFA94D; --brand-ink:#2A1600; --soft:#3A2812; --accent:#FFC857; --accent-soft:#3A2E0E;
-  --bright:#FFA94D; --on-bright:#2A1600; --green:#5FD3A0; --green-soft:#14301F;
-  --bad:#FF8B80; --bad-soft:#3A1B18; --busy:#2E2215; color-scheme:dark}}
+  --bg:#1A0D0E; --surface:#261415; --line:#3E2426; --ink:#FBEBEC; --muted:#C9A3A6;
+  --brand:#FF6B7D; --brand-ink:#2A0509; --soft:#3A1A1D; --accent:#FF8F9C; --accent-soft:#3A1E21;
+  --bright:#FF5A6E; --on-bright:#2A0509; --green:#5FD3A0; --green-soft:#14301F;
+  --bad:#FF8B80; --bad-soft:#3A1B18; --busy:#2E1A1C; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#17110A; --surface:#231A10; --line:#3A2B1B; --ink:#F7EADB; --muted:#C2A78C;
-  --brand:#FFA94D; --brand-ink:#2A1600; --soft:#3A2812; --accent:#FFC857; --accent-soft:#3A2E0E;
-  --bright:#FFA94D; --on-bright:#2A1600; --green:#5FD3A0; --green-soft:#14301F;
-  --bad:#FF8B80; --bad-soft:#3A1B18; --busy:#2E2215; color-scheme:dark}
+  --bg:#1A0D0E; --surface:#261415; --line:#3E2426; --ink:#FBEBEC; --muted:#C9A3A6;
+  --brand:#FF6B7D; --brand-ink:#2A0509; --soft:#3A1A1D; --accent:#FF8F9C; --accent-soft:#3A1E21;
+  --bright:#FF5A6E; --on-bright:#2A0509; --green:#5FD3A0; --green-soft:#14301F;
+  --bad:#FF8B80; --bad-soft:#3A1B18; --busy:#2E1A1C; color-scheme:dark}
 
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
