@@ -34,6 +34,14 @@ public class MainActivity extends Activity {
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
+        // Lets the web app know which build it runs in, so the admin can force an update.
+        try {
+            @SuppressWarnings("deprecation")
+            int build = getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+            settings.setUserAgentString(settings.getUserAgentString() + " NirogApp/" + build);
+        } catch (Exception ignored) {
+            // no build number: the update check stays off
+        }
         settings.setDomStorageEnabled(true); // the app keeps bookings and sign-ins in localStorage
         settings.setAllowFileAccess(true);
         settings.setAllowFileAccessFromFileURLs(false);
