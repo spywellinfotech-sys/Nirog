@@ -17,6 +17,7 @@ $P -f migrations/0003_fix_search_path.sql
 $P -f migrations/0004_facility_documents.sql
 $P -f migrations/0005_sms_otp.sql
 $P -f migrations/0006_unique_mobile.sql
+$P -f migrations/0007_admin_profile_delete.sql
 for t in tests/[0-9]*.sql; do echo "== $t"; $P -f "$t" ; done
 
 echo "== concurrency: 12 patients race for one slot"
