@@ -121,3 +121,4 @@ The same suite runs in GitHub Actions as **Database tests** on every change unde
 - One mobile number maps to one account (unique index on profiles.phone); doctor and facility registration reject a number used by another account with `phone_in_use`.
 - Fixed: register_doctor / register_facility take a single `p jsonb`, so the client must send `{p: {...}}` (it was sending the bare object, which PostgREST answered with 404 — the cause of "http_404" on Submit for review).
 - Migrations are additive; existing users and data are untouched.
+- Admin screens: Full profile, Edit and Delete for doctors and facilities (needs migration 0007 applied in Supabase).

@@ -2382,15 +2382,82 @@ function cloudReview(id,decision){
 function cloudViewDoc(path,bucket){
   BE.signedUrl(bucket,path).then(function(u){if(/\.pdf(\?|$)/i.test(path)){window.open(u,"_blank")}else{state.lb=u;render()}},function(e){cloud.adminMsg=e.message;render()});
 }
+var DOCF=[["name","Name"],["spec","Speciality"],["qual","Qualification"],["exp_years","Experience (years)"],["fee_inr","In-clinic fee (Rs)"],["video_fee_inr","Video fee (Rs, 0 = none)"],["languages","Languages"],["clinic","Clinic name"],["city","City"],["address","Address"],["pin","PIN code"],["map_url","Google Maps link"],["wa","WhatsApp number"],["phone","Mobile number"],["council","Medical council"],["reg_no","Registration number"],["reg_year","Registration year"],["about","About"]];
+var FACF=[["name","Name"],["sub","Type (for Other)"],["city","City"],["address","Address"],["pin","PIN code"],["map_url","Google Maps link"],["hours","Opening hours"],["beds","Beds"],["wa","WhatsApp number"],["contact_name","Contact person"],["contact_phone","Contact mobile number"],["licence_no","Licence number"]];
+function pvKey(kind,id){return (kind==="fac"?"f":"d")+id}
+function pvRows(rows){return rows.filter(function(r){return r[1]!==""&&r[1]!=null}).map(function(r){return '<div class="sumrow"><span>'+esc(r[0])+'</span><span style="text-align:right;word-break:break-word">'+esc(String(r[1]))+'</span></div>'}).join("")}
+function dayName(i){return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][i]||i}
+function pvHtml(pv){
+  var D=pv.data,r=D.row,isF=D.kind==="facility",docs=(D.docs||[]).map(function(x){var bk=(x.kind==="photo"||x.kind==="clinic")?"doctor-media":"verification-docs";return '<button class="btn sm ghost" data-a="cdoc" data-v="'+esc(bk+"|"+x.storage_path)+'">View '+esc(x.kind)+'</button>'}).join("");
+  var rows;
+  if(isF){var pr=D.private||{};rows=pvRows([["Ref",r.ref],["Status",r.status+(r.verified?" (verified)":"")],["Type",kindName(r.kind)+(r.sub?" - "+r.sub:"")],["Name",r.name],["City",r.city],["Address",r.address],["PIN",r.pin],["Hours",r.hours],["Beds",r.beds],["Emergency",r.emergency?"Yes":""],["Ambulance",r.ambulance?"Yes":""],["Home service",r.home_service?"Yes":""],["Services",(Array.isArray(r.services)?r.services:[]).map(function(x){return Array.isArray(x)?x.join(" "):x}).join(", ")],["WhatsApp",r.wa],["Contact person",pr.contact_name],["Contact mobile",pr.contact_phone],["Licence no",pr.licence_no],["Login email",D.email],["Login mobile",D.phone],["Registered",String(r.created_at||"").slice(0,10)],["Review note",r.review_reason]])}
+  else{var v=D.verification||{},loc=(D.locations||[])[0]||{};
+    var av=(D.availability||[]).map(function(a){return dayName(a.weekday)+" "+fmtMin(a.start_min)+"-"+fmtMin(a.end_min)}).join(", ");
+    rows=pvRows([["Ref",r.ref],["Status",r.status+(r.verified?" (verified)":"")],["Name",r.name],["Speciality",r.spec],["Qualification",r.qual],["Experience",r.exp_years+" years"],["In-clinic fee","Rs "+r.fee_inr],["Video fee",r.video_fee_inr?"Rs "+r.video_fee_inr:"Not offered"],["Languages",r.languages],["About",r.about],["Clinic",r.clinic],["City",r.city],["Address",loc.address],["PIN",loc.pin],["Map",loc.map_url],["WhatsApp",r.wa],["Council",v.council],["Registration no",v.reg_no],["Registration year",v.reg_year],["Working slots",av],["Bookings",D.bookings],["Login email",D.email],["Login mobile",D.phone],["Registered",String(r.created_at||"").slice(0,10)],["Review note",r.review_reason]])}
+  return '<div class="card" style="margin:10px 0 0">'+rows+(docs?'<div class="acts" style="margin-top:8px;flex-wrap:wrap">'+docs+'</div>':'')+'<div class="acts" style="margin-top:8px"><button class="btn sm ghost" data-a="cprofx">Close</button></div></div>';
+}
+function editHtml(ed){
+  var fields=ed.kind==="fac"?FACF:DOCF,f=ed.f;
+  return '<div class="card" style="margin:10px 0 0"><b>Edit profile</b>'+fields.map(function(x){
+    var k=x[0],big=k==="about";
+    var input=k==="spec"?'<select id="ce-spec">'+SPECS.slice(1).map(function(sp){return '<option'+(f.spec===sp?' selected':'')+'>'+esc(sp)+'</option>'}).join("")+'</select>'
+      :big?'<textarea id="ce-'+k+'" rows="3">'+esc(f[k]==null?"":f[k])+'</textarea>'
+      :'<input id="ce-'+k+'" value="'+esc(f[k]==null?"":f[k])+'">';
+    return '<div class="field" style="margin-top:10px"><label for="ce-'+k+'">'+x[1]+'</label>'+input+'</div>'}).join("")+
+   (ed.err?'<div class="err" role="alert">'+esc(ed.err)+'</div>':'')+
+   '<div class="acts" style="margin-top:12px"><button class="btn sm" data-a="cesave"'+(cloud.busy?' disabled':'')+'>Save changes</button><button class="btn sm ghost" data-a="cedx">Cancel</button></div></div>';
+}
+function cloudProfOpen(kind,id,mode){
+  if(cloud.busy)return;cloud.busy=true;cloud.adminMsg="";cloud.adminErr="";cloud.edit=null;cloud.pv=null;render();
+  BE.adminProfile(kind==="fac"?"facility":"doctor",id).then(function(D){
+    cloud.busy=false;var key=pvKey(kind,id);
+    if(mode==="edit"){
+      var r=D.row,f={};
+      if(kind==="fac"){var pr=D.private||{};f={name:r.name,sub:r.sub,city:r.city,address:r.address,pin:r.pin||"",map_url:r.map_url||"",hours:r.hours,beds:r.beds==null?"":r.beds,wa:r.wa||"",contact_name:pr.contact_name||"",contact_phone:pr.contact_phone||"",licence_no:pr.licence_no||""}}
+      else{var v=D.verification||{},loc=(D.locations||[])[0]||{};f={name:r.name,spec:r.spec,qual:r.qual,exp_years:r.exp_years,fee_inr:r.fee_inr,video_fee_inr:r.video_fee_inr,languages:r.languages,clinic:r.clinic,city:r.city,address:loc.address||"",pin:loc.pin||"",map_url:loc.map_url||"",wa:r.wa||"",phone:String(D.phone||"").replace(/^\+91/,""),council:v.council||"",reg_no:v.reg_no||"",reg_year:v.reg_year||"",about:r.about||""}}
+      cloud.edit={key:key,kind:kind,id:id,f:f,err:""};
+    }else cloud.pv={key:key,data:D};
+    render();
+  },function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
+}
+function cloudEditSave(){
+  var ed=cloud.edit;if(!ed||cloud.busy)return;var f=ed.f,p={},isF=ed.kind==="fac";
+  function bad(m){ed.err=m;render()}
+  if(String(f.name||"").trim().length<3)return bad("Enter the name.");
+  var ph=isF?f.contact_phone:f.phone;
+  if(ph&&!/^[6-9]\d{9}$/.test(String(ph).trim()))return bad("Enter a valid 10-digit mobile number.");
+  if(f.wa&&!/^[6-9]\d{9}$/.test(String(f.wa).trim()))return bad("Enter a valid 10-digit WhatsApp number, or leave it empty.");
+  if(f.pin&&!/^\d{6}$/.test(String(f.pin).trim()))return bad("Enter a 6-digit PIN code or leave it empty.");
+  if(f.map_url&&!/^https:\/\/(www\.google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|maps\.app\.goo\.gl|goo\.gl\/maps)/.test(String(f.map_url).trim()))return bad("The map link must be a Google Maps link, or leave it empty.");
+  var c=cityNorm(f.city);if(c.length<2)return bad("Enter the city.");
+  Object.keys(f).forEach(function(k){var v=f[k];p[k]=typeof v==="string"?v.trim():v});
+  p.city=c;
+  ["exp_years","fee_inr","video_fee_inr","reg_year","beds"].forEach(function(k){if(k in p){if(p[k]===""||p[k]==null){if(k==="video_fee_inr")p[k]=0;else if(k==="beds")p[k]=null;else delete p[k]}else p[k]=Math.round(+p[k])}});
+  if(!isF&&!(p.fee_inr>=0))return bad("Enter a valid fee.");
+  if(isF&&!p.contact_phone)delete p.contact_phone;
+  if(!isF&&!p.phone)delete p.phone;
+  cloud.busy=true;ed.err="";render();
+  BE.adminUpdate(ed.kind,ed.id,p).then(function(){
+    cloud.busy=false;cloud.edit=null;cloud.adminMsg="Profile updated.";cloud.admin=null;cloud.facs=null;render();
+  },function(e){cloud.busy=false;ed.err=e.message;render()});
+}
+function cloudDelete(kind,id){
+  var key=pvKey(kind,id);
+  if(cloud.delAsk!==key){cloud.delAsk=key;render();return}
+  if(cloud.busy)return;cloud.busy=true;cloud.delAsk=null;cloud.adminMsg="";cloud.adminErr="";render();
+  BE.adminDelete(kind,id).then(function(){cloud.busy=false;cloud.pv=null;cloud.edit=null;cloud.adminMsg="Deleted. The mobile number and login are free to register again.";cloud.admin=null;cloud.facs=null;render()},function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
+}
 function cloudCard(d,kind){
-  var isF=kind==="fac";
+  var isF=kind==="fac",key=pvKey(kind,d.id);
   var docs=(d.docs||[]).map(function(x){var bk=(x.kind==="photo"||x.kind==="clinic")?"doctor-media":"verification-docs";return '<button class="btn sm ghost" data-a="cdoc" data-v="'+esc(bk+"|"+x.storage_path)+'">View '+esc(x.kind)+'</button>'}).join("");
   var det=isF?'<div class="tiny">'+esc(d.address)+', '+esc(d.city)+' '+esc(d.pin||"")+(d.priv?' · Contact '+esc(d.priv.contact_name)+' '+esc(d.priv.contact_phone)+' · Licence '+esc(d.priv.licence_no):'')+'</div>'
     :'<div class="tiny">'+esc(d.qual)+' · '+d.exp_years+' yrs · Fee '+money(d.fee_inr)+'</div>'+(d.ver?'<div class="tiny">Council: '+esc(d.ver.council)+' · Reg no '+esc(d.ver.reg_no)+' ('+d.ver.reg_year+')</div>':'');
   return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(d.name)+'</div><div class="tiny">'+esc(isF?kindName(d.kind):d.spec)+' · '+esc(d.city)+' · '+esc(d.ref)+'</div></div><span class="pill'+(d.status==="pending"?' warn':d.status==="rejected"?' bad':'')+'">'+esc(d.status)+'</span></div>'+det+
    (d.map_url?'<div class="tiny">'+mapLink(d.map_url,"Check on Google Maps","maplink")+'</div>':'')+
    (docs?'<div class="acts" style="margin-top:8px;flex-wrap:wrap">'+docs+'</div>':'')+
-   '<div class="acts"><button class="btn sm" data-a="'+(isF?"cfapprove":"capprove")+'" data-v="'+d.id+'">Approve</button><button class="btn sm ghost" data-a="'+(isF?"cfreject":"creject")+'" data-v="'+d.id+'" style="color:var(--bad)">Reject</button></div></div>';
+   '<div class="acts"><button class="btn sm" data-a="'+(isF?"cfapprove":"capprove")+'" data-v="'+d.id+'">Approve</button><button class="btn sm ghost" data-a="'+(isF?"cfreject":"creject")+'" data-v="'+d.id+'" style="color:var(--bad)">Reject</button></div>'+
+   '<div class="acts" style="margin-top:6px;flex-wrap:wrap"><button class="btn sm ghost" data-a="cprof" data-v="'+kind+'|'+d.id+'">Full profile</button><button class="btn sm ghost" data-a="cedit" data-v="'+kind+'|'+d.id+'">Edit</button><button class="btn sm ghost" data-a="cdel" data-v="'+kind+'|'+d.id+'" style="color:var(--bad)">'+(cloud.delAsk===key?'Tap again to delete':'Delete')+'</button></div>'+
+   (cloud.pv&&cloud.pv.key===key?pvHtml(cloud.pv):'')+(cloud.edit&&cloud.edit.key===key?editHtml(cloud.edit):'')+'</div>';
 }
 function cloudTabLoad(){
   var t=cloud.tab;
@@ -2513,6 +2580,12 @@ app.addEventListener("click",function(ev){
     case "clstat":cloudLeadStatus(v);break;
     case "csfee":if(cloud.sf){cloud.sf.on=!cloud.sf.on;render()}break;
     case "cdoc":(function(){var p=v.split("|");cloudViewDoc(p.slice(1).join("|"),p[0])})();break;
+    case "cprof":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"view")})();break;
+    case "cedit":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"edit")})();break;
+    case "cdel":(function(){var q=v.split("|");cloudDelete(q[0],+q[1])})();break;
+    case "cprofx":cloud.pv=null;render();break;
+    case "cedx":cloud.edit=null;render();break;
+    case "cesave":cloudEditSave();break;
     case "capprove":cloudReview(+v,"approve");break;
     case "creject":cloudReview(+v,"reject");break;
     case "nclose":state.notif=false;render(true);break;
@@ -2628,6 +2701,7 @@ app.addEventListener("input",function(ev){
     if(fk==="map"){var fms=document.getElementById("fr-map-status");if(fms)fms.textContent=mapStatus(fv)}
   }
   else if(t.id&&t.id.indexOf("nb-")===0){var nk=t.id.slice(3),nv=t.value;if(nk==="pin"){nv=nv.replace(/\D/g,"").slice(0,6);t.value=nv}state.nlab[nk]=nv;if(nk==="kind")render()}
+  else if(t.id&&t.id.indexOf("ce-")===0&&cloud.edit){cloud.edit.f[t.id.slice(3)]=t.value}
   else if(t.id&&t.id.indexOf("rg-")===0&&state.reg){
     var rk=t.id.slice(3),rv=t.value;
     if(rk==="phone"||rk==="wa"){rv=rv.replace(/\D/g,"").slice(0,10);t.value=rv}
