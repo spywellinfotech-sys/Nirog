@@ -2319,6 +2319,7 @@ function cloudWho(pf,name){
     state.staff=null;staffData.users=[];
     var ph10=last10(pf.phone||(BE.sess&&BE.sess.user.phone)),em=ph10||String(pf.email||(BE.sess&&BE.sess.user.email)||"").toLowerCase(),pr=getProf(em)||{};
     state.pat={phone:em,vph:!!ph10,mobile:ph10||(pr.mobile||""),name:pf.full_name||name||"Patient"};state.nb=true;
+    if(state.city&&state.city!==ALL_CITIES)BE.setCity(cityNorm(state.city));
     return Promise.resolve("");
   }
   if(r==="doctor"){
@@ -2348,6 +2349,102 @@ function cloudRestore(){
   return BE.me().then(function(pf){if(!pf)throw new Error("x");return cloudWho(pf,"")}).then(function(m){if(!m){cloudSync(true)}}).catch(function(e){if(e&&e.status!==0)BE.signOut()}).then(function(){render()});
 }
 function cloudSig(){return JSON.stringify(appts.map(function(a){return [a.id,a.status,a.time,a.dateKey]}))+"|"+Object.keys(cloud.rx||{}).length+"|"+Object.keys(cloud.myrev||{}).length+"|"+NOTIF.length+"|"+NOTIF.filter(function(n){return !n.read}).length}
+/* ---------- broadcast notifications: the super admin sends a title, message, photo and short video; users see a popup once ---------- */
+var BCAUD=[["all","Everyone (patients, doctors, facilities)"],["patients","Patients"],["doctors","Doctors"],["facilities","Labs, hospitals and other facilities"]];
+function bcAudName(a){var n="";BCAUD.forEach(function(x){if(x[0]===a)n=x[1]});return n||a}
+function bcNew(){return {title:"",body:"",aud:"all",city:"",reach:"",img:null,vid:null,vidMsg:"",err:"",ask:false}}
+function bcPickImage(files){
+  var f=cloud.bf;if(!f||!files||!files.length)return;
+  shrink(files[0],1200,.8,function(d){if(!d){f.err="That photo could not be read. Try another one.";}else{f.img=d;f.err=""}render()});
+}
+function bcPickVideo(files){
+  var f=cloud.bf;if(!f||!files||!files.length)return;
+  var v=files[0];f.vidMsg="";
+  if(!/^video\/(mp4|webm)$/.test(v.type)){f.err="Use an MP4 or WebM video.";return render()}
+  if(v.size>20*1024*1024){f.err="The video is larger than 20 MB. Send a shorter one.";return render()}
+  var done=false,u=null;
+  function ok(note){if(done)return;done=true;try{if(u)URL.revokeObjectURL(u)}catch(e){}f.vid=v;f.err="";f.vidMsg=note||"";render()}
+  function bad(m){if(done)return;done=true;try{if(u)URL.revokeObjectURL(u)}catch(e){}f.err=m;render()}
+  try{
+    u=URL.createObjectURL(v);var el=document.createElement("video");el.preload="metadata";
+    el.onloadedmetadata=function(){if(isFinite(el.duration)&&el.duration>60)bad("The video is longer than 60 seconds. Send a shorter one.");else ok()};
+    el.onerror=function(){ok("Could not check the length. Keep it under 60 seconds.")};
+    setTimeout(function(){ok("Could not check the length. Keep it under 60 seconds.")},4000);
+    el.src=u;
+  }catch(e){ok()}
+}
+var bcRT=null;
+function bcReachSoon(){
+  var f=cloud.bf;if(!f)return;clearTimeout(bcRT);
+  bcRT=setTimeout(function(){
+    var q=f.aud+"|"+f.city.trim();f.reachQ=q;
+    BE.reach(f.aud,cityNorm(f.city.trim())||null).then(function(n){if(f.reachQ!==q)return;f.reach="About "+n+" user"+(n===1?"":"s")+" will get this.";var e=document.getElementById("bf-reach");if(e)e.innerHTML="<b>"+esc(f.reach)+"</b>"},function(){var e=document.getElementById("bf-reach");if(e)e.textContent=""});
+  },450);
+}
+function bcMb(n){return (n/1048576).toFixed(1)+" MB"}
+function bcCompose(){
+  var f=cloud.bf=cloud.bf||bcNew();
+  return '<div class="sec">Send a notification</div><div class="card">'+
+   '<div class="field"><label for="bf-title">Title</label><input id="bf-title" maxlength="80" value="'+esc(f.title)+'" placeholder="e.g. Free health check-up this week"></div>'+
+   '<div class="field"><label for="bf-body">Message</label><textarea id="bf-body" rows="4" maxlength="500" placeholder="Keep it short and clear">'+esc(f.body)+'</textarea></div>'+
+   '<div class="field"><label for="bf-aud">Send to</label><select id="bf-aud">'+BCAUD.map(function(x){return '<option value="'+x[0]+'"'+(f.aud===x[0]?' selected':'')+'>'+esc(x[1])+'</option>'}).join("")+'</select></div>'+
+   '<div class="field"><label for="bf-city">City (optional)</label>'+cityIn("bf-city",f.city)+'<div class="tiny">Leave empty to send in every city. With a city, only patients who chose that city, and doctors and facilities in it, get the notification.</div><div class="tiny" id="bf-reach" role="status"><b>'+esc(f.reach)+'</b></div></div>'+
+   '<div class="upl"><b>Photo (optional)</b>'+(f.img?'<div class="thumbs" style="margin:6px 0"><div class="thumb"><img src="'+esc(f.img)+'" alt="Photo preview"><button type="button" class="x" data-a="bcrmimg" aria-label="Remove photo">×</button></div></div>':'')+'<label class="pick">'+(f.img?'Change photo':'Choose photo')+'<input type="file" id="bfp-img" accept="image/*"></label></div>'+
+   '<div class="upl"><b>Short video (optional, MP4 or WebM, up to 60 seconds and 20 MB)</b>'+(f.vid?'<div class="tiny" style="margin:6px 0">'+esc(f.vid.name)+' · '+bcMb(f.vid.size)+' <button type="button" class="link" data-a="bcrmvid">Remove</button></div>':'')+(f.vidMsg?'<div class="hint">'+esc(f.vidMsg)+'</div>':'')+'<label class="pick">'+(f.vid?'Change video':'Choose video')+'<input type="file" id="bfp-vid" accept="video/mp4,video/webm"></label></div>'+
+   (f.err?'<div class="err" role="alert" style="margin-bottom:10px">'+esc(f.err)+'</div>':'')+
+   (f.ask?'<div class="confirm"><div>Send this to <b>'+esc(bcAudName(f.aud))+(f.city.trim()?' in '+esc(cityNorm(f.city.trim())||f.city.trim()):'')+'</b>'+(f.reach?' ('+esc(f.reach.replace(' will get this.','').toLowerCase())+')':'')+'? It cannot be taken back from their notification lists.</div><div class="acts"><button class="btn sm" data-a="bcsend"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Sending...':'Yes, send now')+'</button><button class="btn sm ghost" data-a="bcno">Cancel</button></div></div>'
+     :'<button class="btn" type="button" data-a="bcask"'+(cloud.busy?' disabled':'')+'>Review and send</button>')+'</div>';
+}
+function bcHistory(){
+  var L=cloud.bcs;if(!L)return '<div class="empty">Loading...</div>';
+  return '<div class="sec">Sent ('+L.length+')</div>'+(L.length?L.map(function(b){
+    return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(b.title)+'</div><div class="tiny">'+esc(bcAudName(b.audience))+(b.city?' in '+esc(b.city):'')+' · '+esc(String(b.sent_count))+' notified · '+esc(new Date(b.created_at).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}))+'</div></div>'+(b.video_path?'<span class="pill">Video</span>':b.image_path?'<span class="pill">Photo</span>':'')+'</div>'+
+     (b.body?'<div class="tiny" style="white-space:pre-wrap">'+esc(b.body)+'</div>':'')+
+     (b.image_path?'<img src="'+esc(BE.mediaUrl(b.image_path))+'" alt="" style="max-width:100%;max-height:160px;border-radius:10px;margin-top:6px">':'')+
+     (cloud.bdel===b.id?'<div class="confirm"><div>Delete this from the history? Users who already got it keep their notification.</div><div class="acts"><button class="btn sm danger" data-a="bcdel" data-v="'+b.id+'">Yes, delete</button><button class="btn sm ghost" data-a="bcdelno">Keep</button></div></div>':'<div class="acts"><button class="btn sm ghost" data-a="bcdelask" data-v="'+b.id+'" style="color:var(--bad)">Delete</button></div>')+'</div>';
+  }).join(""):'<div class="empty">Nothing sent yet.</div>');
+}
+function bcSend(){
+  var f=cloud.bf;if(!f||cloud.busy)return;
+  if(!f.title.trim()){f.ask=false;f.err="Enter a title.";return render()}
+  cloud.busy=true;f.err="";render();
+  var st=Date.now(),img=null,vid=null;
+  function fin(){
+    BE.sendBroadcast({title:f.title.trim(),body:f.body.trim(),audience:f.aud,city:cityNorm(f.city.trim())||"",image:img,video:vid}).then(function(r){
+      cloud.busy=false;cloud.adminMsg="Sent to "+r.sent_count+" user"+(r.sent_count===1?"":"s")+".";cloud.adminErr="";cloud.bf=null;cloud.bcs=null;render();
+    },function(e){cloud.busy=false;f.ask=false;f.err=e.message;render()});
+  }
+  function doVid(){
+    if(!f.vid)return fin();
+    vid="v"+st+(f.vid.type==="video/webm"?".webm":".mp4");
+    BE.uploadFile("broadcast-media",vid,f.vid).then(fin,function(e){cloud.busy=false;f.ask=false;f.err=e.message;render()});
+  }
+  if(f.img){img="i"+st+".jpg";BE.upload("broadcast-media",img,f.img).then(doVid,function(e){cloud.busy=false;f.ask=false;f.err=e.message;render()})}
+  else doVid();
+}
+function bcDelete(id){
+  if(cloud.busy)return;cloud.busy=true;
+  BE.deleteBroadcast(id).then(function(){cloud.busy=false;cloud.bdel=null;cloud.bcs=null;cloud.adminMsg="Deleted.";render()},function(e){cloud.busy=false;cloud.bdel=null;cloud.adminErr=e.message;render()});
+}
+/* What users see: a popup with the newest broadcast they have not seen on this phone. */
+function bcKey(){return "nirog-bc-seen-"+(BE.userId()||"x")}
+function bcSeen(){try{return +localStorage.getItem(bcKey())||0}catch(e){return 0}}
+function bcMark(id){try{localStorage.setItem(bcKey(),String(id))}catch(e){}}
+function bcPopup(list){
+  if(!list||!list.length||document.getElementById("bcpop")||!BE.userId())return;
+  var su=state.staff?getUser(state.staff):null;if(su&&(su.role==="admin"||su.role==="sales"))return;
+  var maxId=list[0].id;if(maxId<=bcSeen())return;
+  var b=list[0],o=document.createElement("div");o.id="bcpop";
+  o.setAttribute("role","dialog");o.setAttribute("aria-modal","true");o.setAttribute("aria-label",b.title);
+  o.style.cssText="position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px";
+  o.innerHTML='<div style="background:var(--surface,#fff);color:var(--ink,#222);border-radius:16px;max-width:440px;width:100%;max-height:92vh;overflow:auto;padding:16px">'+
+   (b.image_path?'<img src="'+esc(BE.mediaUrl(b.image_path))+'" alt="" style="width:100%;border-radius:12px;display:block;margin-bottom:12px">':'')+
+   (b.video_path?'<video controls playsinline preload="metadata" src="'+esc(BE.mediaUrl(b.video_path))+'" style="width:100%;border-radius:12px;display:block;margin-bottom:12px;background:#000"></video>':'')+
+   '<h2 style="margin:0 0 8px;font-size:20px">'+esc(b.title)+'</h2>'+(b.body?'<div style="white-space:pre-wrap;margin-bottom:14px">'+esc(b.body)+'</div>':'')+
+   '<button class="btn" id="bcclose" type="button">Close</button></div>';
+  document.body.appendChild(o);
+  document.getElementById("bcclose").onclick=function(){bcMark(maxId);var v=o.querySelector("video");if(v)try{v.pause()}catch(e){}if(o.parentNode)o.parentNode.removeChild(o)};
+}
 function cloudSync(force){
   if(!CLOUD||!BE.signedIn())return Promise.resolve();
   var key=notifKey();
@@ -2358,6 +2455,7 @@ function cloudSync(force){
     var h=cloudSig(),ae=document.activeElement,typing=ae&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName);
     if(force||(h!==cloud.hash&&!typing)){cloud.hash=h;render()}
     cloud.hash=h;
+    BE.broadcasts().then(bcPopup);
     if(state.staff&&getUser(state.staff)&&getUser(state.staff).role==="doctor"){
       appts.filter(function(a){return a.status==="pending"}).forEach(function(a){var d=byId(a.docId);if(d)ensureSlots(d,[a.dateKey])});
     }
@@ -2370,7 +2468,7 @@ function cloudStartPoll(){
 }
 function cloudLogout(expired){
   var p=BE.signOut();
-  state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;cloud.facs=null;cloud.leads=null;cloud.sf=null;cloud.adminMsg="";cloud.adminErr="";
+  state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;cloud.facs=null;cloud.leads=null;cloud.sf=null;cloud.bcs=null;cloud.bf=null;cloud.adminMsg="";cloud.adminErr="";
   DOCS.forEach(function(d){d.mine=false});
   state.view="list";state.tab="find";state.notif=false;state.help=false;state.ask=null;render(true);
   return p;
@@ -2709,6 +2807,8 @@ function cloudTabLoad(){
   var t=cloud.tab;
   if(t==="doc"&&cloud.admin===null)cloudAdminLoad();
   if(t==="fac"&&cloud.facs===null)BE.adminFacilities().then(function(l){cloud.facs=l;render()},function(e){cloud.facs=[];cloud.adminErr=e.message;render()});
+  if(t==="bc"&&cloud.bf&&!cloud.bf.reachTried){cloud.bf.reachTried=true;bcReachSoon()}
+  if(t==="bc"&&!cloud.bcs&&!cloud.bcLoading){cloud.bcLoading=true;BE.broadcasts().then(function(l){cloud.bcLoading=false;cloud.bcs=l;render()})}
   if(t==="lead"&&cloud.leads===null)BE.sel("leads","select=*&order=created_at.desc&limit=300").then(function(l){cloud.leads=l;render()},function(e){cloud.leads=[];cloud.adminErr=e.message;render()});
 }
 function cloudReviewF(id,decision){
@@ -2740,7 +2840,7 @@ function cloudSaveSettings(){
 }
 function vCloudAdmin(){
   var u=getUser(state.staff),admin=u.role==="admin";
-  var tabs=admin?[["doc","Doctors"],["fac","Facilities"],["lead","Leads"],["set","Settings"]]:[["lead","Leads"]];
+  var tabs=admin?[["doc","Doctors"],["fac","Facilities"],["lead","Leads"],["bc","Notify"],["set","Settings"]]:[["lead","Leads"]];
   if(!tabs.some(function(t){return t[0]===cloud.tab}))cloud.tab=tabs[0][0];
   cloudTabLoad();
   var t=cloud.tab,body="";
@@ -2756,6 +2856,8 @@ function vCloudAdmin(){
      '<div class="field"><label for="cl-spec">Speciality</label><select id="cl-spec">'+SPECS.map(function(x){return '<option'+(f.spec===x?' selected':'')+'>'+esc(x)+'</option>'}).join("")+'</select></div><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>Add lead</button></div></form>'+
      '<div class="sec">Leads ('+Ls.length+')</div>'+(Ls.length?Ls.map(function(l){return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(l.name)+'</div><div class="tiny tnum">'+esc(l.phone)+' · '+esc(l.spec)+'</div></div><span class="pill">'+esc(STATUS[l.status]||l.status)+'</span></div><div class="acts" style="flex-wrap:wrap">'+
        ["new","contacted","booked","lost"].filter(function(x){return x!==l.status}).map(function(x){return '<button class="btn sm ghost" data-a="clstat" data-v="'+l.id+'|'+x+'">'+esc(STATUS[x])+'</button>'}).join("")+'</div></div>'}).join(""):'<div class="empty">No leads yet.</div>');
+  }else if(t==="bc"){
+    body=bcCompose()+bcHistory();
   }else{
     var sf=cloud.sf=cloud.sf||{on:PLAT.on,type:PLAT.type,value:String(PLAT.value),email:SUP.email,wa:SUP.wa,promo:PROMO?new Date(PROMO+19800000).toISOString().slice(0,10):"",minb:String(MINB)};
     body='<form id="csForm" novalidate><div class="sec">Platform fee</div><div class="card"><div class="field"><button type="button" class="chk" data-a="csfee" aria-pressed="'+sf.on+'"><i>'+(sf.on?"✓":"")+'</i><span>Charge a platform fee on bookings</span></button></div>'+
@@ -2835,6 +2937,14 @@ app.addEventListener("click",function(ev){
     case "cfapprove":cloudReviewF(+v,"approve");break;
     case "cfreject":cloudReviewF(+v,"reject");break;
     case "clstat":cloudLeadStatus(v);break;
+    case "bcask":if(cloud.bf){if(!cloud.bf.title.trim()){cloud.bf.err="Enter a title."}else{cloud.bf.err="";cloud.bf.ask=true}render()}break;
+    case "bcno":if(cloud.bf){cloud.bf.ask=false;render()}break;
+    case "bcsend":bcSend();break;
+    case "bcrmimg":if(cloud.bf){cloud.bf.img=null;render()}break;
+    case "bcrmvid":if(cloud.bf){cloud.bf.vid=null;cloud.bf.vidMsg="";render()}break;
+    case "bcdelask":cloud.bdel=+v;render();break;
+    case "bcdelno":cloud.bdel=null;render();break;
+    case "bcdel":bcDelete(+v);break;
     case "csfee":if(cloud.sf){cloud.sf.on=!cloud.sf.on;render()}break;
     case "cdoc":(function(){var p=v.split("|");cloudViewDoc(p.slice(1).join("|"),p[0])})();break;
     case "cprof":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"view")})();break;
@@ -2956,7 +3066,7 @@ app.addEventListener("input",function(ev){
   else if(t.id==="pr-name"&&state.prof){state.prof.name=t.value;state.prof.ok=""}
   else if(t.id==="pr-age"&&state.prof){t.value=t.value.replace(/\D/g,"").slice(0,3);state.prof.age=t.value;state.prof.ok=""}
   else if(t.id==="pr-sex"&&state.prof){state.prof.sex=t.value;state.prof.ok=""}
-  else if(t.id==="city"){state.city=t.value;saveCity(t.value);var cbox=document.getElementById("docs");if(cbox)cbox.innerHTML=docListHtml();var lbx=document.getElementById("labs");if(lbx)lbx.innerHTML=labsListHtml()}
+  else if(t.id==="city"){state.city=t.value;saveCity(t.value);if(CLOUD&&state.pat&&BE.signedIn()&&t.value!==ALL_CITIES){clearTimeout(window.__cityT);window.__cityT=setTimeout(function(){BE.setCity(cityNorm(state.city))},1200)}var cbox=document.getElementById("docs");if(cbox)cbox.innerHTML=docListHtml();var lbx=document.getElementById("labs");if(lbx)lbx.innerHTML=labsListHtml()}
   else if(t.id==="lq"){state.lq=t.value;var lb2=document.getElementById("labs");if(lb2)lb2.innerHTML=labsListHtml()}
   else if(t.id==="pf-value"&&state.pf){state.pf.value=t.value.replace(/[^\d.]/g,"").slice(0,6);t.value=state.pf.value;state.pf.ok="";state.pf.err="";var pfx=document.getElementById("pf-ex");if(pfx){var pv=+state.pf.value||0,pe=state.pf.type==="flat"?Math.round(pv):Math.round(500*pv/100);pfx.innerHTML="Example: on a ₹500 visit the patient sees ₹500 doctor fee + "+money(state.pf.on?pe:0)+" platform fee = <b>"+money(500+(state.pf.on?pe:0))+"</b>."}}
   else if(t.id==="sup-email"&&state.supf){state.supf.email=t.value;state.supf.ok=""}
@@ -2998,6 +3108,10 @@ app.addEventListener("input",function(ev){
   else if(t.id==="cl-name"&&cloud.lf)cloud.lf.name=t.value;
   else if(t.id==="cl-phone"&&cloud.lf){t.value=t.value.replace(/\D/g,"").slice(0,10);cloud.lf.phone=t.value}
   else if(t.id==="cl-spec"&&cloud.lf)cloud.lf.spec=t.value;
+  else if(t.id==="bf-title"&&cloud.bf){cloud.bf.title=t.value;cloud.bf.ask=false}
+  else if(t.id==="bf-body"&&cloud.bf){cloud.bf.body=t.value;cloud.bf.ask=false}
+  else if(t.id==="bf-aud"&&cloud.bf){cloud.bf.aud=t.value;cloud.bf.ask=false;bcReachSoon()}
+  else if(t.id==="bf-city"&&cloud.bf){cloud.bf.city=t.value;cloud.bf.ask=false;bcReachSoon()}
   else if(t.id==="cs-type"&&cloud.sf)cloud.sf.type=t.value;
   else if(t.id==="cs-value"&&cloud.sf)cloud.sf.value=t.value.replace(/[^\d.]/g,"").slice(0,6);
   else if(t.id==="cs-promo"&&cloud.sf)cloud.sf.promo=t.value;
@@ -3023,6 +3137,8 @@ app.addEventListener("change",function(ev){
   if(t&&t.type==="file"&&t.id&&t.id.indexOf("fu-")===0){onFacUpload(t.id,t.files)}
   if(t&&t.type==="file"&&t.id==="pu-photo"){onProfPhoto(t.files)}
   if(t&&t.type==="file"&&t.id==="rxp-add"){rxAddPhotos(t.files)}
+  if(t&&t.type==="file"&&t.id==="bfp-img"){bcPickImage(t.files)}
+  if(t&&t.type==="file"&&t.id==="bfp-vid"){bcPickVideo(t.files)}
 });
 app.addEventListener("submit",function(ev){
   ev.preventDefault();
