@@ -130,3 +130,6 @@ The same suite runs in GitHub Actions as **Database tests** on every change unde
 ## Free-booking promo and force update (migration 0009)
 - `platform_settings.promo_until`: while it is in the future, `create_booking` records a platform fee of 0. Super admin sets it in Settings (date, fee free through the end of that day, IST). Empty means no promo.
 - `platform_settings.min_build`: the Android app adds `NirogApp/<versionCode>` to its user agent. If that number is lower than `min_build`, the app shows an "update" screen linking to `update_url` (default: the latest-apk release). The web app is never blocked. The build number is the run number in `Nirog-v1.0.0.<run>.apk`.
+
+## Prescriptions (migration 0010)
+The doctor of a confirmed booking can, from the visit day on, write a prescription (diagnosis, up to 15 medicines, advice, follow-up date) and/or attach up to 4 photos. `save_prescription({p:{...}})` validates and upserts (one per booking) and notifies the patient. Photos go to the private `prescriptions` bucket under `<booking id>/<file>`; the patient, that doctor and admins can read them through signed URLs. Table reads are limited by RLS to the patient, the doctor and admins. Apply `0010_prescriptions.sql` in the SQL editor in small parts if the dashboard paste truncates.

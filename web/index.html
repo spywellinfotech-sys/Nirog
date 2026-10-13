@@ -1277,6 +1277,7 @@ function dApptCard(a,pend){
     if(state.rask===a.id)h+='<div class="confirm"><div class="field"><label for="rr-'+a.id+'">Reason for the patient (optional)</label><input id="rr-'+a.id+'" maxlength="140" value="'+esc(state.rrs[a.id]||"")+'" placeholder="e.g. Not available that day"></div><div class="acts"><button class="btn sm danger" data-a="rejgo" data-v="'+a.id+'">Reject request</button><button class="btn sm ghost" data-a="rejno">Back</button></div></div>';
     else h+='<div class="acts"><button class="btn sm" data-a="approve" data-v="'+a.id+'">Approve</button><button class="btn sm ghost" data-a="rejask" data-v="'+a.id+'" style="color:var(--bad)">Reject</button></div>';
   }
+  else h+=rxDocBox(a);
   return h+'</div>';
 }
 function docAppts(d){
@@ -2043,6 +2044,72 @@ function reviewList(d){
   var L=(cloud.rev||{})[d.id];if(!L)return "";
   return '<div class="sec">Patient reviews'+(d.reviews?' ('+d.reviews+')':'')+'</div>'+(L.length?'<div class="card">'+L.map(function(r){return '<div style="padding:6px 0;border-bottom:1px solid var(--line,#eee)"><div>'+stars(r.rating)+' <b>'+esc(r.patient_name||"Patient")+'</b> <span class="tiny">'+esc(String(r.created_at).slice(0,10))+'</span></div>'+(r.comment?'<div class="tiny" style="margin-top:2px">'+esc(r.comment)+'</div>':'')+'</div>'}).join("")+'</div>':'<div class="empty">No reviews yet. Patients can rate after their visit.</div>');
 }
+/* ---------- prescriptions (cloud): the doctor types medicines and advice and/or attaches photos; the patient reads them ---------- */
+function rxMine(a){return CLOUD&&a&&a.cloud?(cloud.rx||{})[a.id]:null}
+function rxView(a){
+  var r=rxMine(a);if(!r)return "";
+  if(cloud.rxopen!==a.id)return '<div class="acts" style="margin-top:6px"><button class="btn sm" data-a="rxview" data-v="'+a.id+'">View prescription</button></div>';
+  var d=byId(a.docId)||{},meds=(r.medicines||[]).map(function(m){return '<div class="sumrow"><span style="color:var(--ink)"><b>'+esc(m.name)+'</b>'+(m.dose?' · '+esc(m.dose):'')+'</span><span style="text-align:right">'+esc([m.freq,m.days?m.days+" days":""].filter(Boolean).join(" · "))+'</span></div>'}).join("");
+  return '<div class="confirm" style="margin-top:8px"><div><b>Prescription from '+esc(d.name||"your doctor")+'</b></div>'+
+   (r.diagnosis?'<div class="sumrow"><span>Diagnosis</span><span style="text-align:right">'+esc(r.diagnosis)+'</span></div>':'')+meds+
+   (r.advice?'<div class="tiny" style="margin:8px 0;white-space:pre-wrap"><b>Advice:</b> '+esc(r.advice)+'</div>':'')+
+   (r.follow_up?'<div class="sumrow"><span>Follow-up</span><span>'+esc(longDate(r.follow_up))+'</span></div>':'')+
+   ((r.files||[]).length?'<div class="acts" style="margin-top:8px">'+r.files.map(function(f,i){return '<button class="btn sm ghost" data-a="rxphoto" data-v="'+esc(f)+'">View photo '+(i+1)+'</button>'}).join("")+'</div>':'')+
+   '<div class="hint" style="margin-top:8px">This is advice from your doctor for this visit. For an emergency, call your local emergency number.</div>'+
+   '<div class="acts" style="margin-top:8px"><button class="btn sm ghost" data-a="rxclose">Close</button></div></div>';
+}
+function rxEmptyMed(){return {name:"",dose:"",freq:"",days:""}}
+function rxStart(a){
+  var r=rxMine(a);
+  cloud.rxf={bid:a.id,diagnosis:r?r.diagnosis||"":"",meds:r&&(r.medicines||[]).length?r.medicines.map(function(m){return {name:m.name||"",dose:m.dose||"",freq:m.freq||"",days:m.days||""}}):[rxEmptyMed()],advice:r?r.advice||"":"",follow_up:r&&r.follow_up?r.follow_up:"",files:r?(r.files||[]).slice():[],newp:[],err:"",msg:""};
+  render();
+}
+function rxForm(a){
+  var f=cloud.rxf,today=dkey(new Date());
+  var meds=f.meds.map(function(m,i){var id="rx-m-"+i+"-";return '<div class="card" style="padding:10px;margin:0 0 8px"><div class="field"><label for="'+id+'name">Medicine '+(i+1)+'</label><input id="'+id+'name" maxlength="80" value="'+esc(m.name)+'" placeholder="e.g. Paracetamol 500 mg"></div>'+
+    '<div class="two"><div class="field"><label for="'+id+'dose">Dose</label><input id="'+id+'dose" maxlength="40" value="'+esc(m.dose)+'" placeholder="1 tablet"></div><div class="field"><label for="'+id+'freq">How often</label><input id="'+id+'freq" maxlength="60" value="'+esc(m.freq)+'" placeholder="Twice a day, after food"></div></div>'+
+    '<div class="two"><div class="field"><label for="'+id+'days">Days</label><input id="'+id+'days" inputmode="numeric" maxlength="3" value="'+esc(m.days)+'" placeholder="5"></div><div style="align-self:end;padding-bottom:12px"><button type="button" class="btn sm ghost" data-a="rxdel" data-v="'+i+'" style="color:var(--bad)">Remove</button></div></div></div>'}).join("");
+  var total=f.files.length+f.newp.length;
+  var thumbs=(total?'<div class="thumbs" style="margin:6px 0">'+f.files.map(function(x,i){return '<div class="thumb">Saved '+(i+1)+'<button type="button" class="x" data-a="rxfrm" data-v="e'+i+'" aria-label="Remove saved photo '+(i+1)+'">×</button></div>'}).join("")+f.newp.map(function(x,i){return '<div class="thumb"><img src="'+esc(x)+'" alt="New photo '+(i+1)+'"><button type="button" class="x" data-a="rxfrm" data-v="n'+i+'" aria-label="Remove new photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'');
+  return '<div class="confirm" style="margin-top:8px"><div><b>Prescription for '+esc(a.name)+'</b></div>'+
+   '<div class="field"><label for="rx-diagnosis">Diagnosis or complaint (optional)</label><input id="rx-diagnosis" maxlength="300" value="'+esc(f.diagnosis)+'"></div>'+meds+
+   (f.meds.length<15?'<div class="acts" style="margin-bottom:10px"><button type="button" class="btn sm ghost" data-a="rxadd">+ Add medicine</button></div>':'')+
+   '<div class="field"><label for="rx-advice">Advice (optional)</label><textarea id="rx-advice" rows="3" maxlength="1000" placeholder="Rest, fluids, tests to get done">'+esc(f.advice)+'</textarea></div>'+
+   '<div class="field"><label for="rx-follow_up">Follow-up date (optional)</label><input id="rx-follow_up" type="date" min="'+today+'" value="'+esc(f.follow_up)+'"></div>'+
+   '<div class="upl" style="margin-bottom:10px"><b>Photos of a handwritten prescription (optional, up to 4)</b>'+thumbs+(total<4?'<label class="pick">Add photos<input type="file" id="rxp-add" accept="image/*" multiple></label>':'')+(f.msg?'<div class="err">'+esc(f.msg)+'</div>':'')+'</div>'+
+   (f.err?'<div class="err" role="alert">'+esc(f.err)+'</div>':'')+
+   '<div class="acts"><button class="btn sm" data-a="rxsave"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Saving...':'Save and share with patient')+'</button><button class="btn sm ghost" data-a="rxcancel">Cancel</button></div></div>';
+}
+function rxDocBox(a){
+  if(!CLOUD||!a.cloud||a.status!=="upcoming"||a.dateKey>dkey(new Date()))return "";
+  if(cloud.rxf&&cloud.rxf.bid===a.id)return rxForm(a);
+  var r=rxMine(a);
+  return '<div class="acts" style="margin-top:8px"><button class="btn sm'+(r?' ghost':'')+'" data-a="rxstart" data-v="'+a.id+'">'+(r?'Edit prescription':'Write prescription')+'</button></div>'+(r?'<div class="tiny">Shared with the patient.</div>':'');
+}
+function rxAddPhotos(files){
+  var f=cloud.rxf;if(!f||!files||!files.length)return;
+  var list=Array.prototype.slice.call(files,0,Math.max(0,4-f.files.length-f.newp.length)),bad=0;f.msg="";
+  (function next(i){
+    if(i>=list.length){if(bad)f.msg=bad+" photo"+(bad>1?"s":"")+" could not be read. Try another photo.";render();return}
+    shrink(list[i],1400,.75,function(d){if(d&&f.files.length+f.newp.length<4)f.newp.push(d);else bad++;next(i+1)});
+  })(0);
+}
+function rxSave(){
+  var f=cloud.rxf;if(!f||cloud.busy)return;
+  var meds=f.meds.filter(function(m){return m.name.trim()});
+  if(!f.diagnosis.trim()&&!f.advice.trim()&&!meds.length&&!f.files.length&&!f.newp.length)return(f.err="Add at least one medicine, some advice, or a photo.",render());
+  cloud.busy=true;f.err="";render();
+  var up=[],stamp=Date.now();
+  (function next(i){
+    if(i>=f.newp.length)return finish();
+    BE.upload("prescriptions",f.bid+"/rx"+stamp+"-"+i+".jpg",f.newp[i]).then(function(path){up.push(path);next(i+1)},function(e){cloud.busy=false;f.err=e.message;render()});
+  })(0);
+  function finish(){
+    BE.saveRx({booking_id:f.bid,diagnosis:f.diagnosis.trim(),medicines:meds,advice:f.advice.trim(),follow_up:f.follow_up||"",files:f.files.concat(up)}).then(function(r){
+      cloud.rx=cloud.rx||{};cloud.rx[f.bid]=r;cloud.rxf=null;cloud.busy=false;state.dmsg="";render();
+    },function(e){cloud.busy=false;f.err=e.message;render()});
+  }
+}
 function apptCard(a){
   var d=byId(a.docId),conf=a.status==="upcoming",up=conf||a.status==="pending";
   var acts="";
@@ -2059,7 +2126,7 @@ function apptCard(a){
    '<div class="doc-sub">'+(a.mode==="video"?'Video consult':esc(d.clinic)+', '+esc(d.city))+' · For '+esc(a.name)+(a.reason?' · '+esc(a.reason):'')+'</div>'+
    (a.status==="rejected"?'<div class="doc-sub" style="color:var(--bad)">The doctor could not accept this request'+(a.rreason?': '+esc(a.rreason):'.')+' Please book another time.</div>':'')+
    (a.mode==="clinic"&&conf?'<div>'+mapLink(siteDir(d),"Get directions on Google Maps","maplink")+'</div>':'')+
-   '<div class="row"><span class="hint tnum">Ref '+esc(a.ref)+' · '+money(a.fee!=null?a.fee:visitFee(d,a.mode))+(a.pf?' + '+money(a.pf)+' platform fee':'')+'</span>'+(a.sample?'<span class="pill warn">Example</span>':'')+'</div>'+acts+(CLOUD&&conf&&a.cloud&&visitPast(a)?reviewBox(a):'')+'</div>';
+   '<div class="row"><span class="hint tnum">Ref '+esc(a.ref)+' · '+money(a.fee!=null?a.fee:visitFee(d,a.mode))+(a.pf?' + '+money(a.pf)+' platform fee':'')+'</span>'+(a.sample?'<span class="pill warn">Example</span>':'')+'</div>'+acts+(CLOUD&&conf&&a.cloud?rxView(a):'')+(CLOUD&&conf&&a.cloud&&visitPast(a)?reviewBox(a):'')+'</div>';
 }
 function vAppts(){
   var mineA=myAppts();
@@ -2143,12 +2210,12 @@ function cloudRestore(){
   if(!BE.signedIn())return Promise.resolve();
   return BE.me().then(function(pf){if(!pf)throw new Error("x");return cloudWho(pf,"")}).then(function(m){if(!m){cloudSync(true)}}).catch(function(e){if(e&&e.status!==0)BE.signOut()}).then(function(){render()});
 }
-function cloudSig(){return JSON.stringify(appts.map(function(a){return [a.id,a.status,a.time,a.dateKey]}))+"|"+Object.keys(cloud.myrev||{}).length+"|"+NOTIF.length+"|"+NOTIF.filter(function(n){return !n.read}).length}
+function cloudSig(){return JSON.stringify(appts.map(function(a){return [a.id,a.status,a.time,a.dateKey]}))+"|"+Object.keys(cloud.rx||{}).length+"|"+Object.keys(cloud.myrev||{}).length+"|"+NOTIF.length+"|"+NOTIF.filter(function(n){return !n.read}).length}
 function cloudSync(force){
   if(!CLOUD||!BE.signedIn())return Promise.resolve();
   var key=notifKey();
-  return Promise.all([BE.myBookings(),BE.notifications(),state.staff?Promise.resolve([]):BE.myReviews()]).then(function(r){
-    appts=r[0];cloud.myrev={};(r[2]||[]).forEach(function(x){cloud.myrev[x.booking_id]={rating:x.rating,comment:x.comment}});
+  return Promise.all([BE.myBookings(),BE.notifications(),state.staff?Promise.resolve([]):BE.myReviews(),BE.myRx()]).then(function(r){
+    appts=r[0];cloud.myrev={};(r[2]||[]).forEach(function(x){cloud.myrev[x.booking_id]={rating:x.rating,comment:x.comment}});cloud.rx={};(r[3]||[]).forEach(function(x){cloud.rx[x.booking_id]=x});
     var k=notifKey();
     NOTIF=r[1].map(function(n){return {id:"n"+n.id,to:k,text:n.body,ts:Date.parse(n.created_at),read:!!n.read_at}});
     var h=cloudSig(),ae=document.activeElement,typing=ae&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName);
@@ -2636,6 +2703,15 @@ app.addEventListener("click",function(ev){
     case "cprof":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"view")})();break;
     case "cedit":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"edit")})();break;
     case "cdel":(function(){var q=v.split("|");cloudDelete(q[0],+q[1])})();break;
+    case "rxview":cloud.rxopen=v;render();break;
+    case "rxclose":cloud.rxopen=null;render();break;
+    case "rxphoto":BE.signedUrl("prescriptions",v).then(function(u){state.lb=u;render()},function(e){state.dmsg=e.message;render()});break;
+    case "rxstart":(function(){var a=null;appts.forEach(function(x){if(x.id===v)a=x});if(a)rxStart(a)})();break;
+    case "rxcancel":cloud.rxf=null;render();break;
+    case "rxadd":if(cloud.rxf&&cloud.rxf.meds.length<15){cloud.rxf.meds.push(rxEmptyMed());render()}break;
+    case "rxdel":if(cloud.rxf){cloud.rxf.meds.splice(+v,1);if(!cloud.rxf.meds.length)cloud.rxf.meds.push(rxEmptyMed());render()}break;
+    case "rxfrm":if(cloud.rxf){if(v.charAt(0)==="e")cloud.rxf.files.splice(+v.slice(1),1);else cloud.rxf.newp.splice(+v.slice(1),1);render()}break;
+    case "rxsave":rxSave();break;
     case "rstart":(function(){var my=(cloud.myrev||{})[v];cloud.rf={bid:v,rating:my?my.rating:0,comment:my?my.comment||"":"",err:""};render()})();break;
     case "rstar":if(cloud.rf){cloud.rf.rating=+v;cloud.rf.err="";render()}break;
     case "rsub":cloudReviewSubmit();break;
@@ -2760,6 +2836,11 @@ app.addEventListener("input",function(ev){
   }
   else if(t.id&&t.id.indexOf("nb-")===0){var nk=t.id.slice(3),nv=t.value;if(nk==="pin"){nv=nv.replace(/\D/g,"").slice(0,6);t.value=nv}state.nlab[nk]=nv;if(nk==="kind")render()}
   else if(t.id==="rv-comment"&&cloud.rf){cloud.rf.comment=t.value}
+  else if(t.id&&t.id.indexOf("rx-")===0&&cloud.rxf){
+    var mm=/^rx-m-(\d+)-(name|dose|freq|days)$/.exec(t.id);
+    if(mm){var mv=t.value;if(mm[2]==="days"){mv=mv.replace(/\D/g,"").slice(0,3);t.value=mv}if(cloud.rxf.meds[+mm[1]])cloud.rxf.meds[+mm[1]][mm[2]]=mv}
+    else cloud.rxf[t.id.slice(3)]=t.value;
+  }
   else if(t.id&&t.id.indexOf("ce-")===0&&cloud.edit){cloud.edit.f[t.id.slice(3)]=t.value}
   else if(t.id&&t.id.indexOf("rg-")===0&&state.reg){
     var rk=t.id.slice(3),rv=t.value;
@@ -2802,6 +2883,7 @@ app.addEventListener("change",function(ev){
   if(t&&t.type==="file"&&t.id&&t.id.indexOf("up-")===0){onUpload(t.id,t.files)}
   if(t&&t.type==="file"&&t.id&&t.id.indexOf("fu-")===0){onFacUpload(t.id,t.files)}
   if(t&&t.type==="file"&&t.id==="pu-photo"){onProfPhoto(t.files)}
+  if(t&&t.type==="file"&&t.id==="rxp-add"){rxAddPhotos(t.files)}
 });
 app.addEventListener("submit",function(ev){
   ev.preventDefault();
