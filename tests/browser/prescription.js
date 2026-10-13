@@ -49,6 +49,16 @@ async function run(role) {
   check("typed fields sent", p && p.diagnosis === "Viral fever" && p.advice === "Rest and fluids" && p.medicines.length === 2 && p.medicines[0].days === "3");
   check("photo uploaded under the booking folder and listed", g.uploaded.length === 1 && /^b-1\/rx\d+-0\.jpg$/.test(g.uploaded[0]) && p.files[0] === g.uploaded[0]);
   check("button now offers Edit", await pg.getByRole("button", { name: "Edit prescription" }).count() === 1);
+  // WhatsApp share, web path: a wa.me message for the patient's number with a text summary
+  await pg.evaluate(() => { window.__opened = []; window.open = (u) => { window.__opened.push(u); return null; }; });
+  await pg.getByRole("button", { name: "Share on WhatsApp" }).click(); await pg.waitForTimeout(1500);
+  const op = await pg.evaluate(() => window.__opened);
+  check("web: opens wa.me with the patient's number and a summary", op.length === 1 && op[0].startsWith("https://wa.me/919876500011?text=") && /Paracetamol/.test(decodeURIComponent(op[0])) && /Rest%20and%20fluids/.test(op[0]));
+  // WhatsApp share, Android app path: the PDF goes through the native bridge with the number
+  await pg.evaluate(() => { window.__native = null; window.NirogNative = { sharePdf: (b64, name, phone, text) => { window.__native = { b64: b64.slice(0, 12), len: b64.length, name, phone, text }; return true; } }; });
+  await pg.getByRole("button", { name: "Share on WhatsApp" }).click(); await pg.waitForTimeout(1500);
+  const nat = await pg.evaluate(() => window.__native);
+  check("app: PDF passed to the native share with number and text", !!nat && nat.b64.startsWith("JVBERi0") && nat.phone === "919876500011" && /Paracetamol/.test(nat.text) && /^Nirog-prescription-BK-1\.pdf$/.test(nat.name));
   check("doctor: no page errors", t.errs.length === 0);
   const stored = g.stored; await t.b.close();
   // Patient

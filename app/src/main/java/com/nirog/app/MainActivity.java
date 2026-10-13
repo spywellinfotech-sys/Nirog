@@ -1,6 +1,7 @@
 package com.nirog.app;
 
 import android.app.Activity;
+import android.content.ClipData;
 import android.content.ContentValues;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
@@ -34,30 +35,35 @@ public class MainActivity extends Activity {
     private String pendingAuth; // fragment of a nirog://auth#... sign-in return, delivered once the page is ready
 
 
-    /** Lets the web app save a generated PDF into the phone's Downloads folder and open it. Only local app pages can call it. */
+    /** Lets the web app save a generated PDF into the phone's Downloads folder, open it, or share it on WhatsApp. Only local app pages can call it. */
     private class NativeBridge {
+        private Uri store(String base64, String name) throws Exception {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || base64 == null || name == null) {
+                return null;
+            }
+            byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+            String safe = name.replaceAll("[^A-Za-z0-9._-]", "_");
+            if (!safe.endsWith(".pdf")) safe = safe + ".pdf";
+            ContentValues v = new ContentValues();
+            v.put(MediaStore.MediaColumns.DISPLAY_NAME, safe);
+            v.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
+            v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+            Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+            if (uri == null) return null;
+            try (OutputStream os = getContentResolver().openOutputStream(uri)) {
+                if (os == null) return null;
+                os.write(bytes);
+            }
+            return uri;
+        }
+
         @JavascriptInterface
         public boolean savePdf(String base64, String name) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || base64 == null || name == null) {
-                return false;
-            }
             try {
-                byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
-                String safe = name.replaceAll("[^A-Za-z0-9._-]", "_");
-                if (!safe.endsWith(".pdf")) safe = safe + ".pdf";
-                ContentValues v = new ContentValues();
-                v.put(MediaStore.MediaColumns.DISPLAY_NAME, safe);
-                v.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
-                v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
-                final Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+                final Uri uri = store(base64, name);
                 if (uri == null) return false;
-                try (OutputStream os = getContentResolver().openOutputStream(uri)) {
-                    if (os == null) return false;
-                    os.write(bytes);
-                }
-                final String shown = safe;
                 runOnUiThread(() -> {
-                    Toast.makeText(MainActivity.this, "Saved to Downloads: " + shown, Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "Saved to Downloads", Toast.LENGTH_LONG).show();
                     try {
                         Intent view = new Intent(Intent.ACTION_VIEW);
                         view.setDataAndType(uri, "application/pdf");
@@ -65,6 +71,40 @@ public class MainActivity extends Activity {
                         startActivity(view);
                     } catch (ActivityNotFoundException ignored) {
                         // no PDF viewer installed: the file is still in Downloads
+                    }
+                });
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        /** Saves the PDF, then opens WhatsApp with it attached (to the given number when WhatsApp accepts it), or the share sheet. */
+        @JavascriptInterface
+        public boolean sharePdf(String base64, String name, String phone, String text) {
+            try {
+                final Uri uri = store(base64, name);
+                if (uri == null) return false;
+                final String number = phone != null && phone.matches("[0-9]{10,15}") ? phone : null;
+                final String msg = text == null ? "" : text;
+                runOnUiThread(() -> {
+                    Intent send = new Intent(Intent.ACTION_SEND);
+                    send.setType("application/pdf");
+                    send.putExtra(Intent.EXTRA_STREAM, uri);
+                    send.putExtra(Intent.EXTRA_TEXT, msg);
+                    send.setClipData(ClipData.newRawUri("prescription", uri));
+                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    Intent wa = new Intent(send);
+                    wa.setPackage("com.whatsapp");
+                    if (number != null) wa.putExtra("jid", number + "@s.whatsapp.net");
+                    try {
+                        startActivity(wa);
+                    } catch (ActivityNotFoundException e) {
+                        try {
+                            startActivity(Intent.createChooser(send, "Share prescription"));
+                        } catch (ActivityNotFoundException ignored) {
+                            // nothing can share a PDF
+                        }
                     }
                 });
                 return true;

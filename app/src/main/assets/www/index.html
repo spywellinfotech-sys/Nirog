@@ -2153,17 +2153,47 @@ function rxDeliver(bytes,name){
   l.href=url;l.download=name;document.body.appendChild(l);l.click();setTimeout(function(){document.body.removeChild(l)},500);
   return true;
 }
-function rxPdf(bid){
+function rxMake(bid){
   var a=null;appts.forEach(function(x){if(x.id===bid)a=x});var r=(cloud.rx||{})[bid];
-  if(!a||!r||cloud.rxbusy)return;
-  cloud.rxbusy=bid;state.dmsg="";render();
+  if(!a||!r)return Promise.reject(0);
   var d=byId(a.docId)||{};
-  Promise.all((r.files||[]).map(function(pth){
+  return Promise.all((r.files||[]).map(function(pth){
     return BE.signedUrl("prescriptions",pth).then(function(u){return fetch(u)}).then(function(x){if(!x.ok)throw 0;return x.blob()}).then(rxLoadImg).catch(function(){return null});
   })).then(function(imgs){
-    var ok=rxDeliver(rxPdfBytes(rxPages(a,r,d,imgs)),"Nirog-prescription-"+String(a.ref||"visit").replace(/[^A-Za-z0-9-]/g,"")+".pdf");
+    return {a:a,r:r,d:d,bytes:rxPdfBytes(rxPages(a,r,d,imgs)),name:"Nirog-prescription-"+String(a.ref||"visit").replace(/[^A-Za-z0-9-]/g,"")+".pdf"};
+  });
+}
+function rxPdf(bid){
+  if(cloud.rxbusy)return;
+  cloud.rxbusy=bid;state.dmsg="";render();
+  rxMake(bid).then(function(k){
+    var ok=rxDeliver(k.bytes,k.name);
     cloud.rxbusy=null;if(!ok)state.dmsg="The PDF could not be saved on this phone.";render();
   }).catch(function(){cloud.rxbusy=null;state.dmsg="The PDF could not be created. Try again.";render()});
+}
+/* Share on WhatsApp: on the Android app the PDF is attached to a chat with the patient; elsewhere a wa.me message with a text summary opens. */
+function rxText(a,r,d){
+  var L=["Hello "+String(a.name||"").split(" ")[0]+", your prescription from "+(d.name||"your doctor")+" ("+longDate(a.dateKey)+"):"];
+  (r.medicines||[]).forEach(function(m,i){L.push((i+1)+". "+m.name+(m.dose?" - "+m.dose:"")+(m.freq?", "+m.freq:"")+(m.days?", "+m.days+" days":""))});
+  if(r.advice)L.push("Advice: "+r.advice);
+  if(r.follow_up)L.push("Follow-up: "+longDate(r.follow_up));
+  L.push("You can also see it in the Nirog app under Appointments.");
+  return L.join("\n").slice(0,1500);
+}
+function rxShare(bid){
+  if(cloud.rxbusy)return;
+  cloud.rxbusy=bid;state.dmsg="";render();
+  rxMake(bid).then(function(k){
+    var ph="91"+last10(k.a.phone),txt=rxText(k.a,k.r,k.d),ok=true;
+    if(window.NirogNative&&window.NirogNative.sharePdf){
+      var b="",i,CH=0x8000;for(i=0;i<k.bytes.length;i+=CH)b+=String.fromCharCode.apply(null,k.bytes.subarray(i,i+CH));
+      ok=false;try{ok=window.NirogNative.sharePdf(btoa(b),k.name,ph,txt)}catch(e){}
+      if(!ok)state.dmsg="The PDF could not be shared from this phone.";
+    }else{
+      window.open("https://wa.me/"+ph+"?text="+encodeURIComponent(txt),"_blank");
+    }
+    cloud.rxbusy=null;render();
+  }).catch(function(){cloud.rxbusy=null;state.dmsg="Could not prepare the prescription. Try again.";render()});
 }
 function rxEmptyMed(){return {name:"",dose:"",freq:"",days:""}}
 function rxStart(a){
@@ -2191,7 +2221,7 @@ function rxDocBox(a){
   if(!CLOUD||!a.cloud||a.status!=="upcoming"||a.dateKey>dkey(new Date()))return "";
   if(cloud.rxf&&cloud.rxf.bid===a.id)return rxForm(a);
   var r=rxMine(a);
-  return '<div class="acts" style="margin-top:8px"><button class="btn sm'+(r?' ghost':'')+'" data-a="rxstart" data-v="'+a.id+'">'+(r?'Edit prescription':'Write prescription')+'</button>'+(r?'<button class="btn sm ghost" data-a="rxpdf" data-v="'+a.id+'"'+(cloud.rxbusy?' disabled':'')+'>'+(cloud.rxbusy===a.id?'Preparing PDF...':'Download PDF')+'</button>':'')+'</div>'+(r?'<div class="tiny">Shared with the patient.</div>':'');
+  return '<div class="acts" style="margin-top:8px"><button class="btn sm'+(r?' ghost':'')+'" data-a="rxstart" data-v="'+a.id+'">'+(r?'Edit prescription':'Write prescription')+'</button>'+(r?'<button class="btn sm ghost" data-a="rxpdf" data-v="'+a.id+'"'+(cloud.rxbusy?' disabled':'')+'>'+(cloud.rxbusy===a.id?'Preparing PDF...':'Download PDF')+'</button>':'')+(r?'<button class="btn sm" data-a="rxwa" data-v="'+a.id+'"'+(cloud.rxbusy?' disabled':'')+'>Share on WhatsApp</button>':'')+'</div>'+(r?'<div class="tiny">Shared with the patient.</div>':'');
 }
 function rxAddPhotos(files){
   var f=cloud.rxf;if(!f||!files||!files.length)return;
@@ -2820,6 +2850,7 @@ app.addEventListener("click",function(ev){
     case "rxfrm":if(cloud.rxf){if(v.charAt(0)==="e")cloud.rxf.files.splice(+v.slice(1),1);else cloud.rxf.newp.splice(+v.slice(1),1);render()}break;
     case "rxsave":rxSave();break;
     case "rxpdf":rxPdf(v);break;
+    case "rxwa":rxShare(v);break;
     case "rstart":(function(){var my=(cloud.myrev||{})[v];cloud.rf={bid:v,rating:my?my.rating:0,comment:my?my.comment||"":"",err:""};render()})();break;
     case "rstar":if(cloud.rf){cloud.rf.rating=+v;cloud.rf.err="";render()}break;
     case "rsub":cloudReviewSubmit();break;
