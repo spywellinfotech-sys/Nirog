@@ -18,6 +18,7 @@ async function run(role) {
     let body = {}; try { body = JSON.parse(r.request().postData() || "{}"); } catch (e) {}
     if (p.startsWith("/storage/v1/object/prescriptions/")) { uploaded.push(p.replace("/storage/v1/object/prescriptions/", "")); return j(200, { Key: "ok" }); }
     if (p.startsWith("/storage/v1/object/sign/prescriptions/")) return j(200, { signedURL: "/object/sign/x?token=t" });
+    if (p === "/storage/v1/object/sign/x") return r.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG });
     if (p.endsWith("/rpc/save_prescription")) { saved = body; stored = { id: 1, booking_id: "b-1", doctor_id: 7, patient_id: "u1", diagnosis: body.p.diagnosis, medicines: body.p.medicines, advice: body.p.advice, follow_up: body.p.follow_up || null, files: body.p.files, updated_at: new Date().toISOString() }; return j(200, stored); }
     if (p.endsWith("/rpc/my_doctor_id")) return j(200, 7);
     if (p === "/rest/v1/profiles") return j(200, [{ id: "u1", role, full_name: role === "doctor" ? "Dr. Rx Writer" : "Asha Verma", phone: null, email: "u@x.in" }]);
@@ -59,6 +60,11 @@ async function run(role) {
   check("patient sees diagnosis, medicines and advice", /Viral fever/.test(txt) && /Paracetamol 500 mg/.test(txt) && /ORS/.test(txt) && /Rest and fluids/.test(txt));
   await pg.getByRole("button", { name: "View photo 1" }).click(); await pg.waitForTimeout(600);
   check("patient can open the photo", await pg.locator(".lb img").count() === 1);
+  await pg.locator(".lb").click(); await pg.waitForTimeout(300);
+  const [dl] = await Promise.all([pg.waitForEvent("download", { timeout: 15000 }), pg.getByRole("button", { name: "Download PDF" }).click()]);
+  const out = process.env.PDF_OUT || "/tmp/rx-test.pdf"; await dl.saveAs(out);
+  const buf = require("fs").readFileSync(out);
+  check("PDF download has a name and valid header/trailer", /^Nirog-prescription-BK-1\.pdf$/.test(dl.suggestedFilename()) && buf.slice(0, 5).toString() === "%PDF-" && buf.slice(-6).toString().includes("%%EOF"));
   check("patient has no write button", await pg.getByRole("button", { name: /Write prescription/ }).count() === 0);
   check("patient: no page errors", t.errs.length === 0);
   await t.b.close();

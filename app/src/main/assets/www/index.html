@@ -2056,7 +2056,114 @@ function rxView(a){
    (r.follow_up?'<div class="sumrow"><span>Follow-up</span><span>'+esc(longDate(r.follow_up))+'</span></div>':'')+
    ((r.files||[]).length?'<div class="acts" style="margin-top:8px">'+r.files.map(function(f,i){return '<button class="btn sm ghost" data-a="rxphoto" data-v="'+esc(f)+'">View photo '+(i+1)+'</button>'}).join("")+'</div>':'')+
    '<div class="hint" style="margin-top:8px">This is advice from your doctor for this visit. For an emergency, call your local emergency number.</div>'+
-   '<div class="acts" style="margin-top:8px"><button class="btn sm ghost" data-a="rxclose">Close</button></div></div>';
+   '<div class="acts" style="margin-top:8px"><button class="btn sm" data-a="rxpdf" data-v="'+a.id+'"'+(cloud.rxbusy?' disabled':'')+'>'+(cloud.rxbusy===a.id?'Preparing PDF...':'Download PDF')+'</button><button class="btn sm ghost" data-a="rxclose">Close</button></div></div>';
+}
+/* ---------- prescription PDF: pages are drawn on a canvas (so any script, including Hindi, renders) and wrapped in a minimal PDF ---------- */
+function rxWrap(ctx,text,maxW){
+  var out=[];
+  String(text).split(/\n/).forEach(function(par){
+    var line="";
+    par.split(/\s+/).forEach(function(w){
+      if(!w)return;
+      var t=line?line+" "+w:w;
+      if(ctx.measureText(t).width<=maxW){line=t;return}
+      if(line)out.push(line);
+      while(ctx.measureText(w).width>maxW&&w.length>1){var k=w.length;while(k>1&&ctx.measureText(w.slice(0,k)).width>maxW)k--;out.push(w.slice(0,k));w=w.slice(k)}
+      line=w;
+    });
+    out.push(line);
+  });
+  return out;
+}
+function rxPages(a,r,d,imgs){
+  var W=794,H=1123,S=2,pages=[],cv,ctx,y,FONT='"Figtree","Segoe UI",system-ui,"Noto Sans Devanagari",sans-serif',INK="#2b1214",MUT="#6e4b4e",RED="#c8102e";
+  function np(){cv=document.createElement("canvas");cv.width=W*S;cv.height=H*S;ctx=cv.getContext("2d");ctx.scale(S,S);ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);ctx.textBaseline="alphabetic";pages.push(cv);y=56}
+  function font(sz,b){ctx.font=(b?"700 ":"400 ")+sz+"px "+FONT}
+  function need(h){if(y+h>H-60)np()}
+  function text(t,sz,b,col,x,lh,maxW){font(sz,b);ctx.fillStyle=col||INK;var L=rxWrap(ctx,t,maxW||W-80);L.forEach(function(l){need(lh);ctx.fillText(l,x||40,y);y+=lh});}
+  function rule(){need(16);ctx.fillStyle="#f3d6d8";ctx.fillRect(40,y,W-80,1);y+=18}
+  np();
+  ctx.fillStyle=RED;ctx.fillRect(0,0,W,84);ctx.fillStyle="#fff";font(30,true);ctx.fillText("Nirog",40,54);font(18,false);ctx.textAlign="right";ctx.fillText("Prescription",W-40,52);ctx.textAlign="left";
+  y=124;
+  text(d.name||"Doctor",22,true,INK,40,28);
+  text([d.spec,d.qual].filter(Boolean).join(" · "),14,false,MUT,40,20);
+  text([d.clinic,d.city].filter(Boolean).join(", "),14,false,MUT,40,20);
+  y+=8;rule();
+  text("Patient: "+a.name+(a.age?" · "+a.age+" yrs":"")+(a.sex?" · "+a.sex:""),15,true,INK,40,22);
+  text("Visit date: "+longDate(a.dateKey)+" · Ref "+a.ref,14,false,MUT,40,20);
+  y+=8;rule();
+  if(r.diagnosis){text("Diagnosis",13,true,RED,40,20);text(r.diagnosis,15,false,INK,40,22);y+=10}
+  var meds=r.medicines||[];
+  if(meds.length){
+    text("Medicines",13,true,RED,40,22);
+    meds.forEach(function(m,i){
+      text((i+1)+". "+m.name+(m.dose?" - "+m.dose:""),15,true,INK,40,22);
+      var sub=[m.freq,m.days?m.days+" days":""].filter(Boolean).join(" · ");
+      if(sub)text(sub,14,false,MUT,58,20,W-100);
+      y+=6;
+    });
+    y+=6;
+  }
+  if(r.advice){text("Advice",13,true,RED,40,20);text(r.advice,15,false,INK,40,22);y+=10}
+  if(r.follow_up){text("Follow-up: "+longDate(r.follow_up),15,true,INK,40,22);y+=6}
+  var miss=0;
+  imgs.forEach(function(im,i){
+    if(!im){miss++;return}
+    np();text("Attached prescription photo "+(i+1),14,true,RED,40,22);
+    var mw=W-80,mh=H-y-80,sc=Math.min(mw/im.naturalWidth,mh/im.naturalHeight,1),w=im.naturalWidth*sc,h=im.naturalHeight*sc;
+    ctx.drawImage(im,40,y,w,h);
+  });
+  if(miss){need(30);y+=10;text(miss+" attached photo"+(miss>1?"s":"")+" could not be included. Open the prescription in the app to see "+(miss>1?"them":"it")+".",13,false,MUT,40,20)}
+  pages.forEach(function(c,i){var x=c.getContext("2d");x.fillStyle=MUT;x.font="400 11px "+FONT;x.textAlign="center";x.fillText("Advice from your doctor for this visit. In an emergency, call your local emergency number. · Page "+(i+1)+" of "+pages.length+" · Nirog",W/2,H-28);x.textAlign="left"});
+  return pages;
+}
+function rxPdfBytes(pages){
+  var pw=595,ph=842,parts=[],len=0,offs=[],i;
+  function sb(t){var u=new Uint8Array(t.length);for(var k=0;k<t.length;k++)u[k]=t.charCodeAt(k)&255;return u}
+  function add(x){var u=typeof x==="string"?sb(x):x;parts.push(u);len+=u.length}
+  function obj(id,body){offs[id]=len;add(id+" 0 obj\n"+body+"\nendobj\n")}
+  var jp=pages.map(function(c){var b=atob(c.toDataURL("image/jpeg",.85).split(",")[1]),u=new Uint8Array(b.length);for(var k=0;k<b.length;k++)u[k]=b.charCodeAt(k);return {u:u,w:c.width,h:c.height}});
+  var n=jp.length,kids=[];for(i=0;i<n;i++)kids.push((3+i*3)+" 0 R");
+  add("%PDF-1.4\n");
+  obj(1,"<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2,"<< /Type /Pages /Kids ["+kids.join(" ")+"] /Count "+n+" >>");
+  jp.forEach(function(j,i){
+    var pid=3+i*3,cid=pid+1,iid=pid+2,cs="q "+pw+" 0 0 "+ph+" 0 0 cm /Im0 Do Q";
+    obj(pid,"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 "+pw+" "+ph+"] /Resources << /XObject << /Im0 "+iid+" 0 R >> >> /Contents "+cid+" 0 R >>");
+    obj(cid,"<< /Length "+cs.length+" >>\nstream\n"+cs+"\nendstream");
+    offs[iid]=len;add(iid+" 0 obj\n<< /Type /XObject /Subtype /Image /Width "+j.w+" /Height "+j.h+" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length "+j.u.length+" >>\nstream\n");add(j.u);add("\nendstream\nendobj\n");
+  });
+  var total=3+n*3,xr=len;
+  add("xref\n0 "+total+"\n0000000000 65535 f \n");
+  for(var id=1;id<total;id++)add(("0000000000"+offs[id]).slice(-10)+" 00000 n \n");
+  add("trailer\n<< /Size "+total+" /Root 1 0 R >>\nstartxref\n"+xr+"\n%%EOF");
+  var out=new Uint8Array(len),o=0;parts.forEach(function(p){out.set(p,o);o+=p.length});
+  return out;
+}
+function rxLoadImg(blob){
+  return new Promise(function(res,rej){var u=URL.createObjectURL(blob),im=new Image();im.onload=function(){res(im)};im.onerror=function(){rej(0)};im.src=u});
+}
+function rxDeliver(bytes,name){
+  if(window.NirogNative&&window.NirogNative.savePdf){
+    var b="",i,CH=0x8000;for(i=0;i<bytes.length;i+=CH)b+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));
+    var ok=false;try{ok=window.NirogNative.savePdf(btoa(b),name)}catch(e){}
+    return ok;
+  }
+  var url=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"})),l=document.createElement("a");
+  l.href=url;l.download=name;document.body.appendChild(l);l.click();setTimeout(function(){document.body.removeChild(l)},500);
+  return true;
+}
+function rxPdf(bid){
+  var a=null;appts.forEach(function(x){if(x.id===bid)a=x});var r=(cloud.rx||{})[bid];
+  if(!a||!r||cloud.rxbusy)return;
+  cloud.rxbusy=bid;state.dmsg="";render();
+  var d=byId(a.docId)||{};
+  Promise.all((r.files||[]).map(function(pth){
+    return BE.signedUrl("prescriptions",pth).then(function(u){return fetch(u)}).then(function(x){if(!x.ok)throw 0;return x.blob()}).then(rxLoadImg).catch(function(){return null});
+  })).then(function(imgs){
+    var ok=rxDeliver(rxPdfBytes(rxPages(a,r,d,imgs)),"Nirog-prescription-"+String(a.ref||"visit").replace(/[^A-Za-z0-9-]/g,"")+".pdf");
+    cloud.rxbusy=null;if(!ok)state.dmsg="The PDF could not be saved on this phone.";render();
+  }).catch(function(){cloud.rxbusy=null;state.dmsg="The PDF could not be created. Try again.";render()});
 }
 function rxEmptyMed(){return {name:"",dose:"",freq:"",days:""}}
 function rxStart(a){
@@ -2084,7 +2191,7 @@ function rxDocBox(a){
   if(!CLOUD||!a.cloud||a.status!=="upcoming"||a.dateKey>dkey(new Date()))return "";
   if(cloud.rxf&&cloud.rxf.bid===a.id)return rxForm(a);
   var r=rxMine(a);
-  return '<div class="acts" style="margin-top:8px"><button class="btn sm'+(r?' ghost':'')+'" data-a="rxstart" data-v="'+a.id+'">'+(r?'Edit prescription':'Write prescription')+'</button></div>'+(r?'<div class="tiny">Shared with the patient.</div>':'');
+  return '<div class="acts" style="margin-top:8px"><button class="btn sm'+(r?' ghost':'')+'" data-a="rxstart" data-v="'+a.id+'">'+(r?'Edit prescription':'Write prescription')+'</button>'+(r?'<button class="btn sm ghost" data-a="rxpdf" data-v="'+a.id+'"'+(cloud.rxbusy?' disabled':'')+'>'+(cloud.rxbusy===a.id?'Preparing PDF...':'Download PDF')+'</button>':'')+'</div>'+(r?'<div class="tiny">Shared with the patient.</div>':'');
 }
 function rxAddPhotos(files){
   var f=cloud.rxf;if(!f||!files||!files.length)return;
@@ -2712,6 +2819,7 @@ app.addEventListener("click",function(ev){
     case "rxdel":if(cloud.rxf){cloud.rxf.meds.splice(+v,1);if(!cloud.rxf.meds.length)cloud.rxf.meds.push(rxEmptyMed());render()}break;
     case "rxfrm":if(cloud.rxf){if(v.charAt(0)==="e")cloud.rxf.files.splice(+v.slice(1),1);else cloud.rxf.newp.splice(+v.slice(1),1);render()}break;
     case "rxsave":rxSave();break;
+    case "rxpdf":rxPdf(v);break;
     case "rstart":(function(){var my=(cloud.myrev||{})[v];cloud.rf={bid:v,rating:my?my.rating:0,comment:my?my.comment||"":"",err:""};render()})();break;
     case "rstar":if(cloud.rf){cloud.rf.rating=+v;cloud.rf.err="";render()}break;
     case "rsub":cloudReviewSubmit();break;

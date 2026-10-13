@@ -1,17 +1,25 @@
 package com.nirog.app;
 
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Base64;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
 import org.json.JSONObject;
+import java.io.OutputStream;
 
 /**
  * Shows the bundled Nirog web app full screen.
@@ -24,6 +32,47 @@ public class MainActivity extends Activity {
     private static final int FILE_REQ = 1001;
     private ValueCallback<Uri[]> filePathCallback; // pending file picker for <input type="file">
     private String pendingAuth; // fragment of a nirog://auth#... sign-in return, delivered once the page is ready
+
+
+    /** Lets the web app save a generated PDF into the phone's Downloads folder and open it. Only local app pages can call it. */
+    private class NativeBridge {
+        @JavascriptInterface
+        public boolean savePdf(String base64, String name) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || base64 == null || name == null) {
+                return false;
+            }
+            try {
+                byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                String safe = name.replaceAll("[^A-Za-z0-9._-]", "_");
+                if (!safe.endsWith(".pdf")) safe = safe + ".pdf";
+                ContentValues v = new ContentValues();
+                v.put(MediaStore.MediaColumns.DISPLAY_NAME, safe);
+                v.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
+                v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                final Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+                if (uri == null) return false;
+                try (OutputStream os = getContentResolver().openOutputStream(uri)) {
+                    if (os == null) return false;
+                    os.write(bytes);
+                }
+                final String shown = safe;
+                runOnUiThread(() -> {
+                    Toast.makeText(MainActivity.this, "Saved to Downloads: " + shown, Toast.LENGTH_LONG).show();
+                    try {
+                        Intent view = new Intent(Intent.ACTION_VIEW);
+                        view.setDataAndType(uri, "application/pdf");
+                        view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(view);
+                    } catch (ActivityNotFoundException ignored) {
+                        // no PDF viewer installed: the file is still in Downloads
+                    }
+                });
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +91,7 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {
             // no build number: the update check stays off
         }
+        webView.addJavascriptInterface(new NativeBridge(), "NirogNative");
         settings.setDomStorageEnabled(true); // the app keeps bookings and sign-ins in localStorage
         settings.setAllowFileAccess(true);
         settings.setAllowFileAccessFromFileURLs(false);
