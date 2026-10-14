@@ -55,6 +55,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           V=1.0.0.${{ github.run_number }}
-          cp app/build/outputs/apk/debug/app-debug.apk Nirog-v$V.apk
+          cp app/build/outputs/apk/debug/app-debug.apk Applo-v$V.apk
           gh release delete latest-apk --yes --cleanup-tag 2>/dev/null || true
-          gh release create latest-apk Nirog-v$V.apk --title "Nirog Android app v$V (debug build)" --notes "Version $V. Debug-signed test build. Install on an Android phone for testing." --target "${{ github.sha }}"
+          gh release create latest-apk Applo-v$V.apk --title "Applo Android app v$V (debug build)" --notes "Version $V. Debug-signed test build. Install on an Android phone for testing." --target "${{ github.sha }}"

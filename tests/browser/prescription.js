@@ -58,7 +58,7 @@ async function run(role) {
   await pg.evaluate(() => { window.__native = null; window.NirogNative = { sharePdf: (b64, name, phone, text) => { window.__native = { b64: b64.slice(0, 12), len: b64.length, name, phone, text }; return true; } }; });
   await pg.getByRole("button", { name: "Share on WhatsApp" }).click(); await pg.waitForTimeout(1500);
   const nat = await pg.evaluate(() => window.__native);
-  check("app: PDF passed to the native share with number and text", !!nat && nat.b64.startsWith("JVBERi0") && nat.phone === "919876500011" && /Paracetamol/.test(nat.text) && /^Nirog-prescription-BK-1\.pdf$/.test(nat.name));
+  check("app: PDF passed to the native share with number and text", !!nat && nat.b64.startsWith("JVBERi0") && nat.phone === "919876500011" && /Paracetamol/.test(nat.text) && /^Applo-prescription-BK-1\.pdf$/.test(nat.name));
   check("doctor: no page errors", t.errs.length === 0);
   const stored = g.stored; await t.b.close();
   // Patient
@@ -74,7 +74,7 @@ async function run(role) {
   const [dl] = await Promise.all([pg.waitForEvent("download", { timeout: 15000 }), pg.getByRole("button", { name: "Download PDF" }).click()]);
   const out = process.env.PDF_OUT || "/tmp/rx-test.pdf"; await dl.saveAs(out);
   const buf = require("fs").readFileSync(out);
-  check("PDF download has a name and valid header/trailer", /^Nirog-prescription-BK-1\.pdf$/.test(dl.suggestedFilename()) && buf.slice(0, 5).toString() === "%PDF-" && buf.slice(-6).toString().includes("%%EOF"));
+  check("PDF download has a name and valid header/trailer", /^Applo-prescription-BK-1\.pdf$/.test(dl.suggestedFilename()) && buf.slice(0, 5).toString() === "%PDF-" && buf.slice(-6).toString().includes("%%EOF"));
   check("patient has no write button", await pg.getByRole("button", { name: /Write prescription/ }).count() === 0);
   check("patient: no page errors", t.errs.length === 0);
   await t.b.close();
