@@ -175,7 +175,7 @@ BE.cancel=function(id){return rpc("cancel_booking",{p_booking:id}).then(toAppt)}
 BE.reschedule=function(id,dateKey,time){return rpc("reschedule_booking",{p_booking:id,p_day:dateKey,p_time:time}).then(toAppt)};
 
 /* ---------- notifications ---------- */
-BE.notifications=function(){return sel("notifications","select=id,body,created_at,read_at&order=created_at.desc&limit=100")};
+BE.notifications=function(){return sel("notifications","select=id,body,created_at,read_at,broadcast_id&order=created_at.desc&limit=100")};
 BE.markRead=function(){return rpc("mark_notifications_read")};
 
 /* ---------- doctor self-service ---------- */
@@ -192,6 +192,11 @@ BE.reach=function(aud,city){return rpc("admin_broadcast_reach",{p_audience:aud,p
 BE.setCity=function(city){var id=BE.userId();if(!id)return Promise.resolve();return api("/rest/v1/patients?id=eq."+id,{method:"PATCH",body:{city:city||null}}).catch(function(){})};
 BE.sendBroadcast=function(p){return rpc("admin_send_broadcast",{p:p})};
 BE.deleteBroadcast=function(id){return rpc("admin_delete_broadcast",{p_id:id})};
+BE.revokeBroadcast=function(id){return rpc("admin_revoke_broadcast",{p_id:id})};
+BE.dashCounts=function(){return rpc("admin_dashboard_counts",{})};
+BE.ambulances=function(){return sel("ambulance_services","select=*&order=kind.asc,name.asc&limit=300")};
+BE.saveAmbulance=function(p){return rpc("admin_save_ambulance",{p:p})};
+BE.deleteAmbulance=function(id){return rpc("admin_delete_ambulance",{p_id:id})};
 BE.mediaUrl=function(path){return URL_+"/storage/v1/object/public/broadcast-media/"+path};
 BE.uploadFile=function(bucket,path,file){
   return token().then(function(t){

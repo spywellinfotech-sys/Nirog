@@ -18,7 +18,7 @@ async function open(role, extra) {
     if (p.endsWith("/rpc/admin_send_broadcast")) { st.rpc = body; const row = { id: 5, title: body.p.title, body: body.p.body, audience: body.p.audience, image_path: body.p.image, video_path: body.p.video, sent_count: 12, created_at: new Date().toISOString() }; st.list = [row].concat(st.list); return j(200, row); }
     if (p.endsWith("/rpc/admin_broadcast_reach")) { st.reachBody = body; return j(200, 7); }
     if (p === "/rest/v1/patients" && m === "PATCH") { st.cityPatch = { q: u.search, body }; return j(204, {}); }
-    if (p.endsWith("/rpc/admin_delete_broadcast")) { st.del = body; st.list = []; return j(200, true); }
+    if (p.endsWith("/rpc/admin_revoke_broadcast")) { st.del = body; st.list = st.list.map((x) => Object.assign({}, x, { revoked_at: new Date().toISOString() })); return j(200, 2); }
     if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: role === "admin" ? "Admin" : "Asha", phone: null, email: "u@x.in" }]);
     if (p === "/rest/v1/broadcasts") return j(200, st.list);
     if (m === "GET") return j(200, []);
@@ -49,8 +49,10 @@ async function open(role, extra) {
   check("photo and video uploaded to the broadcast bucket", t.st.uploads.length === 2 && t.st.uploads[0].path === p.image && t.st.uploads[1].path === p.video && t.st.uploads[1].type === "video/mp4");
   const txt = await pg.evaluate(() => document.body.innerText);
   check("history shows it and the sent count", /Sent to 12 users/.test(txt) && /Free health check-up/.test(txt) && /12 notified/.test(txt));
-  await pg.getByRole("button", { name: "Delete", exact: true }).click(); await pg.getByRole("button", { name: "Yes, delete" }).click(); await pg.waitForTimeout(1000);
-  check("admin can delete from history", !!t.st.del && /Nothing sent yet/.test(await pg.evaluate(() => document.body.innerText)));
+  await pg.getByRole("button", { name: "Revoke", exact: true }).click();
+  check("revoke asks first and warns about lock screens", /lock screen/.test(await pg.evaluate(() => document.body.innerText)));
+  await pg.getByRole("button", { name: "Yes, revoke" }).click(); await pg.waitForTimeout(1000);
+  check("admin can revoke from history", !!t.st.del && t.st.del.p_id === 5 && /Revoked/.test(await pg.evaluate(() => document.body.innerText)) && (await pg.getByRole("button", { name: "Revoke", exact: true }).count()) === 0);
   check("admin: no popup, no page errors", (await pg.locator("#bcpop").count()) === 0 && t.errs.length === 0);
   await t.b.close();
   // patient

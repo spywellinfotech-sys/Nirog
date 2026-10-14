@@ -23,6 +23,7 @@ const www = path.resolve(__dirname, "../../app/src/main/assets/www/index.html");
   });
   const errs = []; pg.on("pageerror", (e) => errs.push(String(e)));
   await pg.goto("file://" + www); await pg.waitForTimeout(1500);
+  await pg.getByRole("button", { name: "Doctors", exact: true }).click();
   await pg.getByText("Mock Doc").first().waitFor({ timeout: 8000 });
   await pg.getByRole("button", { name: "Full profile" }).first().click(); await pg.waitForSelector("text=Registration no");
   const t1 = await pg.evaluate(() => document.body.innerText);

@@ -143,3 +143,10 @@ Super admin > Notify: title, message, optional photo and short video (MP4/WebM, 
 - Edge Function `send-push`: admin-only (JWT checked against `staff_members`), reads `FIREBASE_SERVICE_ACCOUNT` secret, signs an OAuth JWT, sends via FCM HTTP v1, removes dead tokens. The admin app calls it right after `admin_send_broadcast`.
 - Video is shown in the in-app popup; the tray notification carries title, text and optional photo.
 - Setup: apply `0013_push_tokens.sql`, deploy `send-push`, set secret `FIREBASE_SERVICE_ACCOUNT`.
+
+## Dashboard counts, revoke, ambulances, pharmacies (migrations 0014 to 0016)
+- `admin_dashboard_counts()` (admin only): patients, listed and pending doctors, and facilities per type (lab, centre, hospital, pharmacy, other), doctors by speciality, and phones registered for push (`push_tokens`). App installs is the phone count, so it only covers recent Android builds.
+- `admin_revoke_broadcast(id)`: marks a broadcast revoked, hides it from users (popup and bell) and deletes the notification rows it created (`notifications.broadcast_id`). `broadcast_tokens` skips revoked broadcasts. A notification already on a lock screen cannot be recalled.
+- Bell: broadcasts show under "Announcements" with photo and video; booking updates stay in the list.
+- `ambulance_services`: public read of active rows, admin-only writes through `admin_save_ambulance` and `admin_delete_ambulance`. A blank city means every location. The national numbers 112, 108 and 102 are fixed in the app and shown first.
+- Facility type `pharmacy` is its own category (register, review, list, filter). Older "Other care" entries whose type is Pharmacy also show under the Pharmacies filter.

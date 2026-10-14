@@ -24,7 +24,9 @@ $P -f migrations/0010_prescriptions.sql
 $P -f migrations/0011_broadcasts.sql
 $P -f migrations/0012_broadcast_geo.sql
 $P -f migrations/0013_push_tokens.sql
-$P -f migrations/0013_push_tokens.sql
+$P -f migrations/0014_dashboard_revoke.sql
+$P -f migrations/0015_ambulances.sql
+$P -f migrations/0016_pharmacy_kind.sql
 for t in tests/[0-9]*.sql; do echo "== $t"; $P -f "$t" ; done
 
 echo "== concurrency: 12 patients race for one slot"
