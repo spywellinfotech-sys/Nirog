@@ -136,3 +136,10 @@ The doctor of a confirmed booking can, from the visit day on, write a prescripti
 
 ## Broadcast notifications (migrations 0011, 0012)
 Super admin > Notify: title, message, optional photo and short video (MP4/WebM, up to 20 MB, 60 s), audience (everyone, patients, doctors, facilities) and an optional city. `admin_send_broadcast({p:{...}})` stores the broadcast, adds a notification row for every target, and users see a popup once per phone. Media sits in the public `broadcast-media` bucket (only admins can upload). City targeting uses `patients.city` (saved when a patient picks a location), `doctors.city` and `facilities.city`; patients with no city are skipped for city sends. `admin_broadcast_reach` returns the audience size before sending. Phone tray push (FCM) is not part of this yet.
+
+## Phone push (Firebase Cloud Messaging)
+- Android shell gets an FCM token (`NirogMessagingService`, `NirogNative.pushToken()`); the web app registers it with `register_push_token` after sign-in and drops it on sign-out (`drop_push_token`).
+- Table `push_tokens` (migration 0013) is unreadable by clients. `broadcast_tokens(id)` and `remove_push_tokens(text[])` are service-role only.
+- Edge Function `send-push`: admin-only (JWT checked against `staff_members`), reads `FIREBASE_SERVICE_ACCOUNT` secret, signs an OAuth JWT, sends via FCM HTTP v1, removes dead tokens. The admin app calls it right after `admin_send_broadcast`.
+- Video is shown in the in-app popup; the tray notification carries title, text and optional photo.
+- Setup: apply `0013_push_tokens.sql`, deploy `send-push`, set secret `FIREBASE_SERVICE_ACCOUNT`.

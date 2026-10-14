@@ -5,6 +5,7 @@ import android.content.ClipData;
 import android.content.ContentValues;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,6 +20,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import com.google.firebase.messaging.FirebaseMessaging;
 import org.json.JSONObject;
 import java.io.OutputStream;
 
@@ -30,10 +32,20 @@ public class MainActivity extends Activity {
 
     private static final String START_URL = "file:///android_asset/www/index.html";
     private WebView webView;
+    private static MainActivity current; // lets the push service hand a new token to the open page
     private static final int FILE_REQ = 1001;
     private ValueCallback<Uri[]> filePathCallback; // pending file picker for <input type="file">
     private String pendingAuth; // fragment of a nirog://auth#... sign-in return, delivered once the page is ready
 
+
+
+    /** Called by NirogMessagingService when Firebase issues a new token. */
+    static void pushTokenChanged(String token) {
+        final MainActivity a = current;
+        if (a == null || a.webView == null || token == null) return;
+        a.runOnUiThread(() -> a.webView.evaluateJavascript(
+                "window.__nirogPush && window.__nirogPush(" + JSONObject.quote(token) + ")", null));
+    }
 
     /** Lets the web app save a generated PDF into the phone's Downloads folder, open it, or share it on WhatsApp. Only local app pages can call it. */
     private class NativeBridge {
@@ -55,6 +67,12 @@ public class MainActivity extends Activity {
                 os.write(bytes);
             }
             return uri;
+        }
+
+        /** The phone's push token ("" until Firebase has issued one). The web app registers it for the signed-in user. */
+        @JavascriptInterface
+        public String pushToken() {
+            return NirogMessagingService.savedToken(MainActivity.this);
         }
 
         @JavascriptInterface
@@ -118,6 +136,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        current = this;
         webView = new WebView(this);
         setContentView(webView);
 
@@ -177,11 +196,31 @@ public class MainActivity extends Activity {
             }
         });
 
+        startPush();
         captureAuth(getIntent());
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
         } else {
             webView.loadUrl(START_URL);
+        }
+    }
+
+    /** Creates the notification channel, asks for permission on Android 13+, and fetches the push token. */
+    private void startPush() {
+        try {
+            NirogMessagingService.ensureChannel(this);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                    && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 2001);
+            }
+            FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult() != null) {
+                    NirogMessagingService.saveToken(MainActivity.this, task.getResult());
+                    pushTokenChanged(task.getResult());
+                }
+            });
+        } catch (Exception ignored) {
+            // push is optional: the app works without it
         }
     }
 
@@ -244,6 +283,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (current == this) current = null;
         if (webView != null) {
             webView.destroy();
         }

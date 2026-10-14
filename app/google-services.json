@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "867856960952",
+    "firebase_url": "https://business-ideas-48b9c.firebaseio.com",
+    "project_id": "business-ideas-48b9c",
+    "storage_bucket": "business-ideas-48b9c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:867856960952:android:2e7826f04fe46e53b8934d",
+        "android_client_info": {
+          "package_name": "com.nirog.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "867856960952-ql4tri4a8be0igpd405dvchqib6c24fu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBBOnOY7M8AuWHovXh6reZimJ_SX7ETlE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "867856960952-ql4tri4a8be0igpd405dvchqib6c24fu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

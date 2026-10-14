@@ -2412,6 +2412,7 @@ function bcSend(){
   function fin(){
     BE.sendBroadcast({title:f.title.trim(),body:f.body.trim(),audience:f.aud,city:cityNorm(f.city.trim())||"",image:img,video:vid}).then(function(r){
       cloud.busy=false;cloud.adminMsg="Sent to "+r.sent_count+" user"+(r.sent_count===1?"":"s")+".";cloud.adminErr="";cloud.bf=null;cloud.bcs=null;render();
+      BE.pushBroadcast(r.id).then(function(p){cloud.adminMsg+=" Push sent to "+p.sent+" phone"+(p.sent===1?"":"s")+(p.failed?" ("+p.failed+" failed)":"")+".";render()},function(e){cloud.adminMsg+=" Phone push not sent"+(e&&e.message==="push_not_configured"?" (not set up yet).":".");render()});
     },function(e){cloud.busy=false;f.ask=false;f.err=e.message;render()});
   }
   function doVid(){
@@ -2455,7 +2456,7 @@ function cloudSync(force){
     var h=cloudSig(),ae=document.activeElement,typing=ae&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName);
     if(force||(h!==cloud.hash&&!typing)){cloud.hash=h;render()}
     cloud.hash=h;
-    BE.broadcasts().then(bcPopup);
+    BE.broadcasts().then(bcPopup);pushSync();
     if(state.staff&&getUser(state.staff)&&getUser(state.staff).role==="doctor"){
       appts.filter(function(a){return a.status==="pending"}).forEach(function(a){var d=byId(a.docId);if(d)ensureSlots(d,[a.dateKey])});
     }
@@ -2466,7 +2467,19 @@ function cloudStartPoll(){
   cloud.timer=setInterval(function(){if(!document.hidden)cloudSync(false)},30000);
   try{document.addEventListener("visibilitychange",function(){if(!document.hidden)cloudSync(false)});window.addEventListener("online",function(){cloudSync(false)})}catch(e){}
 }
+/* Phone push: the Android shell hands over its Firebase token; we tie it to whoever is signed in. */
+function pushReg(tok){
+  try{
+    if(!CLOUD||!BE.signedIn()||!tok)return;
+    var k="nirog-push-"+BE.userId();
+    if(localStorage.getItem(k)===tok)return;
+    BE.registerPush(tok).then(function(){try{localStorage.setItem(k,tok)}catch(e){}},function(){});
+  }catch(e){}
+}
+window.__nirogPush=function(tok){pushReg(tok)};
+function pushSync(){try{if(window.NirogNative&&window.NirogNative.pushToken)pushReg(window.NirogNative.pushToken())}catch(e){}}
 function cloudLogout(expired){
+  try{var pt=window.NirogNative&&window.NirogNative.pushToken&&window.NirogNative.pushToken();if(pt&&BE.signedIn()){BE.dropPush(pt).catch(function(){});try{localStorage.removeItem("nirog-push-"+BE.userId())}catch(e){}}}catch(e){}
   var p=BE.signOut();
   state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;cloud.facs=null;cloud.leads=null;cloud.sf=null;cloud.bcs=null;cloud.bf=null;cloud.adminMsg="";cloud.adminErr="";
   DOCS.forEach(function(d){d.mine=false});
