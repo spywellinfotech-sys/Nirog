@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif;background:#fafafa}img{max-width:100%}[hidden]{display:none!important}</style>
-<meta name="theme-color" content="#C8102E">
+<meta name="theme-color" content="#0B57C2">
 <meta name="description" content="Applo: find doctors, labs and hospitals, and book appointments.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -22,21 +22,21 @@
 :root{
   --font-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
   --font-body:"Figtree","Segoe UI",system-ui,sans-serif;
-  --bg:#FFF5F5; --surface:#FFFFFF; --line:#F3D6D8; --ink:#2B1214; --muted:#6E4B4E;
-  --brand:#C8102E; --brand-ink:#FFFFFF; --soft:#FDE3E6; --accent:#A30D25; --accent-soft:#FFECEE;
-  --bright:#D91E36; --on-bright:#FFFFFF; --green:#1B7F5C; --green-soft:#DDF1E7;
-  --bad:#8E1B1B; --bad-soft:#FBE4E1; --busy:#F5E6E7;
+  --bg:#F3F8FD; --surface:#FFFFFF; --line:#D5E3F2; --ink:#0E1F36; --muted:#4A5F7A;
+  --brand:#0B57C2; --brand-ink:#FFFFFF; --soft:#DCEAFB; --accent:#084A9E; --accent-soft:#E8F1FC;
+  --bright:#0B6BC2; --on-bright:#FFFFFF; --green:#1B7F5C; --green-soft:#DDF1E7;
+  --bad:#B3261E; --bad-soft:#FBE4E1; --busy:#E7EEF6;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#1A0D0E; --surface:#261415; --line:#3E2426; --ink:#FBEBEC; --muted:#C9A3A6;
-  --brand:#FF6B7D; --brand-ink:#2A0509; --soft:#3A1A1D; --accent:#FF8F9C; --accent-soft:#3A1E21;
-  --bright:#FF5A6E; --on-bright:#2A0509; --green:#5FD3A0; --green-soft:#14301F;
-  --bad:#FF8B80; --bad-soft:#3A1B18; --busy:#2E1A1C; color-scheme:dark}}
+  --bg:#0A1522; --surface:#101F31; --line:#223A55; --ink:#E8F1FB; --muted:#9DB4CF;
+  --brand:#5AA8FF; --brand-ink:#03142A; --soft:#14304F; --accent:#7FC0FF; --accent-soft:#12283F;
+  --bright:#4C9BF5; --on-bright:#03142A; --green:#5FD3A0; --green-soft:#14301F;
+  --bad:#FF8B80; --bad-soft:#3A1B18; --busy:#14263A; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#1A0D0E; --surface:#261415; --line:#3E2426; --ink:#FBEBEC; --muted:#C9A3A6;
-  --brand:#FF6B7D; --brand-ink:#2A0509; --soft:#3A1A1D; --accent:#FF8F9C; --accent-soft:#3A1E21;
-  --bright:#FF5A6E; --on-bright:#2A0509; --green:#5FD3A0; --green-soft:#14301F;
-  --bad:#FF8B80; --bad-soft:#3A1B18; --busy:#2E1A1C; color-scheme:dark}
+  --bg:#0A1522; --surface:#101F31; --line:#223A55; --ink:#E8F1FB; --muted:#9DB4CF;
+  --brand:#5AA8FF; --brand-ink:#03142A; --soft:#14304F; --accent:#7FC0FF; --accent-soft:#12283F;
+  --bright:#4C9BF5; --on-bright:#03142A; --green:#5FD3A0; --green-soft:#14301F;
+  --bad:#FF8B80; --bad-soft:#3A1B18; --busy:#14263A; color-scheme:dark}
 
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
@@ -2076,12 +2076,12 @@ function rxWrap(ctx,text,maxW){
   return out;
 }
 function rxPages(a,r,d,imgs){
-  var W=794,H=1123,S=2,pages=[],cv,ctx,y,FONT='"Figtree","Segoe UI",system-ui,"Noto Sans Devanagari",sans-serif',INK="#2b1214",MUT="#6e4b4e",RED="#c8102e";
+  var W=794,H=1123,S=2,pages=[],cv,ctx,y,FONT='"Figtree","Segoe UI",system-ui,"Noto Sans Devanagari",sans-serif',INK="#0e1f36",MUT="#4a5f7a",RED="#0b57c2";
   function np(){cv=document.createElement("canvas");cv.width=W*S;cv.height=H*S;ctx=cv.getContext("2d");ctx.scale(S,S);ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);ctx.textBaseline="alphabetic";pages.push(cv);y=56}
   function font(sz,b){ctx.font=(b?"700 ":"400 ")+sz+"px "+FONT}
   function need(h){if(y+h>H-60)np()}
   function text(t,sz,b,col,x,lh,maxW){font(sz,b);ctx.fillStyle=col||INK;var L=rxWrap(ctx,t,maxW||W-80);L.forEach(function(l){need(lh);ctx.fillText(l,x||40,y);y+=lh});}
-  function rule(){need(16);ctx.fillStyle="#f3d6d8";ctx.fillRect(40,y,W-80,1);y+=18}
+  function rule(){need(16);ctx.fillStyle="#d5e3f2";ctx.fillRect(40,y,W-80,1);y+=18}
   np();
   ctx.fillStyle=RED;ctx.fillRect(0,0,W,84);ctx.fillStyle="#fff";font(30,true);ctx.fillText("Applo",40,54);font(18,false);ctx.textAlign="right";ctx.fillText("Prescription",W-40,52);ctx.textAlign="left";
   y=124;
