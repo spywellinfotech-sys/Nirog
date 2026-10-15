@@ -19,6 +19,7 @@ async function open(role) {
     const j = (s, o) => r.fulfill({ status: s, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(o) });
     if (m === "OPTIONS") return r.fulfill({ status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*" } });
     let body = {}; try { body = JSON.parse(r.request().postData() || "{}"); } catch (e) {}
+    if (m === "POST" && p === "/rest/v1/leads") { st.lead = body; return j(201, {}); }
     if (p === "/rest/v1/ambulance_services") return j(200, st.amb);
     if (p.endsWith("/rpc/admin_save_ambulance")) { st.saved = body; const row = Object.assign({ id: 9, active: true }, body.p); st.amb = st.amb.concat([row]); return j(200, row); }
     if (p.endsWith("/rpc/admin_dashboard_counts")) return j(200, { patients: 41, doctors: { listed: 12, pending: 2 }, facilities: { lab: { listed: 3, pending: 1 }, centre: { listed: 2, pending: 0 }, hospital: { listed: 4, pending: 0 }, pharmacy: { listed: 6, pending: 3 }, other: { listed: 1, pending: 0 } }, specialties: [{ spec: "Cardiologist", n: 5 }, { spec: "Dentist", n: 3 }], phones: 57, phone_users: 49 });
@@ -80,6 +81,11 @@ async function open(role) {
   const sp = t.st.saved && t.st.saved.p;
   check("admin can add a service for all locations", !!sp && sp.name === "Night Rider Ambulance" && sp.phone === "98765 11122" && sp.city === "" && sp.kind === "private");
   check("the new service appears in the admin list", /Night Rider Ambulance/.test(await pg.evaluate(() => document.body.innerText)));
+  await pg.getByRole("button", { name: "Leads", exact: true }).click(); await pg.waitForTimeout(600);
+  check("lead form has a location field", (await pg.locator("#cl-city").count()) === 1);
+  await pg.fill("#cl-name", "Ravi Kumar"); await pg.fill("#cl-phone", "9876500011"); await pg.fill("#cl-city", "Pune"); await pg.dispatchEvent("#cl-city", "change"); await pg.waitForTimeout(300);
+  await pg.getByRole("button", { name: "Add lead" }).click(); await pg.waitForTimeout(700);
+  check("lead is saved with its city", !!t.st.lead && t.st.lead.city === "Pune" && t.st.lead.name === "Ravi Kumar");
   check("no page errors (admin)", t.errs.length === 0); await t.b.close();
   process.exit(ok ? 0 : 1);
 })();
