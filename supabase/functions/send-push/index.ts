@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
   const image = bc.image_path ? `${URL_}/storage/v1/object/public/broadcast-media/${bc.image_path}` : undefined;
   const notification: any = { title: bc.title, body: bc.body || bc.title };
   if (image) notification.image = image;
-  const dead: string[] = []; let sent = 0, failed = 0;
+  const dead: string[] = []; let sent = 0, failed = 0; let reason = "";
   const send = async (token: string) => {
     const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
       method: "POST", headers: { authorization: `Bearer ${at}`, "content-type": "application/json" },
@@ -78,10 +78,10 @@ Deno.serve(async (req) => {
     failed++;
     const j = await r.json().catch(() => ({}));
     const code = JSON.stringify(j).includes("UNREGISTERED") || r.status === 404;
-    if (code) dead.push(token); else console.error("fcm", r.status, JSON.stringify(j).slice(0, 200));
+    if (code) dead.push(token); else { console.error("fcm", r.status, JSON.stringify(j).slice(0, 300)); if (!reason) reason = `${r.status} ${(j as any)?.error?.status || ""} ${String((j as any)?.error?.message || "").slice(0, 160)}`.trim(); }
   };
   for (let i = 0; i < tokens.length; i += 25) await Promise.all(tokens.slice(i, i + 25).map(send));
   let removed = 0;
   if (dead.length) { const { data: n } = await db.rpc("remove_push_tokens", { p_tokens: dead }); removed = Number(n) || 0; }
-  return out({ ok: true, total: tokens.length, sent, failed, removed });
+  return out({ ok: true, total: tokens.length, sent, failed, removed, reason });
 });

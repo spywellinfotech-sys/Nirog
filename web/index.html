@@ -2470,7 +2470,7 @@ function bcSend(){
   function fin(){
     BE.sendBroadcast({title:f.title.trim(),body:f.body.trim(),audience:f.aud,city:cityNorm(f.city.trim())||"",image:img,video:vid}).then(function(r){
       cloud.busy=false;cloud.adminMsg="Sent to "+r.sent_count+" user"+(r.sent_count===1?"":"s")+".";cloud.adminErr="";cloud.bf=null;cloud.bcs=null;render();
-      BE.pushBroadcast(r.id).then(function(p){cloud.adminMsg+=" Push sent to "+p.sent+" phone"+(p.sent===1?"":"s")+(p.failed?" ("+p.failed+" failed)":"")+".";render()},function(e){var pc=e&&e.message||"unknown",pm={push_not_configured:"the Firebase key is not set on the server",push_auth_failed:"Firebase refused the key, generate a new one",admins_only:"this account is not an active admin",not_authenticated:"please sign in again",offline:"no internet"};cloud.adminMsg+=" Phone push not sent: "+(pm[pc]||pc)+".";render()});
+      BE.pushBroadcast(r.id).then(function(p){cloud.adminMsg+=" Push sent to "+p.sent+" phone"+(p.sent===1?"":"s")+(p.failed?" ("+p.failed+" failed"+(p.reason?": "+p.reason:"")+")":"")+".";render()},function(e){var pc=e&&e.message||"unknown",pm={push_not_configured:"the Firebase key is not set on the server",push_auth_failed:"Firebase refused the key, generate a new one",admins_only:"this account is not an active admin",not_authenticated:"please sign in again",offline:"no internet"};cloud.adminMsg+=" Phone push not sent: "+(pm[pc]||pc)+".";render()});
     },function(e){cloud.busy=false;f.ask=false;f.err=e.message;render()});
   }
   function doVid(){
