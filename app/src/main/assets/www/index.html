@@ -2925,12 +2925,14 @@ function cloudReviewF(id,decision){
   if(cloud.busy)return;cloud.busy=true;cloud.adminMsg="";render();
   BE.reviewFacility(id,decision,decision==="reject"?FREJ[0]:null).then(function(){cloud.busy=false;cloud.adminMsg=decision==="approve"?"Facility approved and now listed.":"Facility rejected.";cloud.facs=null;render()},function(e){cloud.busy=false;cloud.adminMsg=e.message;render()});
 }
+function leadDocs(spec){return DOCS.filter(function(d){return !d.sample&&d.spec===spec&&d.status!=="pending"})}
+function leadDocName(id){for(var i=0;i<DOCS.length;i++)if(String(DOCS[i].id)===String(id))return DOCS[i].name;return "Doctor"}
 function cloudAddLead(){
-  var f=cloud.lf||{name:"",phone:"",spec:SPECS[1]};
+  var f=cloud.lf||{name:"",phone:"",spec:SPECS[1],doc:""};
   if(f.name.trim().length<2){cloud.adminMsg="Enter the patient name.";render();return}
   if(!/^[6-9]\d{9}$/.test(f.phone)){cloud.adminMsg="Enter a valid 10-digit mobile number.";render();return}
   cloud.busy=true;cloud.adminMsg="";render();
-  BE.sel("leads","select=id").then(function(){return BE.addLead({owner_id:BE.userId(),name:f.name.trim(),phone:f.phone,spec:f.spec})}).then(function(){cloud.busy=false;cloud.lf={name:"",phone:"",spec:SPECS[1]};cloud.adminMsg="Lead added.";cloud.leads=null;render()},function(e){cloud.busy=false;cloud.adminMsg=e.message;render()});
+  BE.sel("leads","select=id").then(function(){return BE.addLead({owner_id:BE.userId(),name:f.name.trim(),phone:f.phone,spec:f.spec,doctor_id:f.doc?+f.doc:null})}).then(function(){cloud.busy=false;cloud.lf={name:"",phone:"",spec:SPECS[1],doc:""};cloud.adminMsg="Lead added.";cloud.leads=null;render()},function(e){cloud.busy=false;cloud.adminMsg=e.message;render()});
 }
 function cloudLeadStatus(v){
   var p=v.split("|");
@@ -2965,10 +2967,10 @@ function vCloudAdmin(){
     var F=cloud.facs||[],fp=F.filter(function(d){return d.status==="pending"}),fo=F.filter(function(d){return d.status!=="pending"});
     body='<div class="sec">Waiting for review ('+fp.length+')</div>'+(fp.length?fp.map(function(d){return cloudCard(d,"fac")}).join(""):'<div class="empty">No facilities waiting.</div>')+(fo.length?'<div class="sec">Reviewed</div>'+fo.map(function(d){return cloudCard(d,"fac")}).join(""):'');
   }else if(t==="lead"){
-    var f=cloud.lf=cloud.lf||{name:"",phone:"",spec:SPECS[1]},Ls=cloud.leads||[];
+    var f=cloud.lf=cloud.lf||{name:"",phone:"",spec:SPECS[1],doc:""},Ls=cloud.leads||[];
     body='<form id="clForm" novalidate><div class="card"><div class="field"><label for="cl-name">Patient name</label><input id="cl-name" value="'+esc(f.name)+'"></div><div class="field"><label for="cl-phone">Mobile number</label><input id="cl-phone" inputmode="numeric" maxlength="10" value="'+esc(f.phone)+'"></div>'+
-     '<div class="field"><label for="cl-spec">Speciality</label><select id="cl-spec">'+SPECS.map(function(x){return '<option'+(f.spec===x?' selected':'')+'>'+esc(x)+'</option>'}).join("")+'</select></div><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>Add lead</button></div></form>'+
-     '<div class="sec">Leads ('+Ls.length+')</div>'+(Ls.length?Ls.map(function(l){return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(l.name)+'</div><div class="tiny tnum">'+esc(l.phone)+' · '+esc(l.spec)+'</div></div><span class="pill">'+esc(STATUS[l.status]||l.status)+'</span></div><div class="acts" style="flex-wrap:wrap">'+
+     '<div class="field"><label for="cl-spec">Speciality</label><select id="cl-spec">'+SPECS.map(function(x){return '<option'+(f.spec===x?' selected':'')+'>'+esc(x)+'</option>'}).join("")+'</select></div><div class="field"><label for="cl-doc">Doctor (optional)</label><select id="cl-doc"><option value="">Any doctor</option>'+leadDocs(f.spec).map(function(d){return '<option value="'+d.id+'"'+(String(f.doc)===String(d.id)?' selected':'')+'>'+esc(d.name)+'</option>'}).join("")+'</select></div><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>Add lead</button></div></form>'+
+     '<div class="sec">Leads ('+Ls.length+')</div>'+(Ls.length?Ls.map(function(l){return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(l.name)+'</div><div class="tiny tnum">'+esc(l.phone)+' · '+esc(l.spec)+(l.doctor_id?' · '+esc(leadDocName(l.doctor_id)):'')+'</div></div><span class="pill">'+esc(STATUS[l.status]||l.status)+'</span></div><div class="acts" style="flex-wrap:wrap">'+
        ["new","contacted","booked","lost"].filter(function(x){return x!==l.status}).map(function(x){return '<button class="btn sm ghost" data-a="clstat" data-v="'+l.id+'|'+x+'">'+esc(STATUS[x])+'</button>'}).join("")+'</div></div>'}).join(""):'<div class="empty">No leads yet.</div>');
   }else if(t==="bc"){
     body=bcCompose()+bcHistory();
@@ -3235,7 +3237,8 @@ app.addEventListener("input",function(ev){
   else if(t.id==="ca-note"&&cloud.af)cloud.af.note=t.value;
   else if(t.id==="cl-name"&&cloud.lf)cloud.lf.name=t.value;
   else if(t.id==="cl-phone"&&cloud.lf){t.value=t.value.replace(/\D/g,"").slice(0,10);cloud.lf.phone=t.value}
-  else if(t.id==="cl-spec"&&cloud.lf)cloud.lf.spec=t.value;
+  else if(t.id==="cl-spec"&&cloud.lf){cloud.lf.spec=t.value;cloud.lf.doc="";render()}
+  else if(t.id==="cl-doc"&&cloud.lf)cloud.lf.doc=t.value;
   else if(t.id==="bf-title"&&cloud.bf){cloud.bf.title=t.value;cloud.bf.ask=false}
   else if(t.id==="bf-body"&&cloud.bf){cloud.bf.body=t.value;cloud.bf.ask=false}
   else if(t.id==="bf-aud"&&cloud.bf){cloud.bf.aud=t.value;cloud.bf.ask=false;bcReachSoon()}
