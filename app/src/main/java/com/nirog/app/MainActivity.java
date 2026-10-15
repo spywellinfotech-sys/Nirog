@@ -139,6 +139,14 @@ public class MainActivity extends Activity {
         current = this;
         webView = new WebView(this);
         setContentView(webView);
+        // Android 15 and newer draw apps edge to edge. Keep the page clear of the status bar, camera cutout and navigation bar.
+        if (Build.VERSION.SDK_INT >= 35) {
+            webView.setOnApplyWindowInsetsListener((v, ins) -> {
+                android.graphics.Insets b = ins.getInsets(android.view.WindowInsets.Type.systemBars() | android.view.WindowInsets.Type.displayCutout() | android.view.WindowInsets.Type.ime());
+                v.setPadding(b.left, b.top, b.right, b.bottom);
+                return android.view.WindowInsets.CONSUMED;
+            });
+        }
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);

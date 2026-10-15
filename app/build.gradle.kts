@@ -5,19 +5,33 @@ plugins {
 
 android {
     namespace = "com.nirog.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.nirog.app"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = (project.findProperty("buildNo") ?: "1").toString().toInt()
         versionName = "1.0.0." + (project.findProperty("buildNo") ?: "1")
+    }
+
+    // Release signing comes from environment variables set by the "Build Play Store bundle" workflow. Local and debug builds ignore it.
+    val ksPath = System.getenv("KEYSTORE_PATH")
+    signingConfigs {
+        if (ksPath != null) {
+            create("release") {
+                storeFile = file(ksPath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (ksPath != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 
