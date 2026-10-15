@@ -150,3 +150,7 @@ Super admin > Notify: title, message, optional photo and short video (MP4/WebM, 
 - Bell: broadcasts show under "Announcements" with photo and video; booking updates stay in the list.
 - `ambulance_services`: public read of active rows, admin-only writes through `admin_save_ambulance` and `admin_delete_ambulance`. A blank city means every location. The national numbers 112, 108 and 102 are fixed in the app and shown first.
 - Facility type `pharmacy` is its own category (register, review, list, filter). Older "Other care" entries whose type is Pharmacy also show under the Pharmacies filter.
+
+## Ambulance services self-register (migration 0017)
+- Facility type `ambulance` goes through the same `register_facility` and admin review as other facilities. The mobile number in `wa` is required for this type and becomes a Call button; `emergency` means available 24x7.
+- Approved ambulance facilities are merged into the Ambulance page (per city) with the admin-curated `ambulance_services` list. Pending or rejected ones never show.

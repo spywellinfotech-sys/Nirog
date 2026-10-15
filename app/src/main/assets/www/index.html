@@ -1434,7 +1434,7 @@ function adminDoctors(){
 
 /* ---------- facilities: labs, diagnostic centres, super speciality hospitals, other care (sample listings; names, prices and services are examples) ---------- */
 var LKEY="nirog-labs-v1";
-var KINDS=[["lab","Labs","Diagnostic lab"],["centre","Diagnostic centres","Diagnostic centre"],["hospital","Hospitals","Super speciality hospital"],["pharmacy","Pharmacies","Pharmacy / medical store"],["other","Other care","Other facility"]];
+var KINDS=[["lab","Labs","Diagnostic lab"],["centre","Diagnostic centres","Diagnostic centre"],["hospital","Hospitals","Super speciality hospital"],["pharmacy","Pharmacies","Pharmacy / medical store"],["ambulance","Ambulance services","Ambulance service"],["other","Other care","Other facility"]];
 var SUBS=["Physiotherapy","Blood bank","Ambulance service","Eye care","Dialysis centre","Other"];
 function kindName(k){for(var i=0;i<KINDS.length;i++)if(KINDS[i][0]===k)return KINDS[i][2];return "Facility"}
 var LABS=[
@@ -1501,7 +1501,7 @@ function labCard(l){
    '<div class="tiny">'+(/^open 24/i.test(l.hours)?esc(l.hours):'Open '+esc(l.hours))+(l.beds?' · '+l.beds+' beds':'')+'</div>'+
    '<div class="tiny" style="font-weight:600">'+(l.kind==="hospital"?"Specialities":l.kind==="other"||l.kind==="pharmacy"?"Services":"Tests")+'</div>'+
    '<div class="tests">'+shown.map(function(t){return '<span>'+esc(t[0])+(t.length>1?' <b>'+money(t[1])+'</b>':'')+'</span>'}).join("")+'</div>'+
-   '<div class="acts">'+(l.wa?mapLink(waLink(l.wa,l.name),"WhatsApp","btn sm"):'')+mapLink(siteOpen({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Open in Google Maps","btn sm")+mapLink(siteDir({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Directions","btn sm ghost")+'</div>'+
+   '<div class="acts">'+(l.wa?(l.kind==="ambulance"?'<a class="btn sm" href="'+esc(telHref("+91"+l.wa))+'">'+ICPHONE+' Call</a>':mapLink(waLink(l.wa,l.name),"WhatsApp","btn sm")):'')+mapLink(siteOpen({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Open in Google Maps","btn sm")+mapLink(siteDir({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Directions","btn sm ghost")+'</div>'+
    (l.sample?'<div class="hint">Sample listing. Names, services and prices are examples.</div>':'')+'</div>';
 }
 function labsListHtml(){
@@ -1516,7 +1516,7 @@ function kindChips(){
 /* Small links for professionals, kept at the bottom so patients do not mistake them for booking steps. */
 function proLinks(){
   var b='style="font-size:12.5px;padding:0;text-decoration:underline"';
-  return '<div class="tiny" style="text-align:center;padding:18px 16px 110px;line-height:2">For doctors, labs and hospitals<br><button class="link" '+b+' data-a="regdoc">Register as a doctor</button> · <button class="link" '+b+' data-a="fregstart">List a lab or hospital</button> · <button class="link" '+b+' data-a="staff">Staff sign in</button></div>';
+  return '<div class="tiny" style="text-align:center;padding:18px 16px 110px;line-height:2">For doctors, labs, hospitals, pharmacies and ambulances<br><button class="link" '+b+' data-a="regdoc">Register as a doctor</button> · <button class="link" '+b+' data-a="fregstart">List a lab, hospital, pharmacy or ambulance</button> · <button class="link" '+b+' data-a="staff">Staff sign in</button></div>';
 }
 function vLabs(){
   return '<div class="top"><div class="brand">Applo<small>Hospitals and labs</small></div>'+profBtn()+'</div>'+
@@ -1529,7 +1529,7 @@ function vLabs(){
 }
 function adminLabs(){
   if(!state.nlab)state.nlab=blankLab();
-  var n=state.nlab,hosp=n.kind==="hospital",oth=n.kind==="other"||n.kind==="pharmacy";
+  var n=state.nlab,hosp=n.kind==="hospital",oth=n.kind==="other"||n.kind==="pharmacy"||n.kind==="ambulance";
   function f(k,label,inp){return '<div class="field"><label for="nb-'+k+'">'+label+'</label>'+inp+'</div>'}
   function tg(a,on,label){return '<div class="field"><button type="button" class="chk" data-a="'+a+'" aria-pressed="'+on+'"><i>'+(on?"✓":"")+'</i><span>'+label+'</span></button></div>'}
   return facPending()+'<div class="card"><div class="cardhead"><h2>Add a facility</h2></div><form id="labForm" novalidate>'+
@@ -1552,7 +1552,7 @@ function adminLabs(){
 function blankLab(city){return {kind:"lab",sub:SUBS[0],name:"",city:city||CITIES[0],addr:"",pin:"",map:"",hours:"7:00 AM to 9:00 PM",home:true,er:true,amb:true,beds:"",tests:"",err:""}}
 function submitLab(){
   if(!state.nlab)state.nlab=blankLab();
-  var n=state.nlab,mp=n.map.trim()?parseMap(n.map):null,t=parseTests(n.tests),hosp=n.kind==="hospital",oth=n.kind==="other"||n.kind==="pharmacy";
+  var n=state.nlab,mp=n.map.trim()?parseMap(n.map):null,t=parseTests(n.tests),hosp=n.kind==="hospital",oth=n.kind==="other"||n.kind==="pharmacy"||n.kind==="ambulance";
   if(n.name.trim().length<3){n.err="Enter the name.";render();return}
   if(n.addr.trim().length<5){n.err="Enter the street address.";render();return}
   n.city=cityNorm(n.city);if(n.city.length<2){n.err="Enter the city.";render();return}
@@ -1581,12 +1581,12 @@ function fdocUp(k,label,f,err){
 }
 function vFreg(){
   if(state.frDone)return vFregDone();
-  var r=state.fr||(state.fr=newFr()),e=r.errs||{},hosp=r.kind==="hospital",oth=r.kind==="other"||r.kind==="pharmacy";
+  var r=state.fr||(state.fr=newFr()),e=r.errs||{},hosp=r.kind==="hospital",oth=r.kind==="other"||r.kind==="pharmacy"||r.kind==="ambulance";
   function fld(k,label,input,hint){return '<div class="field"><label for="fr-'+k+'">'+label+'</label>'+input+(e[k]?'<div class="err">'+e[k]+'</div>':(hint?'<div class="hint">'+hint+'</div>':''))+'</div>'}
   function tg(a,on,label){return '<div class="field"><button type="button" class="chk" data-a="'+a+'" aria-pressed="'+on+'"><i>'+(on?"✓":"")+'</i><span>'+label+'</span></button></div>'}
   function txt(k,extra){return '<input id="fr-'+k+'" value="'+esc(r[k])+'" '+(extra||'')+'>'}
   return '<div class="bar"><button class="back" data-a="fback">'+ic.back+'Hospitals and labs</button></div>'+
-   '<div class="title-block" style="padding-top:2px"><h1>List your facility</h1><p>For labs, diagnostic centres, super speciality hospitals and other care. A super admin checks your licence before you appear to patients.</p></div>'+
+   '<div class="title-block" style="padding-top:2px"><h1>List your facility</h1><p>For labs, diagnostic centres, hospitals, pharmacies, ambulance services and other care. A super admin checks your licence before you appear to patients.</p></div>'+
    '<form id="fregForm" novalidate style="display:flex;flex-direction:column;flex:1">'+
    '<div class="sec">About the facility</div><div class="card">'+
    fld("kind","Type",'<select id="fr-kind">'+opts(KINDS.map(function(k){return [k[0],k[2]]}),r.kind)+'</select>')+
@@ -1597,7 +1597,7 @@ function vFreg(){
    fld("pin","PIN code",txt("pin",'inputmode="numeric" maxlength="6"'))+
    fld("map","Google Maps link",txt("map",'inputmode="url" placeholder="https://maps.app.goo.gl/..."'),'<span id="fr-map-status" class="status-line">'+esc(mapStatus(r.map))+'</span> Open Google Maps, search your facility, tap Share and paste the link. Or paste coordinates like 12.9352, 77.6245.')+
    fld("hours","Opening hours",txt("hours"),'For example 7:00 AM to 9:00 PM, or Open 24 hours.')+
-   (hosp?fld("beds","Number of beds (optional)",txt("beds",'inputmode="numeric" maxlength="5"'))+tg("er",r.er,"Emergency care 24x7")+tg("amb",r.amb,"Ambulance available"):tg("home",r.home,oth?"Home delivery available":"Home sample collection available"))+
+   (hosp?fld("beds","Number of beds (optional)",txt("beds",'inputmode="numeric" maxlength="5"'))+tg("er",r.er,"Emergency care 24x7")+tg("amb",r.amb,"Ambulance available"):(r.kind==="ambulance"?tg("er",r.er,"Available 24x7"):tg("home",r.home,oth?"Home delivery available":"Home sample collection available")))+
    '<div class="field" style="margin-bottom:0"><label for="fr-tests">'+(hosp?"Specialities, one per line":oth?"Services, one per line (price optional)":"Tests and prices, one per line")+'</label><textarea id="fr-tests" placeholder="'+(hosp?"Cardiology and cardiac surgery&#10;Neurosurgery":oth?"Prescription medicines&#10;Home delivery":"Complete blood count - 350&#10;Lipid profile - 600")+'">'+esc(r.tests)+'</textarea>'+(e.tests?'<div class="err">'+e.tests+'</div>':'')+'</div></div>'+
    '<div class="sec">Verification</div><div class="card">'+
    '<div class="hint" style="margin-bottom:12px">A super admin checks these before your listing goes live. Documents are seen by admins only.</div>'+
@@ -1613,7 +1613,7 @@ function vFreg(){
    '<div class="sec">Contact and login</div><div class="card">'+
    fld("contact","Contact person",txt("contact",'autocomplete="name"'))+
    fld("phone","Mobile number (you sign in with a one-time code)",txt("phone",'inputmode="numeric" maxlength="10" autocomplete="tel"'))+
-   fld("wa","WhatsApp number for patients (optional)",txt("wa",'inputmode="numeric" maxlength="10" autocomplete="off"'),"Shown on your listing as a Chat on WhatsApp button. Leave empty to hide it.")+
+   fld("wa",r.kind==="ambulance"?"Ambulance number patients will call":"WhatsApp number for patients (optional)",txt("wa",'inputmode="numeric" maxlength="10" autocomplete="off"'),r.kind==="ambulance"?"10-digit mobile number shown on the Ambulance page with a Call button.":"Shown on your listing as a Chat on WhatsApp button. Leave empty to hide it.")+
    fld("email",CLOUD?"Email (your login)":"Email",txt("email",'type="email" autocomplete="email"'))+(CLOUD?fld("pass","Password",txt("pass",'type="password" autocomplete="new-password"'),"At least 8 characters. You sign in with this email and password to see your listing status."):"")+
    '<div class="field" style="margin-bottom:0"><button type="button" class="chk" data-a="fftog" data-v="agree" aria-pressed="'+r.agree+'"><i>'+(r.agree?"✓":"")+'</i><span>I confirm these details and documents are true and I am allowed to list this facility.</span></button>'+(e.agree?'<div class="err">'+e.agree+'</div>':'')+'</div></div>'+
    '<div style="height:16px"></div><div class="stick">'+(r.sendErr?'<div class="err" role="alert" style="margin:0 0 8px">'+esc(r.sendErr)+'</div>':'')+'<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Submitting...':'Submit for review')+'</button></div></form>';
@@ -1650,7 +1650,7 @@ function frRemove(v){
   render();
 }
 function submitFreg(){
-  var r=state.fr,e={},em=r.email.trim().toLowerCase(),dup=false,hosp=r.kind==="hospital",oth=r.kind==="other"||r.kind==="pharmacy",t=parseTests(r.tests),mp=parseMap(r.map);
+  var r=state.fr,e={},em=r.email.trim().toLowerCase(),dup=false,hosp=r.kind==="hospital",oth=r.kind==="other"||r.kind==="pharmacy"||r.kind==="ambulance",t=parseTests(r.tests),mp=parseMap(r.map);
   staffData.users.forEach(function(u){if(u.email&&u.email.toLowerCase()===em)dup=true});
   if(r.name.trim().length<3)e.name="Enter the facility name.";
   r.city=cityNorm(r.city);if(r.city.length<2)e.city="Enter your city.";
@@ -1666,7 +1666,8 @@ function submitFreg(){
   if(!r.docs.id)e.id="Upload a photo ID.";
   if(r.contact.trim().length<2)e.contact="Enter the contact person's name.";
   if(!/^[6-9]\d{9}$/.test(r.phone))e.phone="Enter a valid 10-digit mobile number.";
-  if(r.wa&&!/^[6-9]\d{9}$/.test(r.wa))e.wa="Enter a valid 10-digit WhatsApp number, or leave it empty.";
+  if(r.kind==="ambulance"&&!r.wa)e.wa="Enter the number patients should call.";
+  if(r.wa&&!/^[6-9]\d{9}$/.test(r.wa))e.wa=r.kind==="ambulance"?"Enter a valid 10-digit mobile number.":"Enter a valid 10-digit WhatsApp number, or leave it empty.";
   else if(staffByPhone(r.phone))e.phone="That mobile number already has an account.";
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))e.email="Enter a valid email address.";
   else if(dup)e.email="That email already has an account.";
@@ -1689,7 +1690,7 @@ function submitFreg(){
     registered:true,status:"pending",verified:false,ref:"FC-"+rand5(),contact:r.contact.trim(),phone:r.phone,wa:r.wa||"",email:em,licno:r.licno.trim(),auth:r.auth.trim(),
     gallery:r.gallery.slice(),submitted:Date.now(),
     vdocs:[["lic","Licence or registration certificate"],["id","Photo ID"],["acc","Accreditation"]].filter(function(x){return r.docs[x[0]]}).map(function(x){var f=r.docs[x[0]];return {key:x[0],label:x[1],name:f.name,type:f.type,data:f.data}})};
-  if(hosp){l.er=r.er;l.ambulance=r.amb;if(/^\d{1,5}$/.test(r.beds))l.beds=+r.beds}else l.home=r.home;
+  if(hosp){l.er=r.er;l.ambulance=r.amb;if(/^\d{1,5}$/.test(r.beds))l.beds=+r.beds}else if(r.kind==="ambulance")l.er=r.er;else l.home=r.home;
   if(r.kind==="other")l.sub=r.sub;
   l.mapUrl=mp.url;if(isNum(mp.lat)){l.lat=mp.lat;l.lng=mp.lng}
   LABS.push(l);saveLabs();
@@ -2302,14 +2303,15 @@ var NATAMB=[["112","National emergency number","Police, fire and ambulance. Free
 var ICPHONE='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>';
 function fabHtml(){return '<button class="fab" data-a="amb" aria-label="Ambulance numbers">'+ICPHONE+'Ambulance</button>'}
 function telHref(n){return "tel:"+String(n).replace(/[^\d+]/g,"")}
-function ambCities(){var c=browseCities().slice();(cloud.amb||[]).forEach(function(a){if(a.city&&c.indexOf(a.city)<0)c.push(a.city)});return c}
+function ambCities(){var c=browseCities().slice();(cloud.amb||[]).concat(ambFacs()).forEach(function(a){if(a.city&&c.indexOf(a.city)<0)c.push(a.city)});return c}
 function ambRow(a){
   return '<div class="natamb"><div style="min-width:0"><b>'+esc(a.name)+'</b> <span class="pill">'+(a.kind==="govt"?"Government":"Private")+'</span><div class="tiny">'+esc(a.city||"All locations")+(a.note?' · '+esc(a.note):'')+'</div></div>'+
    '<a class="btn sm" href="'+esc(telHref(a.phone))+'" aria-label="Call '+esc(a.name)+'">'+ICPHONE+' Call</a></div>';
 }
+function ambFacs(){return LABS.filter(function(l){return l.kind==="ambulance"&&l.wa&&l.status!=="pending"&&l.status!=="rejected"}).map(function(l){return {name:l.name,phone:"+91"+l.wa,city:l.city||"",kind:"private",note:"Verified by Applo",active:true}})}
 function ambListHtml(){
   var L=cloud.amb;if(CLOUD&&L===null)return '<div class="empty">Loading...</div>';
-  L=L||[];var all=state.city===ALL_CITIES,c=String(state.city||"").trim().toLowerCase();
+  L=(L||[]).concat(ambFacs());var all=state.city===ALL_CITIES,c=String(state.city||"").trim().toLowerCase();
   var here=L.filter(function(a){return a.city&&(all||String(a.city).trim().toLowerCase()===c)}),every=L.filter(function(a){return !a.city});
   return (here.length?'<div class="sec">'+(all?'In specific cities':'In '+esc(state.city))+'</div><div class="card">'+here.map(ambRow).join("")+'</div>':'')+
    (every.length?'<div class="sec">Available in all locations</div><div class="card">'+every.map(ambRow).join("")+'</div>':'')+
@@ -2766,7 +2768,7 @@ function cloudSubmitFreg(r,t,mp,em){
   }).then(function(){
     var hosp=r.kind==="hospital";
     return BE.registerFacility({kind:r.kind,sub:r.kind==="other"?r.sub:"",name:r.name.trim(),contact_name:r.contact.trim(),contact_phone:r.phone,city:r.city,address:r.addr.trim(),pin:r.pin,map_url:mp.url,hours:r.hours.trim(),
-      beds:hosp&&/^\d{1,5}$/.test(r.beds)?+r.beds:null,emergency:hosp?!!r.er:false,ambulance:hosp?!!r.amb:false,home_service:hosp?false:!!r.home,services:t,wa:r.wa||"",licence_no:r.licno.trim()});
+      beds:hosp&&/^\d{1,5}$/.test(r.beds)?+r.beds:null,emergency:hosp||r.kind==="ambulance"?!!r.er:false,ambulance:hosp?!!r.amb:false,home_service:hosp||r.kind==="ambulance"?false:!!r.home,services:t,wa:r.wa||"",licence_no:r.licno.trim()});
   }).then(function(row){
     return Promise.all(ups.map(function(u){return BE.addFacDoc(row.id,u[3],u[1])})).then(function(){return row});
   }).then(function(row){
@@ -2878,7 +2880,7 @@ function adminCounts(){
   return '<div class="sec">Listed on Applo</div><div class="kpis">'+
    kpi("Patients",d.patients,"Registered accounts")+kpi("Doctors and clinics",doc.listed,pend(doc))+
    kpi("Labs",g("lab").listed,pend(g("lab")))+kpi("Diagnostic centres",g("centre").listed,pend(g("centre")))+
-   kpi("Hospitals",g("hospital").listed,pend(g("hospital")))+kpi("Pharmacies",g("pharmacy").listed,pend(g("pharmacy")))+kpi("Other facilities",g("other").listed,pend(g("other")))+
+   kpi("Hospitals",g("hospital").listed,pend(g("hospital")))+kpi("Pharmacies",g("pharmacy").listed,pend(g("pharmacy")))+kpi("Ambulance services",g("ambulance").listed,pend(g("ambulance")))+kpi("Other facilities",g("other").listed,pend(g("other")))+
    kpi("App installs",d.phones,d.phone_users+" signed-in user"+(d.phone_users===1?"":"s"))+'</div>'+
    '<div class="tiny" style="padding:0 16px 10px">App installs counts phones that registered for notifications on a recent Android build. Older builds, the iPhone app and the website are not counted.</div>'+
    (sp.length?'<div class="sec">Doctors by speciality</div><div class="card">'+sp.map(function(s){return '<div class="sumrow"><span>'+esc(s.spec)+'</span><span class="tnum">'+esc(String(s.n))+'</span></div>'}).join("")+'</div>':'');
@@ -2886,7 +2888,7 @@ function adminCounts(){
 function ambNew(){return {id:null,name:"",phone:"",city:"",kind:"private",note:""}}
 function ambAdmin(){
   var f=cloud.af=cloud.af||ambNew(),L=cloud.ambA;
-  return '<div class="sec">'+(f.id?'Edit ambulance service':'Add an ambulance service')+'</div><form id="caForm" novalidate><div class="card">'+
+  return '<div class="tiny" style="padding:0 16px 8px">Ambulance services can also register themselves from "List a lab, hospital, pharmacy or ambulance". They appear on the Ambulance page after you approve them in the Facilities tab.</div>'+'<div class="sec">'+(f.id?'Edit ambulance service':'Add an ambulance service')+'</div><form id="caForm" novalidate><div class="card">'+
    '<div class="field"><label for="ca-name">Name</label><input id="ca-name" maxlength="80" value="'+esc(f.name)+'" placeholder="e.g. City Care Ambulance"></div>'+
    '<div class="field"><label for="ca-phone">Phone number</label><input id="ca-phone" inputmode="tel" maxlength="16" value="'+esc(f.phone)+'" placeholder="Mobile or landline"></div>'+
    '<div class="field"><label for="ca-city">City (optional)</label>'+cityIn("ca-city",f.city)+'<div class="tiny">Leave empty to list the service in every location.</div></div>'+

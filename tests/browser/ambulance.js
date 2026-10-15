@@ -22,6 +22,7 @@ async function open(role) {
     if (p === "/rest/v1/ambulance_services") return j(200, st.amb);
     if (p.endsWith("/rpc/admin_save_ambulance")) { st.saved = body; const row = Object.assign({ id: 9, active: true }, body.p); st.amb = st.amb.concat([row]); return j(200, row); }
     if (p.endsWith("/rpc/admin_dashboard_counts")) return j(200, { patients: 41, doctors: { listed: 12, pending: 2 }, facilities: { lab: { listed: 3, pending: 1 }, centre: { listed: 2, pending: 0 }, hospital: { listed: 4, pending: 0 }, pharmacy: { listed: 6, pending: 3 }, other: { listed: 1, pending: 0 } }, specialties: [{ spec: "Cardiologist", n: 5 }, { spec: "Dentist", n: 3 }], phones: 57, phone_users: 49 });
+    if (p === "/rest/v1/facilities") return j(200, [{ id: 51, kind: "ambulance", sub: "", name: "Self Listed Ambulance", city: "Pune", address: "Depot", pin: "411001", map_url: "", hours: "24x7", beds: null, emergency: true, ambulance: false, home_service: false, services: [["Basic life support"]], wa: "9811122233", status: "approved", verified: true, ref: "FC-1" }]);
     if (p === "/rest/v1/broadcasts") return j(200, BC);
     if (p === "/rest/v1/notifications") return j(200, [{ id: 1, body: "Free eye camp: Sunday at the town hall", created_at: new Date().toISOString(), read_at: null, broadcast_id: 7 }, { id: 2, body: "Your booking is confirmed", created_at: new Date().toISOString(), read_at: null, broadcast_id: null }]);
     if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: "X", phone: null, email: "u@x.in" }]);
@@ -38,8 +39,8 @@ async function open(role) {
   check("a new broadcast pops up once", (await pg.locator("#bcpop").count()) === 1); await pg.locator("#bcclose").click(); await pg.waitForTimeout(300);
   check("floating ambulance button is on the home screen", (await pg.locator("button.fab").count()) === 1);
   await pg.getByRole("button", { name: "Labs", exact: false }).first().click().catch(() => {});
-  check("doctors, labs and hospitals links are small and at the bottom", /For doctors, labs and hospitals/.test(await txt()) && !/Own a lab, diagnostic centre or hospital\?/.test(await txt()));
-  const fs = await pg.evaluate(() => { const b = [...document.querySelectorAll("button")].find((x) => /List a lab or hospital/.test(x.textContent)); return b ? parseFloat(getComputedStyle(b).fontSize) : 99; });
+  check("doctors, labs and hospitals links are small and at the bottom", /For doctors, labs, hospitals, pharmacies and ambulances/.test(await txt()) && !/Own a lab, diagnostic centre or hospital\?/.test(await txt()));
+  const fs = await pg.evaluate(() => { const b = [...document.querySelectorAll("button")].find((x) => /List a lab, hospital, pharmacy or ambulance/.test(x.textContent)); return b ? parseFloat(getComputedStyle(b).fontSize) : 99; });
   check("registration link font is small", fs <= 13);
   await pg.locator("button.fab").click(); await pg.waitForTimeout(800);
   let tx = await txt();
@@ -48,6 +49,7 @@ async function open(role) {
   check("national numbers come before local services", tx.indexOf("112") < tx.indexOf("Anywhere Ambulance"));
   check("services for all locations are listed", /Available in all locations/i.test(tx) && /Anywhere Ambulance/.test(tx));
   check("city services show under their city when All cities", /City Care Ambulance/.test(tx) && /Delhi Rapid Ambulance/.test(tx));
+  check("an approved self-registered ambulance facility is listed with a call link", /Self Listed Ambulance/.test(tx) && (await pg.locator('a[href="tel:+919811122233"]').count()) === 1);
   check("a private service links to its number", (await pg.locator('a[href="tel:9876543210"]').count()) === 1);
   await pg.selectOption("#city", "Pune"); await pg.dispatchEvent("#city", "input"); await pg.waitForTimeout(500);
   tx = await txt();
@@ -58,6 +60,13 @@ async function open(role) {
   check("bell shows announcements with the broadcast", /Announcements/i.test(tx) && /Free eye camp/.test(tx));
   check("bell still shows booking updates", /Your booking is confirmed/.test(tx));
   check("a broadcast is not repeated as plain text", (tx.match(/Free eye camp/g) || []).length === 1);
+  await pg.reload(); await pg.waitForTimeout(1500); if (await pg.locator("#bcclose").count()) await pg.locator("#bcclose").click(); await pg.locator('[data-a="tab"][data-v="labs"]').first().click(); await pg.waitForTimeout(500);
+  await pg.evaluate(() => { const b = document.querySelector('[data-a="fregstart"]'); if (b) b.click(); }); await pg.waitForTimeout(400);
+  await pg.selectOption("#fr-kind", "ambulance"); await pg.dispatchEvent("#fr-kind", "input"); await pg.dispatchEvent("#fr-kind", "change"); await pg.waitForTimeout(300);
+  tx = await txt();
+  check("ambulance registration asks for the call number and 24x7, not home delivery", /Ambulance number patients will call/.test(tx) && /Available 24x7/.test(tx) && !/Home delivery available/.test(tx));
+  await pg.evaluate(() => document.getElementById("fregForm").requestSubmit()); await pg.waitForTimeout(300);
+  check("ambulance registration requires the call number", /Enter the number patients should call/.test(await txt()));
   check("no page errors (patient)", t.errs.length === 0); await t.b.close();
   t = await open("admin"); pg = t.pg;
   tx = await pg.evaluate(() => document.body.innerText);
