@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif;background:#fafafa}img{max-width:100%}[hidden]{display:none!important}</style>
 <meta name="theme-color" content="#0B57C2">
-<meta name="description" content="Yada: find doctors, labs and hospitals, and book appointments.">
+<meta name="description" content="Yada+: find doctors, labs and hospitals, and book appointments.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Yada">
-<title>Yada</title>
+<meta name="apple-mobile-web-app-title" content="Yada+">
+<title>Yada+</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
@@ -490,16 +490,16 @@ function supWho(){
   if(state.staff){var u=getUser(state.staff);return u?u.name+" ("+({admin:"Super admin",doctor:"Doctor",sales:"Sales",facility:"Facility"}[u.role]||u.role)+")":""}
   return state.pat?state.pat.name+", mobile "+state.pat.phone:"";
 }
-function supText(){var w=supWho();return "Hello Yada support, I need help with: "+(w?"\n\n(From: "+w+")":"")}
-function supMail(){return "mailto:"+SUP.email+"?subject="+encodeURIComponent("Yada help request")+"&body="+encodeURIComponent(supText())}
-function waLink(n,who){var t="Hello"+(who?" "+who:"")+", I found you on Yada and would like to ask about "+(state.pat?"an appointment. (I am "+state.pat.name+")":"an appointment.");return "https://wa.me/"+waNum(n)+"?text="+encodeURIComponent(t)}
+function supText(){var w=supWho();return "Hello Yada+ support, I need help with: "+(w?"\n\n(From: "+w+")":"")}
+function supMail(){return "mailto:"+SUP.email+"?subject="+encodeURIComponent("Yada+ help request")+"&body="+encodeURIComponent(supText())}
+function waLink(n,who){var t="Hello"+(who?" "+who:"")+", I found you on Yada+ and would like to ask about "+(state.pat?"an appointment. (I am "+state.pat.name+")":"an appointment.");return "https://wa.me/"+waNum(n)+"?text="+encodeURIComponent(t)}
 function supWa(){return "https://wa.me/"+waNum(SUP.wa)+"?text="+encodeURIComponent(supText())}
 function helpFoot(){return '<div style="text-align:center;padding:6px 0 18px"><button class="btn sm ghost" data-a="help">Help and support</button></div>'}
 function vHelp(){
   var has=SUP.email||SUP.wa,out='';
   if(SUP.wa)out+='<a class="btn" style="text-decoration:none;display:flex;justify-content:center" href="'+esc(supWa())+'" target="_blank" rel="noopener">Chat on WhatsApp</a>';
   if(SUP.email)out+='<a class="btn ghost" style="text-decoration:none;display:flex;justify-content:center" href="'+esc(supMail())+'" target="_blank" rel="noopener">Email support</a>';
-  return '<div class="top"><div class="brand">Yada<small>Help</small></div><button class="btn sm ghost" data-a="hclose">Close</button></div><div class="title-block"><h1>Help and support</h1><p>Questions about a booking, a doctor or your account? Reach us here.</p></div>'+
+  return '<div class="top"><div class="brand">Yada+<small>Help</small></div><button class="btn sm ghost" data-a="hclose">Close</button></div><div class="title-block"><h1>Help and support</h1><p>Questions about a booking, a doctor or your account? Reach us here.</p></div>'+
    '<div class="card" style="display:flex;flex-direction:column;gap:10px">'+(has?out+'<div class="hint">Your message opens ready to send. Support replies during working hours.</div>':'<div class="empty">Support contact is not set up yet. Please check back soon.</div>')+'</div>';
 }
 function supCard(){
@@ -542,7 +542,7 @@ function annHtml(){
 function vNotif(){
   var inB={};(cloud.bcl||[]).forEach(function(b){inB[b.id]=1});
   var k=notifKey(),list=NOTIF.filter(function(n){return n.to===k&&!(n.bid&&inB[n.bid])}).sort(function(a,b){return b.ts-a.ts});
-  var h='<div class="top"><div class="brand">Yada<small>Notifications</small></div><button class="btn sm ghost" data-a="nclose">Close</button></div><div class="title-block"><h1>Notifications</h1></div><div class="card">'+
+  var h='<div class="top"><div class="brand">Yada+<small>Notifications</small></div><button class="btn sm ghost" data-a="nclose">Close</button></div><div class="title-block"><h1>Notifications</h1></div><div class="card">'+
    (list.length?list.map(function(n){return '<div class="nitem'+(n.fresh?' un':'')+'">'+esc(n.text)+'<small>'+ago(n.ts)+'</small></div>'}).join(""):(annHtml()?'<div class="empty">No booking updates yet.</div>':'<div class="empty">Nothing yet. Booking updates will show up here.</div>'))+'</div>'+annHtml();
   return h;
 }
@@ -621,7 +621,7 @@ var ic2={
  chart:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>',
  users:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3-5.5 6.5-5.5s6 2 6.5 5.5M16 4.5a3.5 3.5 0 010 7M18 15c2 .5 3.3 2.3 3.5 5"/></svg>'
 };
-/* ---------- platform fee: charged by Yada on top of the doctor's fee; super admin controls it ---------- */
+/* ---------- platform fee: charged by Yada+ on top of the doctor's fee; super admin controls it ---------- */
 var PFKEY="nirog-plat-v1";
 var PLAT={on:true,type:"flat",value:49};
 (function(){
@@ -829,7 +829,7 @@ function vLogin(){
    '<div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password" value="'+esc(l.pass)+'" placeholder="Password"></div>'+
    (l.err?'<div class="err" role="alert" style="margin-bottom:12px">'+esc(l.err)+'</div>':'')+
    '<button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Signing in...':'Sign in')+'</button>'+(CLOUD?'<div class="hint" style="text-align:center;margin:12px 0 8px">or</div><button type="button" class="btn ghost" data-a="gstaff">Continue with Google</button>':'')+'</div></form>')+
-   (CLOUD?'<div class="foot" style="text-align:left">Doctors use the email and password they registered with. Admin accounts are created by the Yada team.</div>':'<div class="sec">Demo accounts</div><div class="card">'+
+   (CLOUD?'<div class="foot" style="text-align:left">Doctors use the email and password they registered with. Admin accounts are created by the Yada+ team.</div>':'<div class="sec">Demo accounts</div><div class="card">'+
    '<div class="who sumrow"><div><b>Super admin</b><div class="tiny tnum sel">admin@nirog.demo<br>Admin@123<br>Mobile 9000000001</div></div><button class="btn sm ghost" data-a="fill" data-v="admin">Use</button></div>'+
    '<div class="who sumrow"><div><b>Sales team</b><div class="tiny tnum sel">riya@nirog.demo<br>Sales@123<br>Mobile 9000000002</div></div><button class="btn sm ghost" data-a="fill" data-v="sales">Use</button></div>'+
    '<div class="who sumrow"><div><b>Doctor</b><div class="tiny tnum sel">anjali@nirog.demo<br>Doctor@123<br>Mobile 9000000005</div></div><button class="btn sm ghost" data-a="fill" data-v="doctor">Use</button></div></div>'+
@@ -862,7 +862,7 @@ function vStaff(){
   var pendN=DOCS.filter(function(x){return x.status==="pending"}).length,pendF=LABS.filter(function(x){return x.registered&&x.status==="pending"}).length;
   var pendA=isDoc?appts.filter(function(a){return a.docId===u.docId&&a.status==="pending"}).length:0;
   var newN=admin?0:staffData.leads.filter(function(l){return l.owner===u.id&&l.status==="new"}).length;
-  return '<div class="top"><div class="brand">Yada<small>'+(admin?"Super admin":isFac?"Facility":isDoc?"Doctor":"Sales team")+'</small></div><div class="topr">'+bellBtn()+'<button class="btn sm ghost" data-a="logout">Sign out</button></div></div>'+
+  return '<div class="top"><div class="brand">Yada+<small>'+(admin?"Super admin":isFac?"Facility":isDoc?"Doctor":"Sales team")+'</small></div><div class="topr">'+bellBtn()+'<button class="btn sm ghost" data-a="logout">Sign out</button></div></div>'+
    '<div class="title-block" style="padding-bottom:12px"><h1>'+title+'</h1><p>Signed in as '+esc(u.name)+'</p></div>'+
    '<div class="stack">'+body+'</div>'+
    '<nav class="nav stick" style="grid-template-columns:repeat('+tabs.length+',1fr)" aria-label="Staff">'+tabs.map(function(t){
@@ -1246,7 +1246,7 @@ function submitReg(){
   var id=100;DOCS.forEach(function(x){if(x.id>=id)id=x.id+1});
   var doc={id:id,name:"Dr. "+nm,spec:r.spec,exp:Math.round(ex),qual:r.qual.trim(),fee:Math.round(fee),vfee:Math.round(vf),video:vf>0,rating:0,reviews:0,
     lang:r.lang.trim()||"Hindi, English",clinic:r.clinic.trim(),city:r.city,address:r.addr.trim(),pin:r.pin,mapUrl:mp.url,
-    about:r.about.trim()||"New on Yada. Pick an open slot to book a visit.",days:r.days.slice().sort(),hours:hoursFromModel(r),step:+r.step,
+    about:r.about.trim()||"New on Yada+. Pick an open slot to book a visit.",days:r.days.slice().sort(),hours:hoursFromModel(r),step:+r.step,
     off:[],blocked:[],min:true,phone:r.phone,wa:r.wa||"",status:"pending",registered:true,ref:"DR-"+rand5(),
     council:r.council.trim(),regno:r.regno.trim(),ryear:yr,verified:false,photo:r.photo,gallery:r.gallery.slice(),
     vdocs:[["reg","Registration certificate"],["id","Government photo ID"],["deg","Degree certificate"]].filter(function(x){return r.docs[x[0]]}).map(function(x){var f=r.docs[x[0]];return {key:x[0],label:x[1],name:f.name,type:f.type,data:f.data}})};
@@ -1519,7 +1519,7 @@ function proLinks(){
   return '<div class="tiny" style="text-align:center;padding:18px 16px 110px;line-height:2">For doctors, labs, hospitals, pharmacies and ambulances<br><button class="link" '+b+' data-a="regdoc">Register as a doctor</button> · <button class="link" '+b+' data-a="fregstart">List a lab, hospital, pharmacy or ambulance</button> · <button class="link" '+b+' data-a="staff">Staff sign in</button></div>';
 }
 function vLabs(){
-  return '<div class="top"><div class="brand">Yada<small>Hospitals and labs</small></div>'+profBtn()+'</div>'+
+  return '<div class="top"><div class="brand">Yada+<small>Hospitals and labs</small></div>'+profBtn()+'</div>'+
    '<div class="title-block"><h1>Find care near you</h1><p>Super speciality hospitals, diagnostic labs and centres, and other medical facilities. Open any of them in Google Maps.</p></div>'+
    '<div class="loc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'+
    '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(browseCities()).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
@@ -1936,7 +1936,7 @@ function docCard(d){
     '<div class="doc-name">'+esc(d.name)+'</div>'+(d.verified?'<div style="margin:2px 0">'+vtag(d)+'</div>':'')+
     '<div class="doc-sub">'+esc(d.spec)+' · '+d.exp+' yrs</div>'+
     '<div class="doc-sub">'+esc(d.clinic)+', '+esc(d.city)+'</div>'+
-    (d.reviews?'<div class="row"><span class="rate">'+ic.star+d.rating.toFixed(1)+'</span><span class="muted" style="font-size:13px">'+d.reviews.toLocaleString("en-IN")+' reviews</span></div>':'<div class="row"><span class="pill">New on Yada</span></div>')+
+    (d.reviews?'<div class="row"><span class="rate">'+ic.star+d.rating.toFixed(1)+'</span><span class="muted" style="font-size:13px">'+d.reviews.toLocaleString("en-IN")+' reviews</span></div>':'<div class="row"><span class="pill">New on Yada+</span></div>')+
     '<div class="next"><span>'+(n?'Next: <b>'+rel(n.k)+', '+t12(n.t)+'</b>':'No slots in 14 days')+'</span><span class="fee tnum">'+money(d.fee)+(platFee(d.fee)?'<small class="muted" style="font-weight:500;font-size:11.5px"> + '+money(platFee(d.fee))+' fee</small>':'')+'</span></div>'+
    '</div></button>';
 }
@@ -1950,7 +1950,7 @@ function docListHtml(){
 }
 function vList(){
   var chips=SPECS.map(function(s){return '<button class="chip" data-a="spec" data-v="'+esc(s)+'" aria-pressed="'+(state.spec===s)+'">'+esc(s)+'</button>'}).join("");
-  return '<div class="top"><div class="brand">Yada<small>Doctor appointments</small></div>'+profBtn()+'</div>'+
+  return '<div class="top"><div class="brand">Yada+<small>Doctor appointments</small></div>'+profBtn()+'</div>'+
    '<div class="title-block"><h1>Book a doctor in a few taps</h1><p>Pick a specialist, choose a time, and get your booking reference.</p>'+
    '<div class="tiny" style="margin-top:8px">'+(state.pat?'Signed in as '+patLine():'<button class="link" data-a="psignin" style="padding:0">Sign in with your mobile number</button>')+'</div></div>'+
    '<div class="loc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'+
@@ -2009,7 +2009,7 @@ function vConfirm(){
    '<div class="sumrow"><span>Visit</span><span>'+(state.mode==="video"?'Video consult':'In-clinic at '+esc(d.clinic)+', '+esc(d.city))+'</span></div>'+
    '<div class="sumrow"><span>Doctor fee</span><span class="tnum">'+money(fee)+'</span></div>'+
    (platFee(fee)?'<div class="sumrow"><span>Platform fee</span><span class="tnum">'+money(platFee(fee))+'</span></div><div class="sumrow"><span><b>Total</b></span><span class="tnum">'+money(fee+platFee(fee))+'</span></div>':'')+
-   '<div class="hint" style="margin-top:6px">The platform fee is charged by Yada and is separate from the doctor\'s fee. Online payment is not connected in this demo, so nothing is charged here.</div></div>'+
+   '<div class="hint" style="margin-top:6px">The platform fee is charged by Yada+ and is separate from the doctor\'s fee. Online payment is not connected in this demo, so nothing is charged here.</div></div>'+
    '<form id="bookForm" novalidate style="display:flex;flex-direction:column;flex:1">'+
    '<div class="sec">Patient details</div><div class="card">'+
    '<div class="field"><label for="f-name">Patient name</label><input id="f-name" name="name" autocomplete="name" value="'+esc(f.name)+'" placeholder="Full name">'+(e.name?'<div class="err">'+e.name+'</div>':'')+'</div>'+
@@ -2102,7 +2102,7 @@ function rxPages(a,r,d,imgs){
   function text(t,sz,b,col,x,lh,maxW){font(sz,b);ctx.fillStyle=col||INK;var L=rxWrap(ctx,t,maxW||W-80);L.forEach(function(l){need(lh);ctx.fillText(l,x||40,y);y+=lh});}
   function rule(){need(16);ctx.fillStyle="#d5e3f2";ctx.fillRect(40,y,W-80,1);y+=18}
   np();
-  ctx.fillStyle=RED;ctx.fillRect(0,0,W,84);ctx.fillStyle="#fff";font(30,true);ctx.fillText("Yada",40,54);font(18,false);ctx.textAlign="right";ctx.fillText("Prescription",W-40,52);ctx.textAlign="left";
+  ctx.fillStyle=RED;ctx.fillRect(0,0,W,84);ctx.fillStyle="#fff";font(30,true);ctx.fillText("Yada+",40,54);font(18,false);ctx.textAlign="right";ctx.fillText("Prescription",W-40,52);ctx.textAlign="left";
   y=124;
   text(d.name||"Doctor",22,true,INK,40,28);
   text([d.spec,d.qual].filter(Boolean).join(" · "),14,false,MUT,40,20);
@@ -2133,7 +2133,7 @@ function rxPages(a,r,d,imgs){
     ctx.drawImage(im,40,y,w,h);
   });
   if(miss){need(30);y+=10;text(miss+" attached photo"+(miss>1?"s":"")+" could not be included. Open the prescription in the app to see "+(miss>1?"them":"it")+".",13,false,MUT,40,20)}
-  pages.forEach(function(c,i){var x=c.getContext("2d");x.fillStyle=MUT;x.font="400 11px "+FONT;x.textAlign="center";x.fillText("Advice from your doctor for this visit. In an emergency, call your local emergency number. · Page "+(i+1)+" of "+pages.length+" · Yada",W/2,H-28);x.textAlign="left"});
+  pages.forEach(function(c,i){var x=c.getContext("2d");x.fillStyle=MUT;x.font="400 11px "+FONT;x.textAlign="center";x.fillText("Advice from your doctor for this visit. In an emergency, call your local emergency number. · Page "+(i+1)+" of "+pages.length+" · Yada+",W/2,H-28);x.textAlign="left"});
   return pages;
 }
 function rxPdfBytes(pages){
@@ -2196,7 +2196,7 @@ function rxText(a,r,d){
   (r.medicines||[]).forEach(function(m,i){L.push((i+1)+". "+m.name+(m.dose?" - "+m.dose:"")+(m.freq?", "+m.freq:"")+(m.days?", "+m.days+" days":""))});
   if(r.advice)L.push("Advice: "+r.advice);
   if(r.follow_up)L.push("Follow-up: "+longDate(r.follow_up));
-  L.push("You can also see it in the Yada app under Appointments.");
+  L.push("You can also see it in the Yada+ app under Appointments.");
   return L.join("\n").slice(0,1500);
 }
 function rxShare(bid){
@@ -2290,7 +2290,7 @@ function vAppts(){
   var done=CLOUD?upAll.filter(function(a){return a.status==="upcoming"&&a.cloud&&visitPast(a)}):[];
   var up=CLOUD?upAll.filter(function(a){return done.indexOf(a)<0}):upAll;
   var cx=mineA.filter(function(a){return a.status==="cancelled"||a.status==="rejected"});
-  return '<div class="top"><div class="brand">Yada<small>My appointments</small></div>'+profBtn()+'</div>'+
+  return '<div class="top"><div class="brand">Yada+<small>My appointments</small></div>'+profBtn()+'</div>'+
    (state.dmsg?'<div class="err" role="alert" style="margin:0 16px 10px">'+esc(state.dmsg)+'</div>':'')+'<div class="title-block"><h1>Your appointments</h1>'+(state.pat?'<div class="tiny" style="margin-top:8px">'+patLine()+'</div>':'')+'</div>'+
    (up.length?up.map(apptCard).join(""):'<div class="empty">No upcoming appointments. Book a doctor from the first tab and it will show up here.</div>')+
    (done.length?'<div class="sec">Past visits</div>'+done.map(apptCard).join(""):'')+
@@ -2308,7 +2308,7 @@ function ambRow(a){
   return '<div class="natamb"><div style="min-width:0"><b>'+esc(a.name)+'</b> <span class="pill">'+(a.kind==="govt"?"Government":"Private")+'</span><div class="tiny">'+esc(a.city||"All locations")+(a.note?' · '+esc(a.note):'')+'</div></div>'+
    '<a class="btn sm" href="'+esc(telHref(a.phone))+'" aria-label="Call '+esc(a.name)+'">'+ICPHONE+' Call</a></div>';
 }
-function ambFacs(){return LABS.filter(function(l){return l.kind==="ambulance"&&l.wa&&l.status!=="pending"&&l.status!=="rejected"}).map(function(l){return {name:l.name,phone:"+91"+l.wa,city:l.city||"",kind:"private",note:"Verified by Yada",active:true}})}
+function ambFacs(){return LABS.filter(function(l){return l.kind==="ambulance"&&l.wa&&l.status!=="pending"&&l.status!=="rejected"}).map(function(l){return {name:l.name,phone:"+91"+l.wa,city:l.city||"",kind:"private",note:"Verified by Yada+",active:true}})}
 function ambListHtml(){
   var L=cloud.amb;if(CLOUD&&L===null)return '<div class="empty">Loading...</div>';
   L=(L||[]).concat(ambFacs());var all=state.city===ALL_CITIES,c=String(state.city||"").trim().toLowerCase();
@@ -2318,12 +2318,12 @@ function ambListHtml(){
    (!here.length&&!every.length?'<div class="tiny" style="padding:8px 16px">No private ambulance services are listed for this location yet.</div>':'');
 }
 function vAmb(){
-  return '<div class="top"><div class="brand">Yada<small>Ambulance</small></div><button class="btn sm ghost" data-a="ambclose">Close</button></div>'+
+  return '<div class="top"><div class="brand">Yada+<small>Ambulance</small></div><button class="btn sm ghost" data-a="ambclose">Close</button></div>'+
    '<div class="title-block"><h1>Need an ambulance?</h1><p>In an emergency call a national number first.</p></div>'+
    '<div class="card">'+NATAMB.map(function(n){return '<div class="natamb"><div style="min-width:0"><b class="num tnum">'+n[0]+'</b> <span class="pill">Free</span><div style="font-weight:600">'+esc(n[1])+'</div><div class="tiny">'+esc(n[2])+'</div></div><a class="btn" href="'+esc(telHref(n[0]))+'" aria-label="Call '+n[0]+'">'+ICPHONE+' Call</a></div>'}).join("")+'</div>'+
    '<div class="loc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'+
    '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(ambCities()).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
-   '<div id="ambl">'+ambListHtml()+'</div><div class="tiny" style="padding:10px 16px 24px">Yada lists these numbers for convenience and does not run the ambulances. Check the number before you rely on it.</div>';
+   '<div id="ambl">'+ambListHtml()+'</div><div class="tiny" style="padding:10px 16px 24px">Yada+ lists these numbers for convenience and does not run the ambulances. Check the number before you rely on it.</div>';
 }
 function ambLoad(){
   if(!CLOUD||cloud.amb!==null&&cloud.amb!==undefined||cloud.ambLoading)return;
@@ -2343,7 +2343,7 @@ function nav(){
 var cloud={ready:!CLOUD,err:"",busy:false,sc:{},hash:"",admin:null,facs:null,leads:null,tab:"ov",lf:null,sf:null,adminErr:"",adminMsg:"",timer:null};
 function last10(p){return String(p||"").replace(/\D/g,"").slice(-10)}
 function vCloudWait(){
-  return '<div class="top"><div class="brand">Yada</div></div><div class="title-block"><h1>'+(cloud.err?'Cannot connect':'Loading doctors')+'</h1>'+
+  return '<div class="top"><div class="brand">Yada+</div></div><div class="title-block"><h1>'+(cloud.err?'Cannot connect':'Loading doctors')+'</h1>'+
    '<p>'+(cloud.err?esc(cloud.err):'Please wait a moment.')+'</p></div>'+(cloud.err?'<div class="stick"><button class="btn" data-a="cretry">Try again</button></div>':'');
 }
 function cloudApplySettings(){
@@ -2877,7 +2877,7 @@ function adminCounts(){
   var f=d.facilities||{},g=function(k){return f[k]||{listed:0,pending:0}},doc=d.doctors||{listed:0,pending:0};
   var pend=function(o){return o.pending?o.pending+" waiting for review":"None waiting"};
   var sp=(d.specialties||[]);
-  return '<div class="sec">Listed on Yada</div><div class="kpis">'+
+  return '<div class="sec">Listed on Yada+</div><div class="kpis">'+
    kpi("Patients",d.patients,"Registered accounts")+kpi("Doctors and clinics",doc.listed,pend(doc))+
    kpi("Labs",g("lab").listed,pend(g("lab")))+kpi("Diagnostic centres",g("centre").listed,pend(g("centre")))+
    kpi("Hospitals",g("hospital").listed,pend(g("hospital")))+kpi("Pharmacies",g("pharmacy").listed,pend(g("pharmacy")))+kpi("Ambulance services",g("ambulance").listed,pend(g("ambulance")))+kpi("Other facilities",g("other").listed,pend(g("other")))+
@@ -2984,14 +2984,14 @@ function vCloudAdmin(){
      '<div class="sec">Help and support</div><div class="card"><div class="field"><label for="cs-email">Support email</label><input id="cs-email" type="email" value="'+esc(sf.email)+'"></div><div class="field" style="margin-bottom:0"><label for="cs-wa">Support WhatsApp number</label><input id="cs-wa" inputmode="numeric" maxlength="10" value="'+esc(sf.wa)+'"></div></div>'+
      '<div style="height:12px"></div><div style="padding:0 16px"><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>Save settings</button></div></form>';
   }
-  return '<div class="top"><div class="brand">Yada<small>'+(admin?"Admin":"Sales")+'</small></div><button class="btn sm ghost" data-a="logout">Sign out</button></div>'+
+  return '<div class="top"><div class="brand">Yada+<small>'+(admin?"Admin":"Sales")+'</small></div><button class="btn sm ghost" data-a="logout">Sign out</button></div>'+
    '<div class="seg" style="margin:0 16px 12px;grid-template-columns:repeat(auto-fit,minmax(86px,1fr))" role="group" aria-label="Sections">'+tabs.map(function(x){return '<button type="button" data-a="ctab" data-v="'+x[0]+'" aria-pressed="'+(t===x[0])+'">'+x[1]+'</button>'}).join("")+'</div>'+
    (cloud.adminMsg?'<div class="status-line" role="status" style="margin:0 16px 10px">'+esc(cloud.adminMsg)+'</div>':'')+(cloud.adminErr?'<div class="err" style="margin:0 16px 10px">'+esc(cloud.adminErr)+'</div>':'')+body+
    (admin?'<div class="foot" style="text-align:left">Team management and revenue reports are not connected to the live backend yet. Add staff by running the SQL in docs/BACKEND.md.</div>':'');
 }
 
 function vForceUpdate(){
-  return '<div class="top"><div class="brand">Yada</div></div><div class="title-block"><h1>Please update the app</h1><p>A newer version of Yada is required. Install the latest version to keep booking.</p></div>'+
+  return '<div class="top"><div class="brand">Yada+</div></div><div class="title-block"><h1>Please update the app</h1><p>A newer version of Yada+ is required. Install the latest version to keep booking.</p></div>'+
    '<div class="stick">'+(/^https:\/\//.test(UPDURL)?'<a class="btn" href="'+esc(UPDURL)+'">Update now</a>':'')+'</div>';
 }
 function render(scroll){
@@ -3171,7 +3171,7 @@ app.addEventListener("click",function(ev){
     case "mine":state.tab="appts";state.view="list";render(true);break;
     case "ask":state.ask=v;render();break;
     case "keep":state.ask=null;render();break;
-    case "cancel":if(CLOUD){cloudCancel(v);break}appts.forEach(function(x){if(x.id===v){var wasS=x.status;x.status="cancelled";var dd=byId(x.docId);if(state.staff){notify("p:"+x.phone,"Your appointment with "+dd.name+" for "+fmtWhen(x)+" was cancelled by Yada support.")}else notify("d:"+x.docId,x.name+" cancelled the appointment for "+fmtWhen(x)+".")}});state.ask=null;save();render();break;
+    case "cancel":if(CLOUD){cloudCancel(v);break}appts.forEach(function(x){if(x.id===v){var wasS=x.status;x.status="cancelled";var dd=byId(x.docId);if(state.staff){notify("p:"+x.phone,"Your appointment with "+dd.name+" for "+fmtWhen(x)+" was cancelled by Yada+ support.")}else notify("d:"+x.docId,x.name+" cancelled the appointment for "+fmtWhen(x)+".")}});state.ask=null;save();render();break;
     case "resched":
       var ap=null;appts.forEach(function(x){if(x.id===v)ap=x});
       if(ap){state.resched=ap.id;state.docId=ap.docId;state.mode=ap.mode;state.dateKey=null;state.time=null;
@@ -3310,7 +3310,7 @@ window.__nirogBack=function(){
   if(state.tab==="appts"||state.tab==="labs"){state.tab="find";render(true);return true}
   return false;
 };
-/* Press and hold the Yada name for about a second to open staff sign-in. This is the way in for the Android and iOS apps, which have no address bar. */
+/* Press and hold the Yada+ name for about a second to open staff sign-in. This is the way in for the Android and iOS apps, which have no address bar. */
 (function(){
   var holdT=null;
   function stop(){if(holdT){clearTimeout(holdT);holdT=null}}

@@ -71,7 +71,7 @@ async function open(role) {
   check("no page errors (patient)", t.errs.length === 0); await t.b.close();
   t = await open("admin"); pg = t.pg;
   tx = await pg.evaluate(() => document.body.innerText);
-  check("admin lands on the overview with counts", /Listed on Yada/i.test(tx) && /Patients/.test(tx) && /41/.test(tx));
+  check("admin lands on the overview with counts", /Listed on Yada+/i.test(tx) && /Patients/.test(tx) && /41/.test(tx));
   check("category counts are shown", /Labs/.test(tx) && /Diagnostic centres/.test(tx) && /Hospitals/.test(tx) && /Pharmacies/.test(tx) && /Other facilities/.test(tx) && /Doctors and clinics/.test(tx));
   check("pending reviews and installs are shown", /3 waiting for review/.test(tx) && /57/.test(tx) && /49 signed-in users/.test(tx));
   check("doctors by speciality are listed", /Doctors by speciality/i.test(tx) && /Cardiologist/.test(tx));

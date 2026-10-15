@@ -57,4 +57,4 @@ jobs:
           V=1.0.0.${{ github.run_number }}
           cp app/build/outputs/apk/debug/app-debug.apk Yada-v$V.apk
           gh release delete latest-apk --yes --cleanup-tag 2>/dev/null || true
-          gh release create latest-apk Yada-v$V.apk --title "Yada Android app v$V (debug build)" --notes "Version $V. Debug-signed test build. Install on an Android phone for testing." --target "${{ github.sha }}"
+          gh release create latest-apk Yada-v$V.apk --title "Yada+ Android app v$V (debug build)" --notes "Version $V. Debug-signed test build. Install on an Android phone for testing." --target "${{ github.sha }}"

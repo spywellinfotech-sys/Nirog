@@ -1,4 +1,4 @@
-# Yada backend (Supabase): setup, testing and status
+# Yada+ backend (Supabase): setup, testing and status
 
 **Status: Phase 2 is built but only tested against a fake Supabase server.** The app now runs in backend mode when `config.js` holds a project URL and key (it does: project `rxhanrtoaplwphmwpgqg`). Patients sign in with **Google** (`patientAuth: "google"` in `config.js`). SMS codes (`"sms"`, Twilio) and email codes (`"email"`) are still in the code and can be switched on by changing that one value. doctors and admins sign in with email and password. The following has **not** been verified against the live project or on a phone: sign-in, booking, approval, uploads. Do not call the platform fully working until you have run the manual checklist at the end of the Tests section on two real devices.
 
