@@ -30,7 +30,9 @@ $P -f migrations/0016_pharmacy_kind.sql
 $P -f migrations/0017_ambulance_kind.sql
 $P -f migrations/0018_lead_doctor.sql
 $P -f migrations/0019_lead_city.sql
+$P -f migrations/0020_delete_account.sql
 $P -f migrations/0019_lead_city.sql
+$P -f migrations/0020_delete_account.sql
 for t in tests/[0-9]*.sql; do echo "== $t"; $P -f "$t" ; done
 
 echo "== concurrency: 12 patients race for one slot"

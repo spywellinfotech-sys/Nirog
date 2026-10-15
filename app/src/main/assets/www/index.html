@@ -500,12 +500,20 @@ function supMail(){return "mailto:"+SUP.email+"?subject="+encodeURIComponent("Ya
 function waLink(n,who){var t="Hello"+(who?" "+who:"")+", I found you on Yada+ and would like to ask about "+(state.pat?"an appointment. (I am "+state.pat.name+")":"an appointment.");return "https://wa.me/"+waNum(n)+"?text="+encodeURIComponent(t)}
 function supWa(){return "https://wa.me/"+waNum(SUP.wa)+"?text="+encodeURIComponent(supText())}
 function helpFoot(){return '<div style="text-align:center;padding:6px 0 18px"><button class="btn sm ghost" data-a="help">Help and support</button></div>'}
+var PRIVACY_URL='https://spywellinfotech-sys.github.io/Nirog/privacy.html';
+function delSection(){
+  if(!CLOUD||!BE.signedIn())return '';
+  var su=state.staff?getUser(state.staff):null;if(su&&(su.role==="admin"||su.role==="sales"))return '';
+  if(state.delAsk)return '<div class="sec">Delete account</div><div class="card"><div style="font-weight:600;margin-bottom:6px">Delete your account?</div><div class="tiny" style="margin-bottom:12px">Your personal details are erased, open appointments are cancelled and you are signed out. Doctors and facilities are taken off the listing. This cannot be undone.'+(state.delErr?'<div class="err" style="margin-top:8px">'+esc(state.delErr)+'</div>':'')+'</div><div style="display:flex;gap:10px"><button class="btn" style="background:#C62828" data-a="delyes"'+(state.delBusy?' disabled':'')+'>Yes, delete my account</button><button class="btn ghost" data-a="delno">Keep my account</button></div></div>';
+  return '<div style="text-align:center;padding:4px 0 8px"><button class="link" style="font-size:13px;color:#C62828;text-decoration:underline" data-a="delask">Delete my account</button></div>';
+}
 function vHelp(){
   var has=SUP.email||SUP.wa,out='';
   if(SUP.wa)out+='<a class="btn" style="text-decoration:none;display:flex;justify-content:center" href="'+esc(supWa())+'" target="_blank" rel="noopener">Chat on WhatsApp</a>';
   if(SUP.email)out+='<a class="btn ghost" style="text-decoration:none;display:flex;justify-content:center" href="'+esc(supMail())+'" target="_blank" rel="noopener">Email support</a>';
   return '<div class="top"><div class="brand">'+LOGO+'<small>Help</small></div><button class="btn sm ghost" data-a="hclose">Close</button></div><div class="title-block"><h1>Help and support</h1><p>Questions about a booking, a doctor or your account? Reach us here.</p></div>'+
-   '<div class="card" style="display:flex;flex-direction:column;gap:10px">'+(has?out+'<div class="hint">Your message opens ready to send. Support replies during working hours.</div>':'<div class="empty">Support contact is not set up yet. Please check back soon.</div>')+'</div>';
+   '<div class="card" style="display:flex;flex-direction:column;gap:10px">'+(has?out+'<div class="hint">Your message opens ready to send. Support replies during working hours.</div>':'<div class="empty">Support contact is not set up yet. Please check back soon.</div>')+'</div>'+
+   '<div style="text-align:center;padding:6px 0 4px"><a href="'+esc(PRIVACY_URL)+'" target="_blank" rel="noopener noreferrer" style="font-size:13px;color:var(--brand)">Privacy Policy</a></div>'+delSection();
 }
 function supCard(){
   var f=state.supf||(state.supf={email:SUP.email,wa:SUP.wa,err:"",ok:""});
@@ -869,7 +877,7 @@ function vStaff(){
   var newN=admin?0:staffData.leads.filter(function(l){return l.owner===u.id&&l.status==="new"}).length;
   return '<div class="top"><div class="brand">'+LOGO+'<small>'+(admin?"Super admin":isFac?"Facility":isDoc?"Doctor":"Sales team")+'</small></div><div class="topr">'+bellBtn()+'<button class="btn sm ghost" data-a="logout">Sign out</button></div></div>'+
    '<div class="title-block" style="padding-bottom:12px"><h1>'+title+'</h1><p>Signed in as '+esc(u.name)+'</p></div>'+
-   '<div class="stack">'+body+'</div>'+
+   '<div class="stack">'+body+'</div>'+(isDoc||isFac?helpFoot():'')+
    '<nav class="nav stick" style="grid-template-columns:repeat('+tabs.length+',1fr)" aria-label="Staff">'+tabs.map(function(t){
      return '<button data-a="stab" data-v="'+t[0]+'" '+(state.stab===t[0]?'aria-current="page"':'')+'>'+t[2]+t[1]+(t[0]==="leads"&&newN?'<span class="badge tnum">'+newN+'</span>':(t[0]==="appt"&&isDoc&&pendA?'<span class="badge tnum">'+pendA+'</span>':t[0]==="doc"&&pendN?'<span class="badge tnum">'+pendN+'</span>':(t[0]==="labs"&&pendF?'<span class="badge tnum">'+pendF+'</span>':'')))+'</button>';
    }).join("")+'</nav>';
@@ -3048,7 +3056,10 @@ app.addEventListener("click",function(ev){
   if(a!=="notif")state.nb=false;
   switch(a){
     case "help":state.help=true;render(true);break;
-    case "hclose":state.help=false;render(true);break;
+    case "hclose":state.help=false;state.delAsk=false;state.delErr="";render(true);break;
+    case "delask":state.delAsk=true;state.delErr="";render(true);break;
+    case "delno":state.delAsk=false;state.delErr="";render(true);break;
+    case "delyes":(function(){if(state.delBusy)return;state.delBusy=true;state.delErr="";render(true);BE.deleteAccount().then(function(){state.delBusy=false;state.delAsk=false;return cloudLogout()}).then(function(){},function(e){state.delBusy=false;state.delErr=e&&e.message==="staff_cannot_delete"?"Staff accounts are removed by the Yada+ team.":"Could not delete the account. Check your connection and try again.";render(true)})})();break;
     case "notif":openNotif();break;
     case "cretry":cloudLoadDir();break;
     case "google":googleStart();break;

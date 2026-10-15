@@ -6,7 +6,10 @@ do $$ begin
 end $$;
 create schema if not exists auth;
 create table if not exists auth.users (
-  id uuid primary key default gen_random_uuid(), email text, phone text, raw_user_meta_data jsonb default '{}'::jsonb);
+  id uuid primary key default gen_random_uuid(), email text, phone text, raw_user_meta_data jsonb default '{}'::jsonb, banned_until timestamptz);
+create table if not exists auth.identities (user_id uuid);
+create table if not exists auth.sessions (user_id uuid);
+create table if not exists auth.refresh_tokens (user_id varchar);
 create or replace function auth.uid() returns uuid language sql stable as $$
   select coalesce(nullif(current_setting('request.jwt.claim.sub', true), ''),
                   (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'))::uuid $$;

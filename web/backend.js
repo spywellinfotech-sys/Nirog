@@ -58,6 +58,7 @@ function api(path,opt){return token().then(function(t){return rawFetch(path,opt,
 function rpc(name,args){return api("/rest/v1/rpc/"+name,{method:"POST",body:args||{}})}
 function sel(table,qs){return api("/rest/v1/"+table+(qs?"?"+qs:""))}
 BE.registerPush=function(t){return rpc("register_push_token",{p_token:t})};
+BE.deleteAccount=function(){return rpc("delete_my_account",{})};
 BE.dropPush=function(t){return rpc("drop_push_token",{p_token:t})};
 BE.pushBroadcast=function(id){return token().then(function(t){return rawFetch("/functions/v1/send-push",{method:"POST",body:{broadcast_id:id}},t)})};
 BE.rpc=rpc;BE.sel=sel;BE.friendly=friendly;
