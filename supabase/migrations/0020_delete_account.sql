@@ -1,8 +1,9 @@
 -- Account deletion for patients, doctors and facilities (required by app stores).
 -- Personal details are erased or anonymised, open bookings are cancelled, listings are taken down, and the sign-in is closed.
+-- Uploaded files are removed by the app through the Storage API before this runs (Supabase blocks direct deletes from storage tables).
 -- Staff accounts (admin, sales) are managed by the Yada+ team and cannot use this.
 create or replace function public.delete_my_account() returns void
-language plpgsql security definer set search_path = public, auth, storage, pg_temp as $$
+language plpgsql security definer set search_path = public, auth, pg_temp as $$
 declare uid uuid := auth.uid(); r public.app_role; dids bigint[];
 begin
   if uid is null then raise exception 'not_authenticated'; end if;
@@ -25,7 +26,6 @@ begin
   delete from public.doctor_documents where doctor_id = any(dids);
   delete from public.doctor_verification where doctor_id = any(dids);
   delete from public.facilities where user_id = uid;
-  delete from storage.objects where name like uid::text || '/%' and bucket_id in ('doctor-media', 'verification-docs', 'prescriptions');
 
   update public.profiles set full_name = '', phone = null, email = null where id = uid;
   update auth.users set email = null, phone = null, raw_user_meta_data = '{}'::jsonb, banned_until = 'infinity' where id = uid;

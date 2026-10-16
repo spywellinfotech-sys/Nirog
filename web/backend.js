@@ -58,7 +58,17 @@ function api(path,opt){return token().then(function(t){return rawFetch(path,opt,
 function rpc(name,args){return api("/rest/v1/rpc/"+name,{method:"POST",body:args||{}})}
 function sel(table,qs){return api("/rest/v1/"+table+(qs?"?"+qs:""))}
 BE.registerPush=function(t){return rpc("register_push_token",{p_token:t})};
-BE.deleteAccount=function(){return rpc("delete_my_account",{})};
+BE.deleteMyFiles=function(){
+  var uid=BE.userId();if(!uid)return Promise.resolve();
+  return Promise.all(["doctor-media","verification-docs"].map(function(bk){
+    return api("/storage/v1/object/list/"+bk,{method:"POST",body:{prefix:uid,limit:200}}).then(function(l){
+      var names=(l||[]).filter(function(o){return o&&o.name&&o.id}).map(function(o){return uid+"/"+o.name});
+      if(!names.length)return;
+      return api("/storage/v1/object/"+bk,{method:"DELETE",body:{prefixes:names}});
+    }).catch(function(){});
+  }));
+};
+BE.deleteAccount=function(){return BE.deleteMyFiles().then(function(){return rpc("delete_my_account",{})})};
 BE.dropPush=function(t){return rpc("drop_push_token",{p_token:t})};
 BE.pushBroadcast=function(id){return token().then(function(t){return rawFetch("/functions/v1/send-push",{method:"POST",body:{broadcast_id:id}},t)})};
 BE.rpc=rpc;BE.sel=sel;BE.friendly=friendly;
