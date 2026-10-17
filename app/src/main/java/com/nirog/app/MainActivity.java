@@ -140,14 +140,19 @@ public class MainActivity extends Activity {
 
         current = this;
         webView = new WebView(this);
-        setContentView(webView);
-        // Android 15 and newer draw apps edge to edge. Keep the page clear of the status bar, camera cutout and navigation bar.
+        // Android 15 and newer draw apps edge to edge. The WebView sits in a container that keeps it clear of the status bar,
+        // camera cutout, navigation bar and keyboard; the container (not the WebView) takes the insets so they cannot be lost.
+        final android.widget.FrameLayout box = new android.widget.FrameLayout(this);
+        box.setBackgroundColor(0xFFFFF8F0);
+        box.addView(webView, new android.widget.FrameLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+        setContentView(box);
         if (Build.VERSION.SDK_INT >= 35) {
-            webView.setOnApplyWindowInsetsListener((v, ins) -> {
+            box.setOnApplyWindowInsetsListener((v, ins) -> {
                 android.graphics.Insets b = ins.getInsets(android.view.WindowInsets.Type.systemBars() | android.view.WindowInsets.Type.displayCutout() | android.view.WindowInsets.Type.ime());
                 v.setPadding(b.left, b.top, b.right, b.bottom);
                 return android.view.WindowInsets.CONSUMED;
             });
+            box.post(box::requestApplyInsets);
         }
 
         WebSettings settings = webView.getSettings();
