@@ -499,7 +499,7 @@ function supText(){var w=supWho();return "Hello Yada+ support, I need help with:
 function supMail(){return "mailto:"+SUP.email+"?subject="+encodeURIComponent("Yada+ help request")+"&body="+encodeURIComponent(supText())}
 function waLink(n,who){var t="Hello"+(who?" "+who:"")+", I found you on Yada+ and would like to ask about "+(state.pat?"an appointment. (I am "+state.pat.name+")":"an appointment.");return "https://wa.me/"+waNum(n)+"?text="+encodeURIComponent(t)}
 function supWa(){return "https://wa.me/"+waNum(SUP.wa)+"?text="+encodeURIComponent(supText())}
-function helpFoot(){return '<div style="text-align:center;padding:6px 0 18px"><button class="btn sm ghost" data-a="help">Help and support</button></div>'}
+function helpFoot(){return '<div style="text-align:center;padding:6px 0 18px">'+(CLOUD&&BE.signedIn()?'<button class="btn sm ghost" data-a="ref">Refer and earn</button> ':'')+'<button class="btn sm ghost" data-a="help">Help and support</button></div>'}
 var PRIVACY_URL='https://spywellinfotech-sys.github.io/Nirog/privacy.html';
 function delSection(){
   if(!CLOUD||!BE.signedIn())return '';
@@ -1821,7 +1821,7 @@ function vProfile(){
    '<div class="field" style="margin-bottom:0"><div class="foot" style="text-align:left;padding:0">'+(CLOUD&&state.pat.phone.indexOf('@')>-1?'Email: <span class="tnum">'+esc(state.pat.phone)+'</span> (verified)':'Mobile number: <span class="tnum">'+esc(maskPhone(state.pat.phone))+'</span> (verified)')+'</div></div></div>'+
    (r.ok?'<div class="status-line" style="margin:12px 16px 0">'+esc(r.ok)+'</div>':'')+
    '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">Save profile</button></div></form>'+
-   '<div class="card" style="margin-top:12px"><div class="cardhead"><h2>Help and support</h2></div><div class="hint" style="margin-bottom:10px">Questions about a booking or your account? Chat with us on WhatsApp or send an email.</div><button class="btn ghost" data-a="help">Help and support</button></div><div style="height:16px"></div>';
+   '<div class="card" style="margin-top:12px"><div class="cardhead"><h2>Help and support</h2></div><div class="hint" style="margin-bottom:10px">Questions about a booking or your account? Chat with us on WhatsApp or send an email.</div><button class="btn ghost" data-a="help">Help and support</button></div>'+(CLOUD&&BE.signedIn()?'<div class="card" style="margin-top:12px"><div class="cardhead"><h2>Refer and earn</h2></div><div class="hint" style="margin-bottom:10px">Invite friends with your code and earn money in your wallet.</div><button class="btn ghost" data-a="ref">Refer and earn</button></div>':'')+'<div style="height:16px"></div>';
 }
 function saveProfile(){
   var r=state.prof,e={};
@@ -2521,7 +2521,7 @@ function cloudSync(force){
     var h=cloudSig(),ae=document.activeElement,typing=ae&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName);
     if(force||(h!==cloud.hash&&!typing)){cloud.hash=h;render()}
     cloud.hash=h;
-    BE.broadcasts().then(function(l){cloud.bcl=(l||[]).filter(function(b){return !b.revoked_at});bcPopup(cloud.bcl)});pushSync();
+    BE.broadcasts().then(function(l){cloud.bcl=(l||[]).filter(function(b){return !b.revoked_at});bcPopup(cloud.bcl)});pushSync();refAuto();
     if(state.staff&&getUser(state.staff)&&getUser(state.staff).role==="doctor"){
       appts.filter(function(a){return a.status==="pending"}).forEach(function(a){var d=byId(a.docId);if(d)ensureSlots(d,[a.dateKey])});
     }
@@ -2546,7 +2546,7 @@ function pushSync(){try{if(window.NirogNative&&window.NirogNative.pushToken)push
 function cloudLogout(expired){
   try{var pt=window.NirogNative&&window.NirogNative.pushToken&&window.NirogNative.pushToken();if(pt&&BE.signedIn()){BE.dropPush(pt).catch(function(){});try{localStorage.removeItem("nirog-push-"+BE.userId())}catch(e){}}}catch(e){}
   var p=BE.signOut();
-  state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;cloud.facs=null;cloud.leads=null;cloud.sf=null;cloud.bcs=null;cloud.bf=null;cloud.dash=undefined;cloud.ambA=undefined;cloud.af=null;cloud.adminMsg="";cloud.adminErr="";
+  state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;cloud.facs=null;cloud.leads=null;cloud.sf=null;cloud.bcs=null;cloud.bf=null;cloud.dash=undefined;cloud.ambA=undefined;cloud.wds=undefined;cloud.rset=null;cloud.rsf=null;state.rf=null;state.ref=false;cloud.af=null;cloud.adminMsg="";cloud.adminErr="";
   DOCS.forEach(function(d){d.mine=false});
   state.view="list";state.tab="find";state.notif=false;state.help=false;state.ask=null;render(true);
   return p;
@@ -2926,6 +2926,7 @@ function ambFind(id){var r=null;(cloud.ambA||[]).forEach(function(a){if(a.id===i
 function cloudTabLoad(){
   var t=cloud.tab;
   if(t==="ov"&&cloud.dash===undefined&&!cloud.dashLoading){cloud.dashLoading=true;BE.dashCounts().then(function(d){cloud.dashLoading=false;cloud.dash=d;render()},function(e){cloud.dashLoading=false;cloud.dash=false;cloud.adminErr=e.message;render()})}
+  if(t==="pay"&&cloud.wds===undefined&&!cloud.wdLoading){cloud.wdLoading=true;Promise.all([BE.adminWithdrawals("pending"),BE.referralSettings(null)]).then(function(r){cloud.wdLoading=false;cloud.wds=r[0];cloud.rset=r[1];render()},function(e){cloud.wdLoading=false;cloud.wds=[];cloud.adminErr=e.message;render()})}
   if(t==="amb"&&cloud.ambA===undefined&&!cloud.ambLoading){cloud.ambLoading=true;BE.ambulances().then(function(l){cloud.ambLoading=false;cloud.ambA=l;render()},function(e){cloud.ambLoading=false;cloud.ambA=[];cloud.adminErr=e.message;render()})}
   if(t==="doc"&&cloud.admin===null)cloudAdminLoad();
   if(t==="fac"&&cloud.facs===null)BE.adminFacilities().then(function(l){cloud.facs=l;render()},function(e){cloud.facs=[];cloud.adminErr=e.message;render()});
@@ -2964,7 +2965,7 @@ function cloudSaveSettings(){
 }
 function vCloudAdmin(){
   var u=getUser(state.staff),admin=u.role==="admin";
-  var tabs=admin?[["ov","Overview"],["doc","Doctors"],["fac","Facilities"],["lead","Leads"],["bc","Notify"],["amb","Ambulance"],["set","Settings"]]:[["lead","Leads"]];
+  var tabs=admin?[["ov","Overview"],["doc","Doctors"],["fac","Facilities"],["lead","Leads"],["bc","Notify"],["amb","Ambulance"],["pay","Payouts"],["set","Settings"]]:[["lead","Leads"]];
   if(!tabs.some(function(t){return t[0]===cloud.tab}))cloud.tab=tabs[0][0];
   cloudTabLoad();
   var t=cloud.tab,body="";
@@ -2972,6 +2973,8 @@ function vCloudAdmin(){
     body=adminCounts();
   }else if(t==="amb"){
     body=ambAdmin();
+  }else if(t==="pay"){
+    body=refAdmin();
   }else if(t==="doc"){
     var L=cloud.admin||[],pend=L.filter(function(d){return d.status==="pending"}),oth=L.filter(function(d){return d.status!=="pending"});
     body='<div class="sec">Waiting for review ('+pend.length+')</div>'+(pend.length?pend.map(function(d){return cloudCard(d,"doc")}).join(""):'<div class="empty">No doctors waiting.</div>')+(oth.length?'<div class="sec">Reviewed</div>'+oth.map(function(d){return cloudCard(d,"doc")}).join(""):'');
@@ -3006,12 +3009,73 @@ function vForceUpdate(){
   return '<div class="top"><div class="brand">'+LOGO+'</div></div><div class="title-block"><h1>Please update the app</h1><p>A newer version of Yada+ is required. Install the latest version to keep booking.</p></div>'+
    '<div class="stick">'+(/^https:\/\//.test(UPDURL)?'<a class="btn" href="'+esc(UPDURL)+'">Update now</a>':'')+'</div>';
 }
+/* Refer and earn: code, wallet and UPI withdrawal. Rewards are paid by the server; the admin pays withdrawals by hand. */
+var WEB_URL='https://spywellinfotech-sys.github.io/Nirog/';
+try{var _rq=new URLSearchParams(location.search).get("ref");if(_rq&&/^[A-Za-z0-9]{4,12}$/.test(_rq))localStorage.setItem("yada-ref",_rq.toUpperCase())}catch(e){}
+function refAuto(){try{var c=localStorage.getItem("yada-ref");if(!c||!CLOUD||!BE.signedIn())return;localStorage.removeItem("yada-ref");BE.applyReferral(c).then(function(){if(state.rf)state.rf.data=undefined},function(){})}catch(e){}}
+function refLoad(force){
+  if(!CLOUD||!BE.signedIn())return;
+  var r=state.rf=state.rf||{};
+  if((r.data===undefined||force)&&!r.loading){r.loading=true;BE.myReferral().then(function(d){r.loading=false;r.data=d;render()},function(e){r.loading=false;r.data=false;r.err=e.message;render()})}
+}
+function refShareText(c){return "Install Yada+ to book doctors, labs and hospitals near you. Use my code "+c+" when you sign up.\n"+WEB_URL+"?ref="+c}
+function vRef(){
+  var r=state.rf||(state.rf={}),d=r.data,top='<div class="top"><div class="brand">'+LOGO+'<small>Refer and earn</small></div><button class="btn sm ghost" data-a="refclose">Close</button></div>';
+  if(!CLOUD||!BE.signedIn())return top+'<div class="empty" style="margin-top:20px">Sign in to get your referral code.</div>';
+  refLoad();
+  if(d===undefined||d===null)return top+'<div class="empty" style="margin-top:20px">Loading...</div>';
+  if(d===false)return top+'<div class="empty" style="margin-top:20px">'+esc(r.err||"Could not load.")+'</div><div style="padding:0 16px"><button class="btn" data-a="refretry">Try again</button></div>';
+  var rt=d.rates,msg=(r.err?'<div class="err" role="alert" style="margin:0 16px 10px">'+esc(r.err)+'</div>':'')+(r.msg?'<div class="status-line" role="status" style="margin:0 16px 10px">'+esc(r.msg)+'</div>':'');
+  var wdPend=(d.withdrawals||[]).some(function(w){return w.status==="pending"});
+  var out=top+'<div class="title-block"><h1>Refer and earn</h1><p>Invite friends and earn money in your wallet.</p></div>'+msg+
+   '<div class="card" style="text-align:center"><div class="tiny">Wallet balance</div><div class="tnum" style="font-size:34px;font-weight:700;color:var(--brand)">'+money(d.balance)+'</div></div>'+
+   '<div class="card"><div class="tiny">Your referral code</div><div class="tnum" style="font-size:26px;font-weight:700;letter-spacing:.1em;margin:4px 0 12px">'+esc(d.code)+'</div>'+
+   '<div style="display:flex;gap:10px"><a class="btn" style="text-decoration:none;display:flex;justify-content:center;flex:1" href="https://wa.me/?text='+encodeURIComponent(refShareText(d.code))+'" target="_blank" rel="noopener">Share on WhatsApp</a><button class="btn ghost" data-a="refcopy" data-v="'+esc(d.code)+'">Copy</button></div></div>'+
+   '<div class="card"><div style="font-weight:600;margin-bottom:6px">How you earn</div><div class="tiny" style="line-height:1.6">'+money(rt.doctor)+' when a doctor you invited is approved.<br>'+money(rt.facility)+' when a lab, hospital, pharmacy or ambulance you invited is approved.<br>'+money(rt.patient)+' for every new patient who installs the app with your code.<br>Your friend must enter your code within 3 days of signing up.</div>'+
+   '<div class="tiny" style="margin-top:8px">Invited so far: '+d.counts.doctor+' doctors, '+d.counts.facility+' facilities, '+d.counts.patient+' patients.</div></div>';
+  if(!d.applied)out+='<div class="card"><div style="font-weight:600;margin-bottom:6px">Got a friend\'s code?</div><div class="field" style="margin-bottom:10px"><input id="rf-code" maxlength="12" autocapitalize="characters" placeholder="Enter code" value="'+esc(r.code||"")+'"></div><button class="btn ghost" data-a="refapply"'+(r.busy?' disabled':'')+'>Add code</button></div>';
+  out+='<div class="card"><div style="font-weight:600;margin-bottom:6px">Withdraw to UPI</div><div class="tiny" style="margin-bottom:10px">Minimum '+money(d.min_withdraw)+'. We pay by UPI within a few working days.</div>'+
+   (wdPend?'<div class="tiny">You have a withdrawal waiting for payment.</div>':'<div class="field"><label for="rf-upi">UPI id</label><input id="rf-upi" autocapitalize="none" autocomplete="off" placeholder="name@bank" value="'+esc(r.upi||"")+'"></div><div class="field"><label for="rf-amt">Amount (₹)</label><input id="rf-amt" inputmode="numeric" maxlength="6" value="'+esc(r.amt!==undefined?r.amt:d.balance>=d.min_withdraw?String(d.balance):"")+'"></div><button class="btn" data-a="refwd"'+(r.busy?' disabled':'')+'>Withdraw</button>')+'</div>';
+  if((d.withdrawals||[]).length)out+='<div class="sec">Withdrawals</div>'+d.withdrawals.map(function(w){return '<div class="appt"><div class="who"><div><div class="doc-name tnum">'+money(w.amount)+' to '+esc(w.upi)+'</div><div class="tiny">'+new Date(w.at).toLocaleDateString("en-IN")+(w.utr?' · Ref '+esc(w.utr):'')+(w.note?' · '+esc(w.note):'')+'</div></div><span class="pill'+(w.status==="paid"?'':' warn')+'">'+(w.status==="paid"?"Paid":w.status==="rejected"?"Not paid":"Waiting")+'</span></div></div>'}).join("");
+  if((d.history||[]).length)out+='<div class="sec">Wallet history</div>'+d.history.map(function(x){return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(x.note)+'</div><div class="tiny">'+new Date(x.at).toLocaleDateString("en-IN")+'</div></div><b class="tnum" style="color:'+(x.amount>0?'#2E7D32':'#C62828')+'">'+(x.amount>0?'+':'-')+money(Math.abs(x.amount))+'</b></div></div>'}).join("");
+  return out+'<div style="height:24px"></div>';
+}
+function refRun(p,okMsg){
+  var r=state.rf;r.busy=true;r.err="";r.msg="";render();
+  p.then(function(){r.busy=false;r.msg=okMsg;r.data=undefined;r.code="";r.amt=undefined;refLoad(true);render()},function(e){r.busy=false;r.err=e.message;render()});
+}
+function refAdmin(){
+  var L=cloud.wds,s=cloud.rset,f=cloud.rsf=cloud.rsf||{};
+  var out='<div class="sec">Withdrawals waiting for payment ('+(L?L.length:0)+')</div>';
+  if(cloud.adminMsg)out+='<div class="status-line" role="status" style="margin:0 16px 10px">'+esc(cloud.adminMsg)+'</div>';
+  if(cloud.adminErr)out+='<div class="err" role="alert" style="margin:0 16px 10px">'+esc(cloud.adminErr)+'</div>';
+  out+=!L?'<div class="empty">Loading...</div>':L.length?L.map(function(w){return '<div class="appt"><div class="who"><div><div class="doc-name tnum">'+money(w.amount)+' to '+esc(w.upi)+'</div><div class="tiny">'+esc(w.name||"-")+' · '+esc(w.role)+(w.phone?' · '+esc(w.phone):'')+' · '+new Date(w.at).toLocaleDateString("en-IN")+'</div></div></div>'+
+     '<div class="field" style="margin:0"><input id="wd-utr-'+w.id+'" placeholder="UTR / reference no. after paying"></div><div class="field" style="margin:0"><input id="wd-note-'+w.id+'" placeholder="Note (needed only to reject)"></div>'+
+     '<div class="acts"><button class="btn sm" data-a="wdpaid" data-v="'+w.id+'"'+(cloud.busy?' disabled':'')+'>Mark paid</button><button class="btn sm ghost" data-a="wdrej" data-v="'+w.id+'"'+(cloud.busy?' disabled':'')+'>Reject</button></div></div>'}).join(""):'<div class="empty">No withdrawals waiting.</div>';
+  out+='<div class="sec">Referral rewards (₹)</div><div class="card"><div class="field"><label for="rs-doc">Per approved doctor</label><input id="rs-doc" inputmode="numeric" value="'+esc(f.doc!==undefined?f.doc:s?s.doctor_inr:"")+'"></div><div class="field"><label for="rs-fac">Per approved facility</label><input id="rs-fac" inputmode="numeric" value="'+esc(f.fac!==undefined?f.fac:s?s.facility_inr:"")+'"></div><div class="field"><label for="rs-pat">Per new patient</label><input id="rs-pat" inputmode="numeric" value="'+esc(f.pat!==undefined?f.pat:s?s.patient_inr:"")+'"></div><div class="field"><label for="rs-min">Minimum withdrawal</label><input id="rs-min" inputmode="numeric" value="'+esc(f.min!==undefined?f.min:s?s.min_withdraw:"")+'"></div><button class="btn" data-a="rssave"'+(cloud.busy?' disabled':'')+'>Save rewards</button></div>';
+  return out;
+}
+function wdDo(id,dec){
+  var utr=(document.getElementById("wd-utr-"+id)||{}).value||"",note=(document.getElementById("wd-note-"+id)||{}).value||"";
+  if(dec==="reject"&&!note.trim()){cloud.adminErr="Write a short reason to reject.";cloud.adminMsg="";render();return}
+  cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";render();
+  BE.decideWithdrawal(id,dec,utr.trim(),note.trim()).then(function(){cloud.busy=false;cloud.adminMsg=dec==="paid"?"Marked as paid.":"Rejected. The amount went back to the wallet.";cloud.wds=undefined;render()},function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
+}
+function rsSave(){
+  function g(i){return (document.getElementById(i)||{}).value||""}
+  var v={doctor_inr:g("rs-doc"),facility_inr:g("rs-fac"),patient_inr:g("rs-pat"),min_withdraw:g("rs-min")},p={};
+  for(var k in v){if(!/^\d{1,5}$/.test(v[k].trim())){cloud.adminErr="Enter whole rupee amounts only.";cloud.adminMsg="";render();return}p[k]=+v[k]}
+  if(p.min_withdraw<1){cloud.adminErr="Minimum withdrawal must be at least 1.";render();return}
+  cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";render();
+  BE.referralSettings(p).then(function(s){cloud.busy=false;cloud.rset=s;cloud.rsf=null;cloud.adminMsg="Saved.";render()},function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
+}
 function render(scroll){
   var h,showNav=false;
   if(CLOUD&&!cloud.ready){app.innerHTML=vCloudWait();return}
   if(CLOUD&&APPB>0&&MINB>APPB){app.innerHTML=vForceUpdate();return}
   if(state.notif&&notifKey()){app.innerHTML=vNotif();if(scroll)window.scrollTo(0,0);return}
   if(state.help){app.innerHTML=vHelp();if(scroll)window.scrollTo(0,0);return}
+  if(state.ref){app.innerHTML=vRef();if(scroll)window.scrollTo(0,0);return}
   if(state.amb){ambLoad();app.innerHTML=vAmb();if(scroll)window.scrollTo(0,0);return}
   state.notif=false;
   if(state.staff){var _su=getUser(state.staff);app.innerHTML=nbHtml()+(CLOUD&&_su&&(_su.role==="admin"||_su.role==="sales")?vCloudAdmin():vStaff())+lbHtml();if(scroll)window.scrollTo(0,0);return}
@@ -3059,7 +3123,7 @@ app.addEventListener("click",function(ev){
     case "hclose":state.help=false;state.delAsk=false;state.delErr="";render(true);break;
     case "delask":state.delAsk=true;state.delErr="";render(true);break;
     case "delno":state.delAsk=false;state.delErr="";render(true);break;
-    case "delyes":(function(){if(state.delBusy)return;state.delBusy=true;state.delErr="";render(true);BE.deleteAccount().then(function(){state.delBusy=false;state.delAsk=false;return cloudLogout()}).then(function(){},function(e){state.delBusy=false;state.delErr=e&&e.message==="staff_cannot_delete"?"Staff accounts are removed by the Yada+ team.":"Could not delete the account. Check your connection and try again.";render(true)})})();break;
+    case "delyes":(function(){if(state.delBusy)return;state.delBusy=true;state.delErr="";render(true);BE.deleteAccount().then(function(){state.delBusy=false;state.delAsk=false;return cloudLogout()}).then(function(){},function(e){state.delBusy=false;state.delErr=e&&e.code==="staff_cannot_delete"?"Staff accounts are removed by the Yada+ team.":"Could not delete the account. Check your connection and try again.";render(true)})})();break;
     case "notif":openNotif();break;
     case "cretry":cloudLoadDir();break;
     case "google":googleStart();break;
@@ -3114,6 +3178,15 @@ app.addEventListener("click",function(ev){
     case "rejask":state.rask=v;render();break;
     case "rejno":state.rask=null;render();break;
     case "rejgo":rejectAppt(v);render();break;
+    case "ref":state.ref=true;state.rf=state.rf||{};state.rf.data=undefined;state.rf.err="";state.rf.msg="";render(true);break;
+    case "refclose":state.ref=false;render(true);break;
+    case "refretry":state.rf.data=undefined;state.rf.err="";render();break;
+    case "refcopy":(function(){var c=v,r=state.rf;try{navigator.clipboard.writeText(c).then(function(){r.msg="Code copied.";render()},function(){r.msg="Your code is "+c;render()})}catch(e){r.msg="Your code is "+c;render()}})();break;
+    case "refapply":(function(){var r=state.rf,c=((document.getElementById("rf-code")||{}).value||"").trim();r.code=c;if(c.length<4){r.err="Enter the code your friend gave you.";r.msg="";render();return}refRun(BE.applyReferral(c),"Code added. Your friend will get the reward.")})();break;
+    case "refwd":(function(){var r=state.rf,u=((document.getElementById("rf-upi")||{}).value||"").trim(),a=((document.getElementById("rf-amt")||{}).value||"").trim();r.upi=u;r.amt=a;if(!/^[A-Za-z0-9._-]{2,64}@[A-Za-z0-9]{2,32}$/.test(u)){r.err="Enter a valid UPI id, like name@bank.";r.msg="";render();return}if(!/^\d{1,6}$/.test(a)||+a<1){r.err="Enter the amount in whole rupees.";r.msg="";render();return}refRun(BE.requestWithdrawal(+a,u),"Withdrawal requested. We will pay it to your UPI id.")})();break;
+    case "wdpaid":wdDo(+v,"paid");break;
+    case "wdrej":wdDo(+v,"reject");break;
+    case "rssave":rsSave();break;
     case "amb":state.amb=true;render(true);break;
     case "ambclose":state.amb=false;render(true);break;
     case "regdoc":state.view="register";state.reg=newReg();state.regDone=null;state.tab="find";render(true);break;
@@ -3317,6 +3390,7 @@ app.addEventListener("submit",function(ev){
 /* Back button support for the Android wrapper. Returns true when it handled the press. */
 window.__nirogBack=function(){
   if(state.staff)return false;
+  if(state.ref){state.ref=false;render(true);return true}
   if(state.amb){state.amb=false;render(true);return true}
   if(state.lb){state.lb=null;render();return true}
   if(state.view==="confirm"){state.view="doctor";render(true);return true}

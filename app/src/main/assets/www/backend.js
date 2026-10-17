@@ -15,7 +15,7 @@ function saveSess(s){BE.sess=s;if(s)ls("s",SKEY,JSON.stringify({access_token:s.a
 loadSess();
 
 function friendly(code,status){
-  var m={slot_taken:"Someone just booked that time. Please pick another slot.",slot_unavailable:"That time is not available any more.",doctor_unavailable:"This doctor is not taking bookings right now.",
+  var m={invalid_code:"That code was not found.",own_code:"You cannot use your own code.",already_applied:"A code was already added to this account.",too_late:"A code can only be added within 3 days of signing up.",invalid_upi:"Enter a valid UPI id, like name@bank.",below_minimum:"The amount is below the minimum withdrawal.",insufficient_balance:"The amount is more than your wallet balance.",pending_exists:"You already have a withdrawal waiting for payment.",not_allowed:"Staff accounts cannot use referral codes.",utr_required:"Enter the UTR / reference number of the payment.",already_decided:"This request was already handled.",slot_taken:"Someone just booked that time. Please pick another slot.",slot_unavailable:"That time is not available any more.",doctor_unavailable:"This doctor is not taking bookings right now.",
     not_authenticated:"Please sign in again.",patients_only:"Only patient accounts can book appointments.",too_many_active_bookings:"You have too many active bookings. Cancel one first.",
     not_pending:"This request was already handled.",not_cancellable:"This appointment can no longer be cancelled.",booking_not_found:"Appointment not found.",admins_only:"Only admins can do this.",
     doctors_only:"Only doctors can do this.",visit_not_done:"You can rate a visit after the appointment time has passed.",booking_not_confirmed:"Only confirmed visits can be rated.",invalid_rating:"Choose 1 to 5 stars.",comment_too_long:"Keep the review under 500 characters.",booking_not_found:"That appointment was not found.",has_bookings:"This doctor has bookings, so the profile cannot be deleted. Reject it instead.",not_found:"That profile was not found. It may already be deleted.",phone_in_use:"This mobile number is already registered with Yada+. Use a different number, or sign in with the account that has it.",already_registered:"This account is already registered as a doctor, facility or staff member.",account_has_bookings:"This account already has bookings, so it cannot become a doctor or facility. Use a different number or email.",
@@ -204,6 +204,12 @@ BE.setCity=function(city){var id=BE.userId();if(!id)return Promise.resolve();ret
 BE.sendBroadcast=function(p){return rpc("admin_send_broadcast",{p:p})};
 BE.deleteBroadcast=function(id){return rpc("admin_delete_broadcast",{p_id:id})};
 BE.revokeBroadcast=function(id){return rpc("admin_revoke_broadcast",{p_id:id})};
+BE.myReferral=function(){return rpc("my_referral",{})};
+BE.applyReferral=function(c){return rpc("apply_referral",{p_code:c})};
+BE.requestWithdrawal=function(a,u){return rpc("request_withdrawal",{p_amount:a,p_upi:u})};
+BE.adminWithdrawals=function(s){return rpc("admin_withdrawals",{p_status:s||"pending"})};
+BE.decideWithdrawal=function(id,d,utr,note){return rpc("admin_decide_withdrawal",{p_id:id,p_decision:d,p_utr:utr||null,p_note:note||null})};
+BE.referralSettings=function(p){return rpc("admin_referral_settings",{p:p||null})};
 BE.dashCounts=function(){return rpc("admin_dashboard_counts",{})};
 BE.ambulances=function(){return sel("ambulance_services","select=*&order=kind.asc,name.asc&limit=300")};
 BE.saveAmbulance=function(p){return rpc("admin_save_ambulance",{p:p})};

@@ -154,3 +154,10 @@ Super admin > Notify: title, message, optional photo and short video (MP4/WebM, 
 ## Ambulance services self-register (migration 0017)
 - Facility type `ambulance` goes through the same `register_facility` and admin review as other facilities. The mobile number in `wa` is required for this type and becomes a Call button; `emergency` means available 24x7.
 - Approved ambulance facilities are merged into the Ambulance page (per city) with the admin-curated `ambulance_services` list. Pending or rejected ones never show.
+
+## Referral programme and wallet (migration 0021)
+- Every signed-in user has a code (`my_referral`). A new user adds a friend's code within 3 days of signing up (`apply_referral`), or opens an invite link ending in `?ref=CODE` (the app applies it once after sign-in).
+- Rewards (admin can change them in Admin > Payouts): Rs 1 per new patient (paid at once, capped per day), Rs 10 per doctor and Rs 10 per facility (paid only when the admin approves the registration).
+- The wallet balance is the sum of `wallet_ledger`. `request_withdrawal` holds the amount; the admin pays the UPI id by hand in a UPI app, then enters the UTR in Admin > Payouts (`admin_decide_withdrawal`). Rejecting returns the money to the wallet.
+- The app never moves money. Before launch check tax rules (TDS/GST) and Play Store policy for paying users for installs.
+- The Android app has no install-referrer link yet: a friend types the code (or opens the web link). Play Install Referrer can be added later.
