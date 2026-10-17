@@ -18,6 +18,13 @@ android {
     // Release signing comes from environment variables set by the "Build Play Store bundle" workflow. Local and debug builds ignore it.
     val ksPath = System.getenv("KEYSTORE_PATH")
     signingConfigs {
+        // Fixed test key (public on purpose, never used for the Play Store) so every CI build can update the one before it.
+        getByName("debug") {
+            storeFile = file("keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (ksPath != null) {
             create("release") {
                 storeFile = file(ksPath)
