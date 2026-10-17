@@ -2910,7 +2910,7 @@ function cloudDelete(kind,id){
 }
 /* One-line activity summary on each doctor card (super admin). Full numbers are under Full profile. */
 function docStatLine(id){
-  var s=cloud.dst&&cloud.dst[id];if(!s)return '';
+  var s=cloud.dst&&cloud.dst[id];if(!s||typeof s.total!=="number")return '';
   return '<div class="tiny" style="margin-top:4px;font-weight:600">Appointments '+s.total+' ('+s.confirmed+' confirmed) · Video '+s.video+' · In-clinic '+s.clinic+' · Prescriptions '+s.prescriptions+' · Platform earned '+money(s.platform_fees)+'</div>';
 }
 function docStatsLoad(list){
