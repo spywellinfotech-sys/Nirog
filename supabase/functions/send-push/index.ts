@@ -1,4 +1,6 @@
-// Sends a broadcast as a phone push notification (Firebase Cloud Messaging, HTTP v1). Only a super admin may call it.
+// Sends phone push notifications (Firebase Cloud Messaging, HTTP v1).
+//  1) Broadcast: a super admin calls it with {broadcast_id}.
+//  2) Notification: the database trigger calls it with {notification_id} and the private x-push-key (kept in table push_internal).
 // Secrets: FIREBASE_SERVICE_ACCOUNT (the service account JSON, required). SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
@@ -39,9 +41,55 @@ async function accessToken(sa: any) {
   return j.access_token as string;
 }
 
+// Sends one message to many tokens and drops tokens FCM says are gone.
+async function fcm(sa: any, tokens: string[], notification: any, data: Record<string, string>) {
+  const at = await accessToken(sa);
+  const dead: string[] = []; let sent = 0, failed = 0; let reason = "";
+  const send = async (token: string) => {
+    const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
+      method: "POST", headers: { authorization: `Bearer ${at}`, "content-type": "application/json" },
+      body: JSON.stringify({ message: { token, notification, android: { priority: "HIGH", notification: { channel_id: "nirog_broadcasts" } }, data } }),
+    });
+    if (r.ok) { sent++; return; }
+    failed++;
+    const j = await r.json().catch(() => ({}));
+    const gone = JSON.stringify(j).includes("UNREGISTERED") || r.status === 404;
+    if (gone) dead.push(token); else { console.error("fcm", r.status, JSON.stringify(j).slice(0, 300)); if (!reason) reason = `${r.status} ${(j as any)?.error?.status || ""} ${String((j as any)?.error?.message || "").slice(0, 160)}`.trim(); }
+  };
+  for (let i = 0; i < tokens.length; i += 25) await Promise.all(tokens.slice(i, i + 25).map(send));
+  let removed = 0;
+  if (dead.length) { const { data: n } = await db.rpc("remove_push_tokens", { p_tokens: dead }); removed = Number(n) || 0; }
+  return { total: tokens.length, sent, failed, removed, reason };
+}
+
+function loadSa() {
+  const raw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
+  if (!raw) return null;
+  try { const sa = JSON.parse(raw); return sa.project_id && sa.client_email && sa.private_key ? sa : null; } catch { return null; }
+}
+
+// A database trigger asks for one notification to be pushed to its owner's phones.
+async function pushNotification(req: Request, key: string) {
+  const { data: pi } = await db.from("push_internal").select("key").eq("id", true).maybeSingle();
+  if (!pi || pi.key !== key) return out({ error: "not_authenticated" }, 401);
+  let b: any; try { b = await req.json(); } catch { return out({ error: "bad_request" }, 400); }
+  const id = Number(b.notification_id);
+  if (!Number.isInteger(id) || id < 1) return out({ error: "bad_request" }, 400);
+  const sa = loadSa(); if (!sa) return out({ error: "push_not_configured" }, 503);
+  const { data: n } = await db.from("notifications").select("user_id,body,broadcast_id").eq("id", id).maybeSingle();
+  if (!n || n.broadcast_id) return out({ ok: true, total: 0 });
+  const { data: rows } = await db.from("push_tokens").select("token").eq("user_id", n.user_id);
+  const tokens: string[] = [...new Set((rows || []).map((r: any) => r.token as string))];
+  if (!tokens.length) return out({ ok: true, total: 0 });
+  try { return out({ ok: true, ...(await fcm(sa, tokens, { title: "Yada+", body: String(n.body).slice(0, 200) }, { notification_id: String(id) })) }); }
+  catch { return out({ error: "push_auth_failed" }, 502); }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (req.method !== "POST") return out({ error: "method" }, 405);
+  const pk = req.headers.get("x-push-key");
+  if (pk) return await pushNotification(req, pk);
   const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!jwt) return out({ error: "not_authenticated" }, 401);
   const { data: u } = await db.auth.getUser(jwt);
@@ -52,10 +100,7 @@ Deno.serve(async (req) => {
   let b: any; try { b = await req.json(); } catch { return out({ error: "bad_request" }, 400); }
   const id = Number(b.broadcast_id);
   if (!Number.isInteger(id) || id < 1) return out({ error: "bad_request" }, 400);
-  const raw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
-  if (!raw) return out({ error: "push_not_configured" }, 503);
-  let sa: any; try { sa = JSON.parse(raw); } catch { return out({ error: "push_not_configured" }, 503); }
-  if (!sa.project_id || !sa.client_email || !sa.private_key) return out({ error: "push_not_configured" }, 503);
+  const sa = loadSa(); if (!sa) return out({ error: "push_not_configured" }, 503);
 
   const { data: bc } = await db.from("broadcasts").select("id,title,body,image_path").eq("id", id).maybeSingle();
   if (!bc) return out({ error: "not_found" }, 404);
@@ -64,24 +109,9 @@ Deno.serve(async (req) => {
   const tokens: string[] = [...new Set((rows || []).map((r: any) => r.token as string))];
   if (!tokens.length) return out({ ok: true, total: 0, sent: 0, failed: 0, removed: 0 });
 
-  let at: string; try { at = await accessToken(sa); } catch { return out({ error: "push_auth_failed" }, 502); }
   const image = bc.image_path ? `${URL_}/storage/v1/object/public/broadcast-media/${bc.image_path}` : undefined;
   const notification: any = { title: bc.title, body: bc.body || bc.title };
   if (image) notification.image = image;
-  const dead: string[] = []; let sent = 0, failed = 0; let reason = "";
-  const send = async (token: string) => {
-    const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
-      method: "POST", headers: { authorization: `Bearer ${at}`, "content-type": "application/json" },
-      body: JSON.stringify({ message: { token, notification, android: { priority: "HIGH", notification: { channel_id: "nirog_broadcasts" } }, data: { broadcast_id: String(id) } } }),
-    });
-    if (r.ok) { sent++; return; }
-    failed++;
-    const j = await r.json().catch(() => ({}));
-    const code = JSON.stringify(j).includes("UNREGISTERED") || r.status === 404;
-    if (code) dead.push(token); else { console.error("fcm", r.status, JSON.stringify(j).slice(0, 300)); if (!reason) reason = `${r.status} ${(j as any)?.error?.status || ""} ${String((j as any)?.error?.message || "").slice(0, 160)}`.trim(); }
-  };
-  for (let i = 0; i < tokens.length; i += 25) await Promise.all(tokens.slice(i, i + 25).map(send));
-  let removed = 0;
-  if (dead.length) { const { data: n } = await db.rpc("remove_push_tokens", { p_tokens: dead }); removed = Number(n) || 0; }
-  return out({ ok: true, total: tokens.length, sent, failed, removed, reason });
+  try { return out({ ok: true, ...(await fcm(sa, tokens, notification, { broadcast_id: String(id) })) }); }
+  catch { return out({ error: "push_auth_failed" }, 502); }
 });

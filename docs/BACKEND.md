@@ -161,3 +161,8 @@ Super admin > Notify: title, message, optional photo and short video (MP4/WebM, 
 - The wallet balance is the sum of `wallet_ledger`. `request_withdrawal` holds the amount; the admin pays the UPI id by hand in a UPI app, then enters the UTR in Admin > Payouts (`admin_decide_withdrawal`). Rejecting returns the money to the wallet.
 - The app never moves money. Before launch check tax rules (TDS/GST) and Play Store policy for paying users for installs.
 - The Android app has no install-referrer link yet: a friend types the code (or opens the web link). Play Install Referrer can be added later.
+
+## Push for every notification (migration 0024)
+- A trigger on `notifications` calls the `send-push` Edge Function (through pg_net) for each new notification that is not part of a broadcast: new booking request to the doctor, approval or rejection to the patient, cancellations, prescriptions, referral rewards, listing approval. Facilities have no bookings, so they only get listing and wallet notifications.
+- It is switched on by one line of SQL (the URL is empty until then): `update public.push_internal set url = 'https://<project>.supabase.co/functions/v1/send-push';` The private key the trigger sends lives in `push_internal` and is not readable by the app.
+- Push is best effort: if it fails the booking still works and the notification still shows in the bell.
