@@ -69,16 +69,16 @@ select t.login(:'A1');
 select t.ok((public.my_referral() ->> 'balance')::int = 22, 'approved facility pays Rs 10');
 
 -- Withdrawals
-select t.denied($$select public.request_withdrawal(100, 'asha@upi')$$, 'insufficient_balance', 'cannot withdraw more than the balance');
-select t.denied($$select public.request_withdrawal(10, 'asha@upi')$$, 'below_minimum', 'cannot withdraw below the minimum');
-select t.denied($$select public.request_withdrawal(50, 'not an upi')$$, 'invalid_upi', 'bad UPI id is refused');
+select t.denied($$select public.request_withdrawal(100, 'asha@upi', '9876543210')$$, 'insufficient_balance', 'cannot withdraw more than the balance');
+select t.denied($$select public.request_withdrawal(10, 'asha@upi', '9876543210')$$, 'below_minimum', 'cannot withdraw below the minimum');
+select t.denied($$select public.request_withdrawal(50, 'not an upi', '9876543210')$$, 'invalid_upi', 'bad UPI id is refused');
 select t.root();
 update public.referral_settings set min_withdraw = 20;
 select t.login(:'A1');
-select public.request_withdrawal(20, 'Asha@OKbank') as wid \gset
+select public.request_withdrawal(20, 'Asha@OKbank', '9876543210') as wid \gset
 select t.ok((public.my_referral() ->> 'balance')::int = 2, 'a withdrawal request holds the amount');
 select t.ok((public.my_referral() -> 'withdrawals' -> 0 ->> 'upi') = 'asha@okbank', 'UPI id is stored lower case');
-select t.denied($$select public.request_withdrawal(20, 'asha@upi')$$, 'pending_exists', 'only one pending request at a time');
+select t.denied($$select public.request_withdrawal(20, 'asha@upi', '9876543210')$$, 'pending_exists', 'only one pending request at a time');
 select t.denied($$select public.admin_withdrawals()$$, 'admins_only', 'users cannot list payouts');
 select t.denied(format($$select public.admin_decide_withdrawal(%s, 'paid', 'X1')$$, :wid), 'admins_only', 'users cannot pay out');
 select t.login(:'ADM');
@@ -87,7 +87,7 @@ select t.denied(format($$select public.admin_decide_withdrawal(%s, 'paid')$$, :w
 select public.admin_decide_withdrawal(:wid, 'reject', null, 'wrong UPI');
 select t.login(:'A1');
 select t.ok((public.my_referral() ->> 'balance')::int = 22, 'a rejected withdrawal returns the money');
-select public.request_withdrawal(22, 'asha@okbank') as wid2 \gset
+select public.request_withdrawal(22, 'asha@okbank', '9876543210') as wid2 \gset
 select t.login(:'ADM');
 select public.admin_decide_withdrawal(:wid2, 'paid', 'UTR123456');
 select t.denied(format($$select public.admin_decide_withdrawal(%s, 'reject')$$, :wid2), 'already_decided', 'a paid request cannot be changed');

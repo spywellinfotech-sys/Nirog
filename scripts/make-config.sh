@@ -27,7 +27,7 @@ BODY="window.NIROG_CONFIG = {
   supabaseUrl: \"$(esc "$URL")\",
   supabaseAnonKey: \"$(esc "$KEY")\",
   googleMapsKey: \"$(esc "$MAPS")\",
-  patientAuth: \"${PATIENT_AUTH:-sms}\",
+  patientAuth: \"${PATIENT_AUTH:-google}\",
   googleLogin: true
 };"
 if [[ -z "$URL" || -z "$KEY" ]]; then echo "No Supabase values supplied: keeping the committed config.js unchanged."; exit 0; fi

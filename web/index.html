@@ -501,7 +501,19 @@ function supText(){var w=supWho();return "Hello Yada+ support, I need help with:
 function supMail(){return "mailto:"+SUP.email+"?subject="+encodeURIComponent("Yada+ help request")+"&body="+encodeURIComponent(supText())}
 function waLink(n,who){var t="Hello"+(who?" "+who:"")+", I found you on Yada+ and would like to ask about "+(state.pat?"an appointment. (I am "+state.pat.name+")":"an appointment.");return "https://wa.me/"+waNum(n)+"?text="+encodeURIComponent(t)}
 function supWa(){return "https://wa.me/"+waNum(SUP.wa)+"?text="+encodeURIComponent(supText())}
-function helpFoot(){return '<div style="text-align:center;padding:6px 0 18px">'+(CLOUD&&BE.signedIn()?'<button class="btn sm ghost" data-a="ref">Refer and earn</button> ':'')+'<button class="btn sm ghost" data-a="help">Help and support</button></div>'}
+function helpFoot(){return '<div style="text-align:center;padding:6px 0 6px">'+(CLOUD&&BE.signedIn()?'<button class="btn sm ghost" data-a="ref">Refer and earn</button> ':'')+'<button class="btn sm ghost" data-a="help">Help and support</button></div><div style="text-align:center;padding:0 0 18px">'+logoutLink()+'</div>'}
+/* Logging out lives only on the profile page (patients) or the foot of the dashboard (doctors, facilities), and always asks first. */
+function logoutLink(){return '<button class="link" data-a="lask" style="font-size:12px;color:var(--muted)">Log out</button>'}
+function vLogoutAsk(){
+  return '<div class="top"><div class="brand">'+LOGO+'<small>Log out</small></div></div><div class="title-block"><h1>Log out?</h1><p>You will need to sign in again to see your appointments.</p></div><div class="card" style="display:flex;flex-direction:column;gap:10px"><button class="btn" style="background:#C62828" data-a="lyes">Yes, log out</button><button class="btn ghost" data-a="lno">Stay signed in</button></div>';
+}
+function doLogout(){
+  state.loAsk=false;
+  if(CLOUD){cloudLogout();return}
+  state.help=false;state.notif=false;
+  if(state.staff){state.staff=null}else{state.pat=null;savePat()}
+  state.view="list";state.tab="find";state.ask=null;render(true);
+}
 var PRIVACY_URL='https://spywellinfotech-sys.github.io/Nirog/privacy.html';
 function delSection(){
   if(!CLOUD||!BE.signedIn())return '';
@@ -877,7 +889,7 @@ function vStaff(){
   var pendN=DOCS.filter(function(x){return x.status==="pending"}).length,pendF=LABS.filter(function(x){return x.registered&&x.status==="pending"}).length;
   var pendA=isDoc?appts.filter(function(a){return a.docId===u.docId&&a.status==="pending"}).length:0;
   var newN=admin?0:staffData.leads.filter(function(l){return l.owner===u.id&&l.status==="new"}).length;
-  return '<div class="top"><div class="brand">'+LOGO+'<small>'+(admin?"Super admin":isFac?"Facility":isDoc?"Doctor":"Sales team")+'</small></div><div class="topr">'+bellBtn()+'<button class="btn sm ghost" data-a="logout">Sign out</button></div></div>'+
+  return '<div class="top"><div class="brand">'+LOGO+'<small>'+(admin?"Super admin":isFac?"Facility":isDoc?"Doctor":"Sales team")+'</small></div><div class="topr">'+bellBtn()+(isDoc||isFac?'':'<button class="btn sm ghost" data-a="lask">Sign out</button>')+'</div></div>'+
    '<div class="title-block" style="padding-bottom:12px"><h1>'+title+'</h1><p>Signed in as '+esc(u.name)+'</p></div>'+
    '<div class="stack">'+body+'</div>'+(isDoc||isFac?helpFoot():'')+
    '<nav class="nav stick" style="grid-template-columns:repeat('+tabs.length+',1fr)" aria-label="Staff">'+tabs.map(function(t){
@@ -1825,7 +1837,7 @@ function profBtn0(){
   return '<button class="pbtn" data-a="profile" aria-label="My profile">'+patAvatar(32)+'<span>'+esc(first)+'</span></button>';
 }
 function patLine(){
-  return patAvatar(26)+esc(state.pat.name)+' · '+esc(CLOUD?patLabel():maskPhone(state.pat.phone))+' <button class="link" data-a="psignout">Sign out</button>';
+  return patAvatar(26)+esc(state.pat.name)+' · '+esc(CLOUD?patLabel():maskPhone(state.pat.phone))+'';
 }
 function openProfile(){
   if(!state.pat){openOtp("patient",null);return}
@@ -1847,7 +1859,7 @@ function vProfile(){
    '<div class="field" style="margin-bottom:0"><div class="foot" style="text-align:left;padding:0">'+(CLOUD&&state.pat.phone.indexOf('@')>-1?'Email: <span class="tnum">'+esc(state.pat.phone)+'</span> (verified)':'Mobile number: <span class="tnum">'+esc(maskPhone(state.pat.phone))+'</span> (verified)')+'</div></div></div>'+
    (r.ok?'<div class="status-line" style="margin:12px 16px 0">'+esc(r.ok)+'</div>':'')+
    '<div style="height:16px"></div><div class="stick"><button class="btn" type="submit">Save profile</button></div></form>'+
-   '<div class="card" style="margin-top:12px"><div class="cardhead"><h2>Help and support</h2></div><div class="hint" style="margin-bottom:10px">Questions about a booking or your account? Chat with us on WhatsApp or send an email.</div><button class="btn ghost" data-a="help">Help and support</button></div>'+(CLOUD&&BE.signedIn()?'<div class="card" style="margin-top:12px"><div class="cardhead"><h2>Refer and earn</h2></div><div class="hint" style="margin-bottom:10px">Invite friends with your code and earn money in your wallet.</div><button class="btn ghost" data-a="ref">Refer and earn</button></div>':'')+'<div style="height:16px"></div>';
+   '<div class="card" style="margin-top:12px"><div class="cardhead"><h2>Help and support</h2></div><div class="hint" style="margin-bottom:10px">Questions about a booking or your account? Chat with us on WhatsApp or send an email.</div><button class="btn ghost" data-a="help">Help and support</button></div>'+(CLOUD&&BE.signedIn()?'<div class="card" style="margin-top:12px"><div class="cardhead"><h2>Refer and earn</h2></div><div class="hint" style="margin-bottom:10px">Invite friends with your code and earn money in your wallet.</div><button class="btn ghost" data-a="ref">Refer and earn</button></div>':'')+'<div style="text-align:center;padding:14px 0 4px">'+logoutLink()+'</div><div style="height:16px"></div>';
 }
 function saveProfile(){
   var r=state.prof,e={};
@@ -2572,9 +2584,9 @@ function pushSync(){try{if(window.NirogNative&&window.NirogNative.pushToken)push
 function cloudLogout(expired){
   try{var pt=window.NirogNative&&window.NirogNative.pushToken&&window.NirogNative.pushToken();if(pt&&BE.signedIn()){BE.dropPush(pt).catch(function(){});try{localStorage.removeItem("nirog-push-"+BE.userId())}catch(e){}}}catch(e){}
   var p=BE.signOut();
-  state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;cloud.facs=null;cloud.leads=null;cloud.sf=null;cloud.bcs=null;cloud.bf=null;cloud.dash=undefined;cloud.ambA=undefined;cloud.wds=undefined;cloud.rset=null;cloud.rsf=null;state.rf=null;state.ref=false;cloud.af=null;cloud.adminMsg="";cloud.adminErr="";
+  state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;cloud.facs=null;cloud.leads=null;cloud.sf=null;cloud.bcs=null;cloud.bf=null;cloud.dash=undefined;cloud.ambA=undefined;cloud.wds=undefined;cloud.acc=undefined;cloud.accf=null;cloud.rset=null;cloud.rsf=null;state.rf=null;state.ref=false;cloud.af=null;cloud.adminMsg="";cloud.adminErr="";
   DOCS.forEach(function(d){d.mine=false});
-  state.view="list";state.tab="find";state.notif=false;state.help=false;state.call=null;state.ask=null;render(true);
+  state.view="list";state.tab="find";state.notif=false;state.help=false;state.loAsk=false;state.call=null;state.ask=null;render(true);
   return p;
 }
 /* Slots come from the database (open_slots) so what you see is what the server will accept. */
@@ -2838,7 +2850,8 @@ function pvHtml(pv){
     var av=(D.availability||[]).map(function(a){return dayName(a.weekday)+" "+fmtMin(a.start_min)+"-"+fmtMin(a.end_min)}).join(", ");
     rows=pvRows([["Ref",r.ref],["Status",r.status+(r.verified?" (verified)":"")],["Name",r.name],["Speciality",r.spec],["Qualification",r.qual],["Experience",r.exp_years+" years"],["In-clinic fee","Rs "+r.fee_inr],["Video fee",r.video_fee_inr?"Rs "+r.video_fee_inr:"Not offered"],["Languages",r.languages],["About",r.about],["Clinic",r.clinic],["City",r.city],["Address",loc.address],["PIN",loc.pin],["Map",loc.map_url],["WhatsApp",r.wa],["Council",v.council],["Registration no",v.reg_no],["Registration year",v.reg_year],["Working slots",av],["Bookings",D.bookings],["Login email",D.email],["Login mobile",D.phone],["Registered",String(r.created_at||"").slice(0,10)],["Review note",r.review_reason]])}
   var rv=(pv.reviews||[]).map(function(r){return '<div class="sumrow"><span>'+stars(r.rating)+' '+esc(r.patient_name||"")+(r.comment?'<br><span class="tiny">'+esc(r.comment)+'</span>':'')+'</span><button class="btn sm ghost" data-a="rdel" data-v="'+r.id+'" style="color:var(--bad)">Delete review</button></div>'}).join("");
-  return '<div class="card" style="margin:10px 0 0">'+rows+(rv?'<div class="sec" style="padding-left:0">Reviews</div>'+rv:'')+(docs?'<div class="acts" style="margin-top:8px;flex-wrap:wrap">'+docs+'</div>':'')+'<div class="acts" style="margin-top:8px"><button class="btn sm ghost" data-a="cprofx">Close</button></div></div>';
+  var st=pv.stats?'<div class="sec" style="padding-left:0">Activity and earnings</div>'+pvRows([["Appointments (all)",pv.stats.total],["Waiting for doctor",pv.stats.pending],["Confirmed",pv.stats.confirmed],["Cancelled / rejected",pv.stats.cancelled+" / "+pv.stats.rejected],["Video consultations",pv.stats.video],["In-clinic visits",pv.stats.clinic],["Prescriptions written",pv.stats.prescriptions],["Last 30 days (bookings)",pv.stats.last30],["Doctor fees on confirmed visits","Rs "+pv.stats.doctor_fees],["Platform earned from this doctor","Rs "+pv.stats.platform_fees],["Platform earned, last 30 days","Rs "+pv.stats.last30_platform]]):'';
+  return '<div class="card" style="margin:10px 0 0">'+rows+st+(rv?'<div class="sec" style="padding-left:0">Reviews</div>'+rv:'')+(docs?'<div class="acts" style="margin-top:8px;flex-wrap:wrap">'+docs+'</div>':'')+'<div class="acts" style="margin-top:8px"><button class="btn sm ghost" data-a="cprofx">Close</button></div></div>';
 }
 function editHtml(ed){
   var fields=ed.kind==="fac"?FACF:DOCF,f=ed.f;
@@ -2860,7 +2873,7 @@ function cloudProfOpen(kind,id,mode){
       if(kind==="fac"){var pr=D.private||{};f={name:r.name,sub:r.sub,city:r.city,address:r.address,pin:r.pin||"",map_url:r.map_url||"",hours:r.hours,beds:r.beds==null?"":r.beds,wa:r.wa||"",contact_name:pr.contact_name||"",contact_phone:pr.contact_phone||"",licence_no:pr.licence_no||""}}
       else{var v=D.verification||{},loc=(D.locations||[])[0]||{};f={name:r.name,spec:r.spec,qual:r.qual,exp_years:r.exp_years,fee_inr:r.fee_inr,video_fee_inr:r.video_fee_inr,languages:r.languages,clinic:r.clinic,city:r.city,address:loc.address||"",pin:loc.pin||"",map_url:loc.map_url||"",wa:r.wa||"",phone:String(D.phone||"").replace(/^\+91/,""),council:v.council||"",reg_no:v.reg_no||"",reg_year:v.reg_year||"",about:r.about||""}}
       cloud.edit={key:key,kind:kind,id:id,f:f,err:""};
-    }else{cloud.pv={key:key,data:D,reviews:[]};if(kind!=="fac")BE.loadReviews(id).then(function(l){if(cloud.pv&&cloud.pv.key===key){cloud.pv.reviews=l;render()}})}
+    }else{cloud.pv={key:key,data:D,reviews:[]};if(kind!=="fac"){BE.loadReviews(id).then(function(l){if(cloud.pv&&cloud.pv.key===key){cloud.pv.reviews=l;render()}});BE.doctorStats(id).then(function(s){if(cloud.pv&&cloud.pv.key===key){cloud.pv.stats=s;render()}},function(){})}}
     render();
   },function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
 }
@@ -2952,6 +2965,7 @@ function ambFind(id){var r=null;(cloud.ambA||[]).forEach(function(a){if(a.id===i
 function cloudTabLoad(){
   var t=cloud.tab;
   if(t==="ov"&&cloud.dash===undefined&&!cloud.dashLoading){cloud.dashLoading=true;BE.dashCounts().then(function(d){cloud.dashLoading=false;cloud.dash=d;render()},function(e){cloud.dashLoading=false;cloud.dash=false;cloud.adminErr=e.message;render()})}
+  if(t==="acc"&&cloud.acc===undefined&&!cloud.accLoading){cloud.accLoading=true;BE.adminAccounts().then(function(a){cloud.accLoading=false;cloud.acc=a;render()},function(e){cloud.accLoading=false;cloud.acc=false;cloud.adminErr=e.message;render()})}
   if(t==="pay"&&cloud.wds===undefined&&!cloud.wdLoading){cloud.wdLoading=true;Promise.all([BE.adminWithdrawals("pending"),BE.referralSettings(null)]).then(function(r){cloud.wdLoading=false;cloud.wds=r[0];cloud.rset=r[1];render()},function(e){cloud.wdLoading=false;cloud.wds=[];cloud.adminErr=e.message;render()})}
   if(t==="amb"&&cloud.ambA===undefined&&!cloud.ambLoading){cloud.ambLoading=true;BE.ambulances().then(function(l){cloud.ambLoading=false;cloud.ambA=l;render()},function(e){cloud.ambLoading=false;cloud.ambA=[];cloud.adminErr=e.message;render()})}
   if(t==="doc"&&cloud.admin===null)cloudAdminLoad();
@@ -2991,7 +3005,7 @@ function cloudSaveSettings(){
 }
 function vCloudAdmin(){
   var u=getUser(state.staff),admin=u.role==="admin";
-  var tabs=admin?[["ov","Overview"],["doc","Doctors"],["fac","Facilities"],["lead","Leads"],["bc","Notify"],["amb","Ambulance"],["pay","Payouts"],["set","Settings"]]:[["lead","Leads"]];
+  var tabs=admin?[["ov","Overview"],["doc","Doctors"],["fac","Facilities"],["lead","Leads"],["bc","Notify"],["amb","Ambulance"],["acc","Accounts"],["pay","Payouts"],["set","Settings"]]:[["lead","Leads"]];
   if(!tabs.some(function(t){return t[0]===cloud.tab}))cloud.tab=tabs[0][0];
   cloudTabLoad();
   var t=cloud.tab,body="";
@@ -2999,6 +3013,8 @@ function vCloudAdmin(){
     body=adminCounts();
   }else if(t==="amb"){
     body=ambAdmin();
+  }else if(t==="acc"){
+    body=accAdmin();
   }else if(t==="pay"){
     body=refAdmin();
   }else if(t==="doc"){
@@ -3025,7 +3041,7 @@ function vCloudAdmin(){
      '<div class="sec">Help and support</div><div class="card"><div class="field"><label for="cs-email">Support email</label><input id="cs-email" type="email" value="'+esc(sf.email)+'"></div><div class="field" style="margin-bottom:0"><label for="cs-wa">Support WhatsApp number</label><input id="cs-wa" inputmode="numeric" maxlength="10" value="'+esc(sf.wa)+'"></div></div>'+
      '<div style="height:12px"></div><div style="padding:0 16px"><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>Save settings</button></div></form>';
   }
-  return '<div class="top"><div class="brand">'+LOGO+'<small>'+(admin?"Admin":"Sales")+'</small></div><button class="btn sm ghost" data-a="logout">Sign out</button></div>'+
+  return '<div class="top"><div class="brand">'+LOGO+'<small>'+(admin?"Admin":"Sales")+'</small></div><button class="btn sm ghost" data-a="lask">Sign out</button></div>'+
    '<div class="seg" style="margin:0 16px 12px;grid-template-columns:repeat(auto-fit,minmax(86px,1fr))" role="group" aria-label="Sections">'+tabs.map(function(x){return '<button type="button" data-a="ctab" data-v="'+x[0]+'" aria-pressed="'+(t===x[0])+'">'+x[1]+'</button>'}).join("")+'</div>'+
    (cloud.adminMsg?'<div class="status-line" role="status" style="margin:0 16px 10px">'+esc(cloud.adminMsg)+'</div>':'')+(cloud.adminErr?'<div class="err" style="margin:0 16px 10px">'+esc(cloud.adminErr)+'</div>':'')+body+
    (admin?'<div class="foot" style="text-align:left">Team management and revenue reports are not connected to the live backend yet. Add staff by running the SQL in docs/BACKEND.md.</div>':'');
@@ -3062,7 +3078,7 @@ function vRef(){
    '<div class="tiny" style="margin-top:8px">Invited so far: '+d.counts.doctor+' doctors, '+d.counts.facility+' facilities, '+d.counts.patient+' patients.</div></div>';
   if(!d.applied&&!off)out+='<div class="card"><div style="font-weight:600;margin-bottom:6px">Got a friend\'s code?</div><div class="field" style="margin-bottom:10px"><input id="rf-code" maxlength="12" autocapitalize="characters" placeholder="Enter code" value="'+esc(r.code||"")+'"></div><button class="btn ghost" data-a="refapply"'+(r.busy?' disabled':'')+'>Add code</button></div>';
   out+='<div class="card"><div style="font-weight:600;margin-bottom:6px">Withdraw to UPI</div><div class="tiny" style="margin-bottom:10px">Minimum '+money(d.min_withdraw)+'. We pay by UPI within a few working days.</div>'+
-   (wdPend?'<div class="tiny">You have a withdrawal waiting for payment.</div>':'<div class="field"><label for="rf-upi">UPI id</label><input id="rf-upi" autocapitalize="none" autocomplete="off" placeholder="name@bank" value="'+esc(r.upi||"")+'"></div><div class="field"><label for="rf-amt">Amount (₹)</label><input id="rf-amt" inputmode="numeric" maxlength="6" value="'+esc(r.amt!==undefined?r.amt:d.balance>=d.min_withdraw?String(d.balance):"")+'"></div><button class="btn" data-a="refwd"'+(r.busy?' disabled':'')+'>Withdraw</button>')+'</div>';
+   (wdPend?'<div class="tiny">You have a withdrawal waiting for payment.</div>':'<div class="field"><label for="rf-upi">UPI id</label><input id="rf-upi" autocapitalize="none" autocomplete="off" placeholder="name@bank" value="'+esc(r.upi||"")+'"></div><div class="field"><label for="rf-mob">Mobile number</label><input id="rf-mob" inputmode="numeric" maxlength="10" autocomplete="tel" value="'+esc(r.mob||"")+'"><div class="hint">Needed to pay or contact you. Required for every withdrawal.</div></div><div class="field"><label for="rf-amt">Amount (₹)</label><input id="rf-amt" inputmode="numeric" maxlength="6" value="'+esc(r.amt!==undefined?r.amt:d.balance>=d.min_withdraw?String(d.balance):"")+'"></div><button class="btn" data-a="refwd"'+(r.busy?' disabled':'')+'>Withdraw</button>')+'</div>';
   if((d.withdrawals||[]).length)out+='<div class="sec">Withdrawals</div>'+d.withdrawals.map(function(w){return '<div class="appt"><div class="who"><div><div class="doc-name tnum">'+money(w.amount)+' to '+esc(w.upi)+'</div><div class="tiny">'+new Date(w.at).toLocaleDateString("en-IN")+(w.utr?' · Ref '+esc(w.utr):'')+(w.note?' · '+esc(w.note):'')+'</div></div><span class="pill'+(w.status==="paid"?'':' warn')+'">'+(w.status==="paid"?"Paid":w.status==="rejected"?"Not paid":"Waiting")+'</span></div></div>'}).join("");
   if((d.history||[]).length)out+='<div class="sec">Wallet history</div>'+d.history.map(function(x){return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(x.note)+'</div><div class="tiny">'+new Date(x.at).toLocaleDateString("en-IN")+'</div></div><b class="tnum" style="color:'+(x.amount>0?'#2E7D32':'#C62828')+'">'+(x.amount>0?'+':'-')+money(Math.abs(x.amount))+'</b></div></div>'}).join("");
   return out+'<div style="height:24px"></div>';
@@ -3070,6 +3086,37 @@ function vRef(){
 function refRun(p,okMsg){
   var r=state.rf;r.busy=true;r.err="";r.msg="";render();
   p.then(function(){r.busy=false;r.msg=okMsg;r.data=undefined;r.code="";r.amt=undefined;refLoad(true);render()},function(e){r.busy=false;r.err=e.message;render()});
+}
+/* Super admin books: what the platform earns, what referrals cost, and the other expenses the admin records. */
+var EXPCAT={marketing:"Marketing",server:"Servers and tools",sms:"SMS and messaging",salary:"Salaries",other:"Other"};
+function accAdmin(){
+  var a=cloud.acc,f=cloud.accf=cloud.accf||{category:"marketing",amount:"",note:"",on:""};
+  var out='';
+  if(cloud.adminMsg)out+='<div class="status-line" role="status" style="margin:12px 16px 0">'+esc(cloud.adminMsg)+'</div>';
+  if(cloud.adminErr)out+='<div class="err" role="alert" style="margin:12px 16px 0">'+esc(cloud.adminErr)+'</div>';
+  if(a===undefined||a===null)return out+'<div class="empty">Loading...</div>';
+  if(a===false)return out+'<div class="empty">Could not load the accounts.</div>';
+  function tile(l,v,sub,col){return '<div class="card" style="margin:0;padding:12px"><div class="tiny">'+l+'</div><div class="tnum" style="font-size:22px;font-weight:700'+(col?';color:'+col:'')+'">'+money(v)+'</div>'+(sub?'<div class="tiny">'+sub+'</div>':'')+'</div>'}
+  out+='<div class="sec">Summary (all time)</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px">'+
+   tile("Earned",a.earned,"Platform fees on confirmed bookings","#2E7D32")+tile("Referral cost",a.referral_credited,money(a.referral_paid)+" paid out, "+money(a.wallet_owed)+" still in wallets")+
+   tile("Other expenses",a.expenses,"Entered below")+tile("Net",a.net,"Earned - referral - expenses",a.net<0?"#C62828":"#2E7D32")+'</div>'+
+   '<div class="tiny" style="padding:8px 16px">Doctors collected '+money(a.doctor_fees)+' in consultation fees (their money, not yours). "Earned" is the platform fee recorded on confirmed bookings; collecting it from patients is not built yet, so it is not cash received.</div>';
+  out+='<div class="sec">Last 6 months</div><div class="card">'+(a.months||[]).map(function(m){return '<div class="sumrow"><span>'+esc(m.month)+'</span><span class="tnum" style="text-align:right">+'+money(m.earned)+' / -'+money(m.referral+m.expenses)+'<br><span class="tiny">referral '+money(m.referral)+' · other '+money(m.expenses)+'</span></span></div>'}).join("")+'</div>';
+  if((a.by_category||[]).length)out+='<div class="sec">Expenses by type</div><div class="card">'+a.by_category.map(function(c){return '<div class="sumrow"><span>'+esc(EXPCAT[c.category]||c.category)+'</span><b class="tnum">'+money(c.amount)+'</b></div>'}).join("")+'</div>';
+  out+='<div class="sec">Add an expense</div><div class="card"><div class="field"><label for="ex-cat">Type</label><select id="ex-cat">'+Object.keys(EXPCAT).map(function(k){return '<option value="'+k+'"'+(f.category===k?' selected':'')+'>'+EXPCAT[k]+'</option>'}).join("")+'</select></div><div class="field"><label for="ex-amt">Amount (₹)</label><input id="ex-amt" inputmode="numeric" maxlength="9" value="'+esc(f.amount)+'"></div><div class="field"><label for="ex-note">Note (optional)</label><input id="ex-note" maxlength="200" value="'+esc(f.note)+'"></div><div class="field"><label for="ex-on">Date (empty = today)</label><input id="ex-on" type="date" value="'+esc(f.on)+'"></div><button class="btn" data-a="accadd"'+(cloud.busy?' disabled':'')+'>Add expense</button></div>';
+  out+='<div class="sec">Recent expenses</div>'+((a.recent||[]).length?a.recent.map(function(e){return '<div class="appt"><div class="who"><div><div class="doc-name tnum">'+money(e.amount)+' · '+esc(EXPCAT[e.category]||e.category)+'</div><div class="tiny">'+esc(e.on)+(e.note?' · '+esc(e.note):'')+'</div></div><button class="btn sm ghost" style="color:var(--bad)" data-a="accdel" data-v="'+e.id+'"'+(cloud.busy?' disabled':'')+'>Delete</button></div></div>'}).join(""):'<div class="empty">No expenses recorded.</div>');
+  return out;
+}
+function accAdd(){
+  function g(i){return (document.getElementById(i)||{}).value||""}
+  var f=cloud.accf={category:g("ex-cat"),amount:g("ex-amt").trim(),note:g("ex-note").trim(),on:g("ex-on")};
+  if(!/^\d{1,9}$/.test(f.amount)||+f.amount<1){cloud.adminErr="Enter a whole rupee amount above zero.";cloud.adminMsg="";render();return}
+  cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";render();
+  BE.addExpense({category:f.category,amount_inr:+f.amount,note:f.note,spent_on:f.on||""}).then(function(){cloud.busy=false;cloud.accf=null;cloud.acc=undefined;cloud.adminMsg="Expense added.";render()},function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
+}
+function accDel(id){
+  cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";render();
+  BE.deleteExpense(id).then(function(){cloud.busy=false;cloud.acc=undefined;cloud.adminMsg="Expense deleted.";render()},function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
 }
 function refAdmin(){
   var L=cloud.wds,s=cloud.rset,f=cloud.rsf=cloud.rsf||{};
@@ -3115,6 +3162,7 @@ function render(scroll){
   if(CLOUD&&!cloud.ready){app.innerHTML=vCloudWait();return}
   if(CLOUD&&APPB>0&&MINB>APPB){app.innerHTML=vForceUpdate();return}
   if(state.notif&&notifKey()){app.innerHTML=vNotif();if(scroll)window.scrollTo(0,0);return}
+  if(state.loAsk){app.innerHTML=vLogoutAsk();if(scroll)window.scrollTo(0,0);return}
   if(state.help){app.innerHTML=vHelp();if(scroll)window.scrollTo(0,0);return}
   if(state.call){if(!document.getElementById("callfr")||state.callNew){state.callNew=false;app.innerHTML=vCall();window.scrollTo(0,0)}return} /* keep the call alive when background sync redraws */
   if(state.ref){app.innerHTML=vRef();if(scroll)window.scrollTo(0,0);return}
@@ -3194,6 +3242,9 @@ app.addEventListener("click",function(ev){
     case "cprof":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"view")})();break;
     case "cedit":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"edit")})();break;
     case "cdel":(function(){var q=v.split("|");cloudDelete(q[0],+q[1])})();break;
+    case "lask":state.loAsk=true;render(true);break;
+    case "lno":state.loAsk=false;render(true);break;
+    case "lyes":doLogout();break;
     case "callin":(function(){var a=null;appts.forEach(function(x){if(x.id===v)a=x});if(CLOUD&&state.staff&&a&&a.cloud)BE.startCall(v).catch(function(){});state.call=v;state.callNew=true;render(true)})();break;
     case "callend":(function(){var id=state.call,a=null;appts.forEach(function(x){if(x.id===id)a=x});if(CLOUD&&state.staff&&a&&a.cloud)BE.endCall(id).catch(function(){});state.call=null;render(true)})();break;
     case "clsave":(function(){var el=document.getElementById("cl-"+v),val=el?el.value.trim():"";state.cl=state.cl||{};state.clerr=state.clerr||{};state.cl[v]=val;state.clerr[v]="";BE.setCallLink(v,val).then(function(){delete state.cl[v];return cloudSync(true)},function(e){state.clerr[v]=e.message;render()})})();break;
@@ -3228,7 +3279,9 @@ app.addEventListener("click",function(ev){
     case "refretry":state.rf.data=undefined;state.rf.err="";render();break;
     case "refcopy":(function(){var c=v,r=state.rf;try{navigator.clipboard.writeText(c).then(function(){r.msg="Code copied.";render()},function(){r.msg="Your code is "+c;render()})}catch(e){r.msg="Your code is "+c;render()}})();break;
     case "refapply":(function(){var r=state.rf,c=((document.getElementById("rf-code")||{}).value||"").trim();r.code=c;if(c.length<4){r.err="Enter the code your friend gave you.";r.msg="";render();return}refRun(BE.applyReferral(c),"Code added. Your friend will get the reward.")})();break;
-    case "refwd":(function(){var r=state.rf,u=((document.getElementById("rf-upi")||{}).value||"").trim(),a=((document.getElementById("rf-amt")||{}).value||"").trim();r.upi=u;r.amt=a;if(!/^[A-Za-z0-9._-]{2,64}@[A-Za-z0-9]{2,32}$/.test(u)){r.err="Enter a valid UPI id, like name@bank.";r.msg="";render();return}if(!/^\d{1,6}$/.test(a)||+a<1){r.err="Enter the amount in whole rupees.";r.msg="";render();return}refRun(BE.requestWithdrawal(+a,u),"Withdrawal requested. We will pay it to your UPI id.")})();break;
+    case "refwd":(function(){var r=state.rf,u=((document.getElementById("rf-upi")||{}).value||"").trim(),a=((document.getElementById("rf-amt")||{}).value||"").trim(),mb=((document.getElementById("rf-mob")||{}).value||"").replace(/\s/g,"");r.upi=u;r.amt=a;r.mob=mb;if(!/^[A-Za-z0-9._-]{2,64}@[A-Za-z0-9]{2,32}$/.test(u)){r.err="Enter a valid UPI id, like name@bank.";r.msg="";render();return}if(!/^[6-9]\d{9}$/.test(mb)){r.err="Enter your 10-digit mobile number.";r.msg="";render();return}if(!/^\d{1,6}$/.test(a)||+a<1){r.err="Enter the amount in whole rupees.";r.msg="";render();return}refRun(BE.requestWithdrawal(+a,u,mb),"Withdrawal requested. We will pay it to your UPI id.")})();break;
+    case "accadd":accAdd();break;
+    case "accdel":accDel(+v);break;
     case "wdpaid":wdDo(+v,"paid");break;
     case "wdrej":wdDo(+v,"reject");break;
     case "rssave":rsSave();break;
@@ -3435,6 +3488,7 @@ app.addEventListener("submit",function(ev){
 });
 /* Back button support for the Android wrapper. Returns true when it handled the press. */
 window.__nirogBack=function(){
+  if(state.loAsk){state.loAsk=false;render(true);return true}
   if(state.call){var _id=state.call,_a=null;appts.forEach(function(x){if(x.id===_id)_a=x});if(CLOUD&&state.staff&&_a&&_a.cloud)BE.endCall(_id).catch(function(){});state.call=null;render(true);return true}
   if(state.staff)return false;
   if(state.ref){state.ref=false;render(true);return true}

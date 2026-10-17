@@ -50,7 +50,7 @@ async function open(role, url) {
   check("a good code is accepted and the card goes away", /Code added/.test(tx) && (await pg.locator("#rf-code").count()) === 0);
   await pg.fill("#rf-upi", "bad upi"); await pg.fill("#rf-amt", "20"); await pg.locator('[data-a="refwd"]').click(); await pg.waitForTimeout(300);
   check("a bad UPI id is refused before sending", /valid UPI id/.test(await txt()) && !t.st.wd);
-  await pg.fill("#rf-upi", "Asha@okbank"); await pg.locator('[data-a="refwd"]').click(); await pg.waitForTimeout(900);
+  await pg.fill("#rf-upi", "Asha@okbank"); await pg.fill("#rf-mob", "9876543210"); await pg.locator('[data-a="refwd"]').click(); await pg.waitForTimeout(900);
   tx = await txt();
   check("withdrawal is requested with the amount and UPI id", t.st.wd && t.st.wd.amount === 20 && t.st.wd.upi === "Asha@okbank");
   check("a waiting withdrawal replaces the form", /Withdrawal requested/.test(tx) && (await pg.locator("#rf-upi").count()) === 0 && /Waiting/.test(tx));
