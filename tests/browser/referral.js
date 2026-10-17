@@ -19,7 +19,7 @@ async function open(role, url) {
     if (p.endsWith("/rpc/request_withdrawal")) { st.wd = { id: 1, amount: body.p_amount, upi: body.p_upi, status: "pending", at: new Date().toISOString() }; st.balance -= body.p_amount; return j(200, 1); }
     if (p.endsWith("/rpc/admin_withdrawals")) return j(200, st.decided ? [] : st.pend);
     if (p.endsWith("/rpc/admin_decide_withdrawal")) { st.decided = body; return j(200, true); }
-    if (p.endsWith("/rpc/admin_referral_settings")) { if (body.p) st.settings = body.p; return j(200, { doctor_inr: 10, facility_inr: 10, patient_inr: 1, min_withdraw: 50, patient_daily_cap: 50 }); }
+    if (p.endsWith("/rpc/admin_referral_settings")) { if (body.p) st.settings = Object.assign(st.settings || {}, body.p); return j(200, { enabled: st.settings && st.settings.enabled === false ? false : true, doctor_inr: 10, facility_inr: 10, patient_inr: 1, min_withdraw: 50, patient_daily_cap: 50 }); }
     if (p.endsWith("/rpc/admin_dashboard_counts")) return j(200, { patients: 1, doctors: { listed: 0, pending: 0 }, facilities: {} });
     if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: "X", phone: null, email: "u@x.in" }]);
     if (m === "GET") return j(200, []);
@@ -63,6 +63,10 @@ async function open(role, url) {
   await pg.fill("#wd-utr-5", "UTR998877"); await pg.locator('[data-a="wdpaid"]').click(); await pg.waitForTimeout(900);
   check("mark paid sends the UTR", t.st.decided && t.st.decided.p_decision === "paid" && t.st.decided.p_utr === "UTR998877");
   check("the paid request leaves the list", /Marked as paid/.test(await txt()) && /No withdrawals waiting/.test(await txt()));
+  await pg.locator('[data-a="rson"]').click(); await pg.waitForTimeout(700);
+  check("admin can pause the programme", t.st.settings && t.st.settings.enabled === false && /paused/i.test(await txt()));
+  await pg.locator('[data-a="rson"]').click(); await pg.waitForTimeout(700);
+  check("admin can switch it back on", t.st.settings.enabled === true && /Referral programme is on/.test(await txt()));
   await pg.fill("#rs-doc", "15"); await pg.fill("#rs-pat", "2"); await pg.locator('[data-a="rssave"]').click(); await pg.waitForTimeout(700);
   check("reward rates are saved", t.st.settings && t.st.settings.doctor_inr === 15 && t.st.settings.patient_inr === 2 && /Saved/.test(await txt()));
   await pg.fill("#rs-doc", "x"); await pg.locator('[data-a="rssave"]').click(); await pg.waitForTimeout(300);
