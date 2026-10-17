@@ -1328,7 +1328,7 @@ function clBox(a){
 function callBox(a,doc){
   if(a.mode!=="video"||a.status!=="upcoming")return '';
   return '<button class="btn" data-a="callin" data-v="'+a.id+'">'+(doc?'Start video call':'Join video call')+'</button>'+
-   (a.link?'<a class="btn ghost" style="text-decoration:none;display:flex;justify-content:center;margin-top:8px" href="'+esc(a.link)+'" target="_blank" rel="noopener noreferrer">Open the doctor\'s link instead</a>':'')+
+   (a.link&&!doc?'<a class="btn ghost" style="text-decoration:none;display:flex;justify-content:center;margin-top:8px" href="'+esc(a.link)+'" target="_blank" rel="noopener noreferrer">Open the doctor\'s link instead</a>':'')+
    '<div class="hint">'+(doc?'The patient joins from My appointments.':'The doctor joins from the same booking. You can join a little early.')+'</div>';
 }
 function dApptCard(a,pend){
