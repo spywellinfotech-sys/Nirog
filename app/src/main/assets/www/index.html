@@ -455,6 +455,8 @@ function addDays(d,n){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x
 function t12(t){var p=t.split(":"),h=+p[0],m=p[1];return (h%12===0?12:h%12)+":"+m+" "+(h<12?"AM":"PM")}
 function money(n){return "₹"+n.toLocaleString("en-IN")}
 function byId(id){for(var i=0;i<DOCS.length;i++)if(DOCS[i].id===id)return DOCS[i]}
+/* A booking can outlive its doctor's public listing (deleted, rejected, not loaded yet). Never let that break a screen. */
+function docOrGone(id){return byId(id)||{id:id,name:"Doctor (not listed now)",spec:"",clinic:"",city:"",address:"",fee:0,vfee:0,photo:"",lat:null,lng:null,rating:0,reviews:0,video:false}}
 function avatar(d,cls){return '<div class="av'+(cls?' '+cls:'')+'">'+(d.photo?'<img src="'+esc(d.photo)+'" alt="">':esc(initials(d.name)))+'</div>'}
 function vtag(d){return d.verified?'<span class="vtag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Verified</span>':''}
 function initials(n){return n.replace("Dr. ","").split(" ").map(function(w){return w[0]}).join("").slice(0,2)}
@@ -1318,7 +1320,7 @@ function callBox(a,doc){
    '<div class="hint">'+(doc?'The patient joins from My appointments.':'The doctor joins from the same booking. You can join a little early.')+'</div>';
 }
 function dApptCard(a,pend){
-  var d=byId(a.docId),h='<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">'+(a.mode==="video"?"Video consult":"In-clinic visit")+'</div></div><span class="pill'+(pend?' warn':'')+'">'+(pend?"Needs your approval":"Confirmed")+'</span></div>'+
+  var d=docOrGone(a.docId),h='<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">'+(a.mode==="video"?"Video consult":"In-clinic visit")+'</div></div><span class="pill'+(pend?' warn':'')+'">'+(pend?"Needs your approval":"Confirmed")+'</span></div>'+
    '<div class="when tnum">'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+(a.retimed?' · time set by you':'')+'</div>'+
    '<div class="tiny tnum">Mobile <span class="sel">'+esc(a.phone)+'</span>'+who(a)+' · Ref '+esc(a.ref)+(a.reason?' · '+esc(a.reason):'')+'</div>';
   if(pend){
@@ -2304,7 +2306,7 @@ function rxSave(){
   }
 }
 function apptCard(a){
-  var d=byId(a.docId),conf=a.status==="upcoming",up=conf||a.status==="pending";
+  var d=docOrGone(a.docId),conf=a.status==="upcoming",up=conf||a.status==="pending";
   var acts="";
   if(up){
     if(state.ask===a.id){
@@ -2553,7 +2555,7 @@ function cloudSync(force){
 }
 function cloudStartPoll(){
   if(cloud.timer)return;
-  cloud.timer=setInterval(function(){if(!document.hidden)cloudSync(false)},30000);
+  var tick=0;cloud.timer=setInterval(function(){tick++;if(document.hidden)return;var vid=appts.some(function(a){return a.mode==="video"&&(a.status==="upcoming"||a.status==="pending")&&a.dateKey===dkey(new Date())});if(vid||tick%4===0)cloudSync(false)},8000);
   try{document.addEventListener("visibilitychange",function(){if(!document.hidden)cloudSync(false)});window.addEventListener("online",function(){cloudSync(false)})}catch(e){}
 }
 /* Phone push: the Android shell hands over its Firebase token; we tie it to whoever is signed in. */
@@ -3094,7 +3096,19 @@ function rsSave(){
   cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";render();
   BE.referralSettings(p).then(function(s){cloud.busy=false;cloud.rset=s;cloud.rsf=null;cloud.adminMsg="Saved.";render()},function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
 }
+/* "Your doctor is calling" banner for the patient while a video call the doctor started is still fresh. */
+function callBanner(){
+  var el=document.getElementById("callbn"),a=null;
+  if(CLOUD&&state.pat&&!state.staff&&!state.call){appts.forEach(function(x){if(x.mode==="video"&&x.status==="upcoming"&&x.callAt&&Date.now()-x.callAt<1800000)a=x})}
+  if(!a){if(el&&el.parentNode)el.parentNode.removeChild(el);return}
+  if(!el){el=document.createElement("div");el.id="callbn";document.body.appendChild(el)}
+  el.style.cssText="position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top,0px));z-index:60;background:#2E7D32;color:#fff;border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.3)";
+  el.setAttribute("role","alert");
+  el.innerHTML='<div style="flex:1;font-weight:600">Your doctor is calling<div style="font-weight:400;font-size:13px">'+esc(docOrGone(a.docId).name)+'</div></div><button type="button" class="btn sm" style="background:#fff;color:#2E7D32">Join</button>';
+  el.querySelector("button").onclick=function(){state.call=a.id;state.callNew=true;render(true)};
+}
 function render(scroll){
+  callBanner();
   var h,showNav=false;
   if(CLOUD&&!cloud.ready){app.innerHTML=vCloudWait();return}
   if(CLOUD&&APPB>0&&MINB>APPB){app.innerHTML=vForceUpdate();return}
@@ -3178,7 +3192,7 @@ app.addEventListener("click",function(ev){
     case "cprof":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"view")})();break;
     case "cedit":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"edit")})();break;
     case "cdel":(function(){var q=v.split("|");cloudDelete(q[0],+q[1])})();break;
-    case "callin":state.call=v;state.callNew=true;render(true);break;
+    case "callin":(function(){var a=null;appts.forEach(function(x){if(x.id===v)a=x});if(CLOUD&&state.staff&&a&&a.cloud)BE.startCall(v).catch(function(){});state.call=v;state.callNew=true;render(true)})();break;
     case "callend":state.call=null;render(true);break;
     case "clsave":(function(){var el=document.getElementById("cl-"+v),val=el?el.value.trim():"";state.cl=state.cl||{};state.clerr=state.clerr||{};state.cl[v]=val;state.clerr[v]="";BE.setCallLink(v,val).then(function(){delete state.cl[v];return cloudSync(true)},function(e){state.clerr[v]=e.message;render()})})();break;
     case "rxview":cloud.rxopen=v;render();break;

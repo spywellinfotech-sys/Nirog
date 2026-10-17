@@ -35,6 +35,7 @@ $P -f migrations/0021_referrals.sql
 $P -f migrations/0022_referral_switch.sql
 $P -f migrations/0023_video_link.sql
 $P -f migrations/0024_push_on_notification.sql
+$P -f migrations/0025_start_call.sql
 for t in tests/[0-9]*.sql; do echo "== $t"; $P -f "$t" ; done
 
 echo "== concurrency: 12 patients race for one slot"

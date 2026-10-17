@@ -174,7 +174,7 @@ BE.openSlots=function(docId,dateKey){
 var ST={pending:"pending",confirmed:"upcoming",rejected:"rejected",cancelled:"cancelled",completed:"upcoming"};
 function toAppt(b){
   return {id:b.id,ref:b.ref,docId:b.doctor_id,dateKey:b.slot_date,time:hm(b.slot_time),mode:b.mode,age:b.patient_age,sex:b.patient_sex,fee:b.doctor_fee,pf:b.platform_fee,
-    name:b.patient_name,phone:b.patient_phone,reason:b.reason||"",status:ST[b.status]||b.status,rreason:b.decision_reason||"",retimed:!!b.retimed,link:b.call_link||"",cloud:true};
+    name:b.patient_name,phone:b.patient_phone,reason:b.reason||"",status:ST[b.status]||b.status,rreason:b.decision_reason||"",retimed:!!b.retimed,link:b.call_link||"",callAt:b.call_started_at?Date.parse(b.call_started_at):0,cloud:true};
 }
 BE.toAppt=toAppt;
 BE.myBookings=function(){return sel("bookings","select=*&order=slot_date.desc,slot_time.desc&limit=200").then(function(r){return (r||[]).map(toAppt)})};
@@ -183,6 +183,7 @@ BE.createBooking=function(o){
 };
 BE.decide=function(id,decision,time,reason){return rpc("doctor_decide_booking",{p_booking:id,p_decision:decision,p_time:time||null,p_reason:reason||null}).then(toAppt)};
 BE.setCallLink=function(id,link){return rpc("set_call_link",{p_booking:id,p_link:link||null})};
+BE.startCall=function(id){return rpc("start_call",{p_booking:id})};
 BE.cancel=function(id){return rpc("cancel_booking",{p_booking:id}).then(toAppt)};
 BE.reschedule=function(id,dateKey,time){return rpc("reschedule_booking",{p_booking:id,p_day:dateKey,p_time:time}).then(toAppt)};
 
