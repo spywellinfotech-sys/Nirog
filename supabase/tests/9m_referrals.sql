@@ -97,3 +97,6 @@ select t.ok((public.my_referral() ->> 'balance')::int = 0, 'paid withdrawal leav
 -- Tables are not directly readable
 select t.denied($$select * from public.wallet_ledger$$, 'permission denied', 'ledger is not directly readable');
 select t.denied($$update public.wallet_ledger set amount_inr = 999$$, 'permission denied', 'ledger cannot be edited by users');
+
+select t.root();
+update public.doctors set status = 'approved', verified = true where id = :did;
