@@ -23,6 +23,8 @@ select t.login(:'ADM');
 select t.denied(format($$select public.admin_delete_patient('%s')$$, :'D1'), 'not_a_patient', 'a doctor account cannot be erased as a patient');
 select t.denied(format($$select public.admin_delete_patient('%s')$$, :'ADM'), 'not_a_patient', 'staff cannot be erased as a patient');
 select public.admin_delete_patient(:'P');
+select t.login(:'ADM');
+select t.ok(not exists (select 1 from jsonb_array_elements(public.admin_patients('', 100, 0) -> 'rows') r where r ->> 'id' = :'P'), 'an erased patient is not in the list');
 select t.root();
 select t.ok((select status::text from public.bookings where ref = 'ADP-1') = 'cancelled' and (select patient_name || reason from public.bookings where ref = 'ADP-1') = 'Deleted user', 'admin erase cancels bookings and wipes details');
 select t.ok((select full_name from public.profiles where id = :'P') = '' and (select email from auth.users where id = :'P') is null and (select banned_until from auth.users where id = :'P') is not null, 'admin erase clears the profile and closes the sign-in');
