@@ -15,7 +15,7 @@ function saveSess(s){BE.sess=s;if(s)ls("s",SKEY,JSON.stringify({access_token:s.a
 loadSess();
 
 function friendly(code,status){
-  var m={program_off:"The referral programme is paused right now.",invalid_code:"That code was not found.",own_code:"You cannot use your own code.",already_applied:"A code was already added to this account.",too_late:"A code can only be added within 3 days of signing up.",invalid_upi:"Enter a valid UPI id, like name@bank.",below_minimum:"The amount is below the minimum withdrawal.",insufficient_balance:"The amount is more than your wallet balance.",pending_exists:"You already have a withdrawal waiting for payment.",not_allowed:"Staff accounts cannot use referral codes.",utr_required:"Enter the UTR / reference number of the payment.",already_decided:"This request was already handled.",slot_taken:"Someone just booked that time. Please pick another slot.",slot_unavailable:"That time is not available any more.",doctor_unavailable:"This doctor is not taking bookings right now.",
+  var m={program_off:"The referral programme is paused right now.",invalid_link:"Enter a link that starts with https:// (Google Meet, Zoom, Jitsi) or a 10-digit WhatsApp number.",not_video:"This is not a video consultation.",invalid_code:"That code was not found.",own_code:"You cannot use your own code.",already_applied:"A code was already added to this account.",too_late:"A code can only be added within 3 days of signing up.",invalid_upi:"Enter a valid UPI id, like name@bank.",below_minimum:"The amount is below the minimum withdrawal.",insufficient_balance:"The amount is more than your wallet balance.",pending_exists:"You already have a withdrawal waiting for payment.",not_allowed:"Staff accounts cannot use referral codes.",utr_required:"Enter the UTR / reference number of the payment.",already_decided:"This request was already handled.",slot_taken:"Someone just booked that time. Please pick another slot.",slot_unavailable:"That time is not available any more.",doctor_unavailable:"This doctor is not taking bookings right now.",
     not_authenticated:"Please sign in again.",patients_only:"Only patient accounts can book appointments.",too_many_active_bookings:"You have too many active bookings. Cancel one first.",
     not_pending:"This request was already handled.",not_cancellable:"This appointment can no longer be cancelled.",booking_not_found:"Appointment not found.",admins_only:"Only admins can do this.",
     doctors_only:"Only doctors can do this.",visit_not_done:"You can rate a visit after the appointment time has passed.",booking_not_confirmed:"Only confirmed visits can be rated.",invalid_rating:"Choose 1 to 5 stars.",comment_too_long:"Keep the review under 500 characters.",booking_not_found:"That appointment was not found.",has_bookings:"This doctor has bookings, so the profile cannot be deleted. Reject it instead.",not_found:"That profile was not found. It may already be deleted.",phone_in_use:"This mobile number is already registered with Yada+. Use a different number, or sign in with the account that has it.",already_registered:"This account is already registered as a doctor, facility or staff member.",account_has_bookings:"This account already has bookings, so it cannot become a doctor or facility. Use a different number or email.",
@@ -174,7 +174,7 @@ BE.openSlots=function(docId,dateKey){
 var ST={pending:"pending",confirmed:"upcoming",rejected:"rejected",cancelled:"cancelled",completed:"upcoming"};
 function toAppt(b){
   return {id:b.id,ref:b.ref,docId:b.doctor_id,dateKey:b.slot_date,time:hm(b.slot_time),mode:b.mode,age:b.patient_age,sex:b.patient_sex,fee:b.doctor_fee,pf:b.platform_fee,
-    name:b.patient_name,phone:b.patient_phone,reason:b.reason||"",status:ST[b.status]||b.status,rreason:b.decision_reason||"",retimed:!!b.retimed,cloud:true};
+    name:b.patient_name,phone:b.patient_phone,reason:b.reason||"",status:ST[b.status]||b.status,rreason:b.decision_reason||"",retimed:!!b.retimed,link:b.call_link||"",cloud:true};
 }
 BE.toAppt=toAppt;
 BE.myBookings=function(){return sel("bookings","select=*&order=slot_date.desc,slot_time.desc&limit=200").then(function(r){return (r||[]).map(toAppt)})};
@@ -182,6 +182,7 @@ BE.createBooking=function(o){
   return rpc("create_booking",{p_doctor:o.docId,p_day:o.dateKey,p_time:o.time,p_mode:o.mode,p_name:o.name,p_age:o.age,p_sex:o.sex,p_phone:o.phone,p_reason:o.reason||""}).then(toAppt);
 };
 BE.decide=function(id,decision,time,reason){return rpc("doctor_decide_booking",{p_booking:id,p_decision:decision,p_time:time||null,p_reason:reason||null}).then(toAppt)};
+BE.setCallLink=function(id,link){return rpc("set_call_link",{p_booking:id,p_link:link||null})};
 BE.cancel=function(id){return rpc("cancel_booking",{p_booking:id}).then(toAppt)};
 BE.reschedule=function(id,dateKey,time){return rpc("reschedule_booking",{p_booking:id,p_day:dateKey,p_time:time}).then(toAppt)};
 

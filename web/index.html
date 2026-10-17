@@ -1293,6 +1293,16 @@ function docBanner(d){
   if(d.status==="rejected")return '<div class="callout" style="background:var(--bad-soft)"><span>You are not listed right now.'+(d.reason?' Reason: '+esc(d.reason)+'.':'')+' Contact the super admin to be listed again.</span></div>';
   return '';
 }
+/* Video consultation: the doctor adds a call link, the patient gets a Join button. */
+function clBox(a){
+  if(!CLOUD||!a.cloud)return '';
+  var cur=state.cl&&state.cl[a.id]!==undefined?state.cl[a.id]:a.link;
+  return '<div class="field" style="margin-top:8px"><label for="cl-'+a.id+'">Video call link or WhatsApp number</label><input id="cl-'+a.id+'" autocapitalize="none" autocomplete="off" placeholder="https://meet.google.com/... or 98XXXXXXXX" value="'+esc(cur||"")+'">'+(state.clerr&&state.clerr[a.id]?'<div class="err">'+esc(state.clerr[a.id])+'</div>':'<div class="hint">'+(a.link?'The patient can join from this link.':'Add the link before the visit. The patient is notified.')+'</div>')+'</div><div class="acts"><button class="btn sm" data-a="clsave" data-v="'+a.id+'">'+(a.link?'Update link':'Save link')+'</button></div>';
+}
+function callBox(a){
+  if(a.mode!=="video"||a.status!=="upcoming")return '';
+  return a.link?'<a class="btn" style="text-decoration:none;display:flex;justify-content:center" href="'+esc(a.link)+'" target="_blank" rel="noopener noreferrer">Join video call</a>':'<div class="hint">Your doctor will add the video call link here before the visit. You will get a notification.</div>';
+}
 function dApptCard(a,pend){
   var d=byId(a.docId),h='<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">'+(a.mode==="video"?"Video consult":"In-clinic visit")+'</div></div><span class="pill'+(pend?' warn':'')+'">'+(pend?"Needs your approval":"Confirmed")+'</span></div>'+
    '<div class="when tnum">'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+(a.retimed?' · time set by you':'')+'</div>'+
@@ -1304,7 +1314,7 @@ function dApptCard(a,pend){
     if(state.rask===a.id)h+='<div class="confirm"><div class="field"><label for="rr-'+a.id+'">Reason for the patient (optional)</label><input id="rr-'+a.id+'" maxlength="140" value="'+esc(state.rrs[a.id]||"")+'" placeholder="e.g. Not available that day"></div><div class="acts"><button class="btn sm danger" data-a="rejgo" data-v="'+a.id+'">Reject request</button><button class="btn sm ghost" data-a="rejno">Back</button></div></div>';
     else h+='<div class="acts"><button class="btn sm" data-a="approve" data-v="'+a.id+'">Approve</button><button class="btn sm ghost" data-a="rejask" data-v="'+a.id+'" style="color:var(--bad)">Reject</button></div>';
   }
-  else h+=rxDocBox(a);
+  else h+=(a.mode==="video"?clBox(a):'')+rxDocBox(a);
   return h+'</div>';
 }
 function docAppts(d){
@@ -2294,7 +2304,7 @@ function apptCard(a){
    '<div class="when tnum">'+ic.cal.replace('width="22" height="22"','width="18" height="18"')+'<span>'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+'</span></div>'+
    '<div class="doc-sub">'+(a.mode==="video"?'Video consult':esc(d.clinic)+', '+esc(d.city))+' · For '+esc(a.name)+(a.reason?' · '+esc(a.reason):'')+'</div>'+
    (a.status==="rejected"?'<div class="doc-sub" style="color:var(--bad)">The doctor could not accept this request'+(a.rreason?': '+esc(a.rreason):'.')+' Please book another time.</div>':'')+
-   (a.mode==="clinic"&&conf?'<div>'+mapLink(siteDir(d),"Get directions on Google Maps","maplink")+'</div>':'')+
+   callBox(a)+(a.mode==="clinic"&&conf?'<div>'+mapLink(siteDir(d),"Get directions on Google Maps","maplink")+'</div>':'')+
    '<div class="row"><span class="hint tnum">Ref '+esc(a.ref)+' · '+money(a.fee!=null?a.fee:visitFee(d,a.mode))+(a.pf?' + '+money(a.pf)+' platform fee':'')+'</span>'+(a.sample?'<span class="pill warn">Example</span>':'')+'</div>'+acts+(CLOUD&&conf&&a.cloud?rxView(a):'')+(CLOUD&&conf&&a.cloud&&visitPast(a)?reviewBox(a):'')+'</div>';
 }
 function vAppts(){
@@ -3153,6 +3163,7 @@ app.addEventListener("click",function(ev){
     case "cprof":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"view")})();break;
     case "cedit":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"edit")})();break;
     case "cdel":(function(){var q=v.split("|");cloudDelete(q[0],+q[1])})();break;
+    case "clsave":(function(){var el=document.getElementById("cl-"+v),val=el?el.value.trim():"";state.cl=state.cl||{};state.clerr=state.clerr||{};state.cl[v]=val;state.clerr[v]="";BE.setCallLink(v,val).then(function(){delete state.cl[v];return cloudSync(true)},function(e){state.clerr[v]=e.message;render()})})();break;
     case "rxview":cloud.rxopen=v;render();break;
     case "rxclose":cloud.rxopen=null;render();break;
     case "rxphoto":BE.signedUrl("prescriptions",v).then(function(u){state.lb=u;render()},function(e){state.dmsg=e.message;render()});break;
