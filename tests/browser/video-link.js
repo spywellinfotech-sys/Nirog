@@ -7,7 +7,7 @@ async function run(role, link, startedAt) {
   const b = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
   const ctx = await b.newContext({ viewport: { width: 390, height: 900 } });
   await ctx.addInitScript(() => { try { localStorage.setItem("nirog-sb-session-v1", JSON.stringify({ access_token: "tok", refresh_token: "r", expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: "u1", email: "u@x.in" } })); } catch (e) {} });
-  const pg = await ctx.newPage(); let saved = null, uploaded = [], stored = null, linkCalls = [], startCalls = [];
+  const pg = await ctx.newPage(); let saved = null, uploaded = [], stored = null, linkCalls = [], startCalls = [], endCalls = [];
   const doc = { id: 7, name: "Dr. Rx Writer", spec: "General Physician", qual: "MBBS", exp_years: 8, fee_inr: 600, video_fee_inr: 0, video: false, languages: "Hindi", about: "Hello", clinic: "Mock Clinic", city: "Pune", photo_path: null, wa: null, status: "approved", verified: true, ref: "DR-M" };
   const today = new Date(); const tk = new Date(today.getTime() + 19800000).toISOString().slice(0, 10);
   const booking = { id: "b-1", ref: "BK-1", doctor_id: 7, slot_date: tk, slot_time: "00:05:00", mode: "video", patient_name: "Asha Verma", patient_age: 30, patient_sex: "Female", patient_phone: "9876500011", reason: "", doctor_fee: 600, platform_fee: 0, status: "confirmed", decision_reason: null, retimed: false };
@@ -22,6 +22,7 @@ async function run(role, link, startedAt) {
     if (p.startsWith("/storage/v1/object/sign/prescriptions/")) return j(200, { signedURL: "/object/sign/x?token=t" });
     if (p === "/storage/v1/object/sign/x") return r.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG });
     if (p.endsWith("/rpc/save_prescription")) { saved = body; stored = { id: 1, booking_id: "b-1", doctor_id: 7, patient_id: "u1", diagnosis: body.p.diagnosis, medicines: body.p.medicines, advice: body.p.advice, follow_up: body.p.follow_up || null, files: body.p.files, updated_at: new Date().toISOString() }; return j(200, stored); }
+    if (p.endsWith("/rpc/end_call")) { endCalls.push(body.p_booking); return j(200, true); }
     if (p.endsWith("/rpc/start_call")) { startCalls.push(body.p_booking); return j(200, true); }
     if (p.endsWith("/rpc/set_call_link")) { linkCalls.push(body); if (body.p_link && !/^https:/.test(body.p_link) && !/^\d{10}$/.test(body.p_link)) return j(400, { code: "P0001", message: "invalid_link" }); booking.call_link = body.p_link; return j(200, true); }
     if (p.endsWith("/rpc/my_doctor_id")) return j(200, 7);
@@ -34,7 +35,7 @@ async function run(role, link, startedAt) {
   });
   const errs = []; pg.on("pageerror", (e) => errs.push(String(e)));
   await pg.goto("file://" + www); await pg.waitForTimeout(1800);
-  return { b, pg, errs, get: () => ({ saved, uploaded, stored, linkCalls, startCalls }), setStored: (s) => { stored = s; } };
+  return { b, pg, errs, get: () => ({ saved, uploaded, stored, linkCalls, startCalls, endCalls }), setStored: (s) => { stored = s; } };
 }
 (async () => {
   let ok = true; const check = (n, c) => { console.log((c ? "PASS " : "FAIL ") + n); if (!c) ok = false; };
@@ -58,12 +59,16 @@ async function run(role, link, startedAt) {
   check("patient also gets the doctor's own link", (await jl.count()) === 1 && (await jl.getAttribute("href")) === "https://meet.google.com/abc-defg-hij" && (await jl.getAttribute("target")) === "_blank");
   await t.b.close();
   t = await run("patient", null, new Date().toISOString()); pg = t.pg;
+  await pg.locator("#callbn button[aria-label=Dismiss]").click(); await pg.waitForTimeout(300);
+  check("the patient can dismiss the banner", (await pg.locator("#callbn").count()) === 0);
+  await t.b.close();
+  t = await run("patient", null, new Date().toISOString()); pg = t.pg;
   check("patient sees the Your doctor is calling banner", (await pg.locator("#callbn").count()) === 1 && /Your doctor is calling/.test(await pg.locator("#callbn").innerText()));
-  await pg.locator("#callbn button").click(); await pg.waitForTimeout(500);
+  await pg.locator("#callbn button.btn").click(); await pg.waitForTimeout(500);
   check("tapping Join opens the call and hides the banner", (await pg.locator("iframe#callfr").count()) === 1 && (await pg.locator("#callbn").count()) === 0);
   await t.b.close();
-  t = await run("patient", null, new Date(Date.now() - 3600000).toISOString()); pg = t.pg;
-  check("an old call start does not show the banner", (await pg.locator("#callbn").count()) === 0);
+  t = await run("patient", null, new Date(Date.now() - 900000).toISOString()); pg = t.pg;
+  check("a call started a while ago does not show the banner", (await pg.locator("#callbn").count()) === 0);
   await t.b.close();
   t = await run("doctor"); pg = t.pg; tx = await txt();
   const input = pg.locator('input[id^="cl-"]'); await input.first().waitFor({ timeout: 8000 });
@@ -74,6 +79,7 @@ async function run(role, link, startedAt) {
   await pg.getByRole("button", { name: "Start video call" }).click(); await pg.waitForTimeout(600);
   check("starting the call tells the server so the patient is alerted", t.get().startCalls.indexOf("b-1") >= 0 && (await pg.locator("iframe#callfr").count()) === 1);
   await pg.getByRole("button", { name: "Leave call" }).click(); await pg.waitForTimeout(400);
+  check("when the doctor leaves, the server is told the call ended", t.get().endCalls.indexOf("b-1") >= 0);
   check("the link is sent to the server", t.get().linkCalls.some((c) => c.p_link === "https://meet.google.com/abc-defg-hij" && c.p_booking === "b-1"));
   check("after saving the button says Update link", /Update link/.test(await txt()));
   check("no page errors (doctor)", t.errs.length === 0); await t.b.close();

@@ -3099,13 +3099,15 @@ function rsSave(){
 /* "Your doctor is calling" banner for the patient while a video call the doctor started is still fresh. */
 function callBanner(){
   var el=document.getElementById("callbn"),a=null;
-  if(CLOUD&&state.pat&&!state.staff&&!state.call){appts.forEach(function(x){if(x.mode==="video"&&x.status==="upcoming"&&x.callAt&&Date.now()-x.callAt<1800000)a=x})}
+  if(CLOUD&&state.pat&&!state.staff&&!state.call){appts.forEach(function(x){if(x.mode==="video"&&x.status==="upcoming"&&x.callAt&&Date.now()-x.callAt<600000&&state.dropCall!==x.callAt)a=x})}
   if(!a){if(el&&el.parentNode)el.parentNode.removeChild(el);return}
   if(!el){el=document.createElement("div");el.id="callbn";document.body.appendChild(el)}
   el.style.cssText="position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top,0px));z-index:60;background:#2E7D32;color:#fff;border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.3)";
   el.setAttribute("role","alert");
-  el.innerHTML='<div style="flex:1;font-weight:600">Your doctor is calling<div style="font-weight:400;font-size:13px">'+esc(docOrGone(a.docId).name)+'</div></div><button type="button" class="btn sm" style="background:#fff;color:#2E7D32">Join</button>';
-  el.querySelector("button").onclick=function(){state.call=a.id;state.callNew=true;render(true)};
+  el.innerHTML='<div style="flex:1;font-weight:600">Your doctor is calling<div style="font-weight:400;font-size:13px">'+esc(docOrGone(a.docId).name)+'</div></div><button type="button" class="btn sm" style="background:#fff;color:#2E7D32">Join</button><button type="button" aria-label="Dismiss" style="background:transparent;border:0;color:#fff;font-size:22px;line-height:1;padding:4px 6px">&times;</button>';
+  var bs=el.querySelectorAll("button");
+  bs[0].onclick=function(){state.call=a.id;state.callNew=true;render(true)};
+  bs[1].onclick=function(){state.dropCall=a.callAt;callBanner()};
 }
 function render(scroll){
   callBanner();
@@ -3193,7 +3195,7 @@ app.addEventListener("click",function(ev){
     case "cedit":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"edit")})();break;
     case "cdel":(function(){var q=v.split("|");cloudDelete(q[0],+q[1])})();break;
     case "callin":(function(){var a=null;appts.forEach(function(x){if(x.id===v)a=x});if(CLOUD&&state.staff&&a&&a.cloud)BE.startCall(v).catch(function(){});state.call=v;state.callNew=true;render(true)})();break;
-    case "callend":state.call=null;render(true);break;
+    case "callend":(function(){var id=state.call,a=null;appts.forEach(function(x){if(x.id===id)a=x});if(CLOUD&&state.staff&&a&&a.cloud)BE.endCall(id).catch(function(){});state.call=null;render(true)})();break;
     case "clsave":(function(){var el=document.getElementById("cl-"+v),val=el?el.value.trim():"";state.cl=state.cl||{};state.clerr=state.clerr||{};state.cl[v]=val;state.clerr[v]="";BE.setCallLink(v,val).then(function(){delete state.cl[v];return cloudSync(true)},function(e){state.clerr[v]=e.message;render()})})();break;
     case "rxview":cloud.rxopen=v;render();break;
     case "rxclose":cloud.rxopen=null;render();break;
@@ -3433,7 +3435,7 @@ app.addEventListener("submit",function(ev){
 });
 /* Back button support for the Android wrapper. Returns true when it handled the press. */
 window.__nirogBack=function(){
-  if(state.call){state.call=null;render(true);return true}
+  if(state.call){var _id=state.call,_a=null;appts.forEach(function(x){if(x.id===_id)_a=x});if(CLOUD&&state.staff&&_a&&_a.cloud)BE.endCall(_id).catch(function(){});state.call=null;render(true);return true}
   if(state.staff)return false;
   if(state.ref){state.ref=false;render(true);return true}
   if(state.amb){state.amb=false;render(true);return true}

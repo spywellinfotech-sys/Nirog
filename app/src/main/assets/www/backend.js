@@ -184,6 +184,7 @@ BE.createBooking=function(o){
 BE.decide=function(id,decision,time,reason){return rpc("doctor_decide_booking",{p_booking:id,p_decision:decision,p_time:time||null,p_reason:reason||null}).then(toAppt)};
 BE.setCallLink=function(id,link){return rpc("set_call_link",{p_booking:id,p_link:link||null})};
 BE.startCall=function(id){return rpc("start_call",{p_booking:id})};
+BE.endCall=function(id){return rpc("end_call",{p_booking:id})};
 BE.cancel=function(id){return rpc("cancel_booking",{p_booking:id}).then(toAppt)};
 BE.reschedule=function(id,dateKey,time){return rpc("reschedule_booking",{p_booking:id,p_day:dateKey,p_time:time}).then(toAppt)};
 
