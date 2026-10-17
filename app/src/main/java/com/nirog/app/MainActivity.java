@@ -34,6 +34,8 @@ public class MainActivity extends Activity {
     private WebView webView;
     private static MainActivity current; // lets the push service hand a new token to the open page
     private static final int FILE_REQ = 1001;
+    private static final int MEDIA_REQ = 2002;
+    private android.webkit.PermissionRequest pendingMedia; // camera/microphone request from the video call page
     private ValueCallback<Uri[]> filePathCallback; // pending file picker for <input type="file">
     private String pendingAuth; // fragment of a nirog://auth#... sign-in return, delivered once the page is ready
 
@@ -166,6 +168,34 @@ public class MainActivity extends Activity {
 
         // Without this, "Choose file" buttons in the web app do nothing inside an Android WebView.
         webView.setWebChromeClient(new WebChromeClient() {
+            /** The video call page asks for camera and microphone: pass the request on to Android's own permission prompt. */
+            @Override
+            public void onPermissionRequest(final android.webkit.PermissionRequest request) {
+                runOnUiThread(() -> {
+                    java.util.ArrayList<String> need = new java.util.ArrayList<>();
+                    for (String r : request.getResources()) {
+                        if (android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) need.add(android.Manifest.permission.CAMERA);
+                        if (android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) need.add(android.Manifest.permission.RECORD_AUDIO);
+                    }
+                    java.util.ArrayList<String> missing = new java.util.ArrayList<>();
+                    for (String perm : need) {
+                        if (checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) missing.add(perm);
+                    }
+                    if (missing.isEmpty()) {
+                        request.grant(request.getResources());
+                    } else {
+                        if (pendingMedia != null) pendingMedia.deny();
+                        pendingMedia = request;
+                        requestPermissions(missing.toArray(new String[0]), MEDIA_REQ);
+                    }
+                });
+            }
+
+            @Override
+            public void onPermissionRequestCanceled(android.webkit.PermissionRequest request) {
+                if (pendingMedia == request) pendingMedia = null;
+            }
+
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (filePathCallback != null) {
@@ -191,8 +221,8 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
-                if ("file".equals(uri.getScheme())) {
-                    return false; // stay inside the app
+                if ("file".equals(uri.getScheme()) || !request.isForMainFrame()) {
+                    return false; // stay inside the app (the video call page is a frame inside the app)
                 }
                 // Google Maps, phone and mail links open in the matching Android app.
                 try {
@@ -211,6 +241,17 @@ public class MainActivity extends Activity {
         } else {
             webView.loadUrl(START_URL);
         }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(code, perms, results);
+        if (code != MEDIA_REQ || pendingMedia == null) return;
+        android.webkit.PermissionRequest req = pendingMedia;
+        pendingMedia = null;
+        boolean ok = results.length > 0;
+        for (int r : results) if (r != PackageManager.PERMISSION_GRANTED) ok = false;
+        if (ok) req.grant(req.getResources()); else req.deny();
     }
 
     /** Creates the notification channel, asks for permission on Android 13+, and fetches the push token. */

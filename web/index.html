@@ -1293,15 +1293,29 @@ function docBanner(d){
   if(d.status==="rejected")return '<div class="callout" style="background:var(--bad-soft)"><span>You are not listed right now.'+(d.reason?' Reason: '+esc(d.reason)+'.':'')+' Contact the super admin to be listed again.</span></div>';
   return '';
 }
-/* Video consultation: the doctor adds a call link, the patient gets a Join button. */
+/* Video consultation: the call runs inside the app (Jitsi). The doctor can instead add another link (Meet, Zoom, WhatsApp). */
+var JITSI_HOST="meet.jit.si";
+function callRoom(a){return "YadaPlus-"+String(a.id).replace(/[^A-Za-z0-9]/g,"")}
+function callUrl(a,name){return "https://"+JITSI_HOST+"/"+callRoom(a)+"#config.prejoinPageEnabled=false&config.disableDeepLinking=true&config.startWithAudioMuted=false&config.startWithVideoMuted=false&userInfo.displayName="+encodeURIComponent(JSON.stringify(name||"Yada+ user"))}
+function callWho(a){var s=state.staff?getUser(state.staff):null;return s&&s.role==="doctor"?(byId(a.docId)||{}).name||"Doctor":(a.name||"Patient")}
+function vCall(){
+  var a=null;appts.forEach(function(x){if(x.id===state.call)a=x});
+  if(!a)return '<div class="top"><div class="brand">'+LOGO+'<small>Video call</small></div><button class="btn sm ghost" data-a="callend">Close</button></div><div class="empty">This appointment was not found.</div>';
+  var u=callUrl(a,callWho(a));
+  return '<div class="top"><div class="brand">'+LOGO+'<small>Video call</small></div><button class="btn sm danger" data-a="callend">Leave call</button></div>'+
+   '<iframe id="callfr" title="Video call" src="'+esc(u)+'" allow="camera; microphone; display-capture; autoplay; fullscreen" style="display:block;width:100%;height:calc(100vh - 150px);border:0;background:#000"></iframe>'+
+   '<div class="hint" style="padding:8px 16px;text-align:center">Allow camera and microphone when asked. Both of you need to join. <a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" style="color:var(--brand)">Open in browser instead</a></div>';
+}
 function clBox(a){
   if(!CLOUD||!a.cloud)return '';
   var cur=state.cl&&state.cl[a.id]!==undefined?state.cl[a.id]:a.link;
-  return '<div class="field" style="margin-top:8px"><label for="cl-'+a.id+'">Video call link or WhatsApp number</label><input id="cl-'+a.id+'" autocapitalize="none" autocomplete="off" placeholder="https://meet.google.com/... or 98XXXXXXXX" value="'+esc(cur||"")+'">'+(state.clerr&&state.clerr[a.id]?'<div class="err">'+esc(state.clerr[a.id])+'</div>':'<div class="hint">'+(a.link?'The patient can join from this link.':'Add the link before the visit. The patient is notified.')+'</div>')+'</div><div class="acts"><button class="btn sm" data-a="clsave" data-v="'+a.id+'">'+(a.link?'Update link':'Save link')+'</button></div>';
+  return '<div class="field" style="margin-top:8px"><label for="cl-'+a.id+'">Use another call link (optional)</label><input id="cl-'+a.id+'" autocapitalize="none" autocomplete="off" placeholder="Google Meet / Zoom link or WhatsApp number" value="'+esc(cur||"")+'">'+(state.clerr&&state.clerr[a.id]?'<div class="err">'+esc(state.clerr[a.id])+'</div>':'<div class="hint">'+(a.link?'The patient also sees this link.':'Leave empty to use the in-app video call.')+'</div>')+'</div><div class="acts"><button class="btn sm ghost" data-a="clsave" data-v="'+a.id+'">'+(a.link?'Update link':'Save link')+'</button></div>';
 }
-function callBox(a){
+function callBox(a,doc){
   if(a.mode!=="video"||a.status!=="upcoming")return '';
-  return a.link?'<a class="btn" style="text-decoration:none;display:flex;justify-content:center" href="'+esc(a.link)+'" target="_blank" rel="noopener noreferrer">Join video call</a>':'<div class="hint">Your doctor will add the video call link here before the visit. You will get a notification.</div>';
+  return '<button class="btn" data-a="callin" data-v="'+a.id+'">'+(doc?'Start video call':'Join video call')+'</button>'+
+   (a.link?'<a class="btn ghost" style="text-decoration:none;display:flex;justify-content:center;margin-top:8px" href="'+esc(a.link)+'" target="_blank" rel="noopener noreferrer">Open the doctor\'s link instead</a>':'')+
+   '<div class="hint">'+(doc?'The patient joins from My appointments.':'The doctor joins from the same booking. You can join a little early.')+'</div>';
 }
 function dApptCard(a,pend){
   var d=byId(a.docId),h='<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">'+(a.mode==="video"?"Video consult":"In-clinic visit")+'</div></div><span class="pill'+(pend?' warn':'')+'">'+(pend?"Needs your approval":"Confirmed")+'</span></div>'+
@@ -1314,7 +1328,7 @@ function dApptCard(a,pend){
     if(state.rask===a.id)h+='<div class="confirm"><div class="field"><label for="rr-'+a.id+'">Reason for the patient (optional)</label><input id="rr-'+a.id+'" maxlength="140" value="'+esc(state.rrs[a.id]||"")+'" placeholder="e.g. Not available that day"></div><div class="acts"><button class="btn sm danger" data-a="rejgo" data-v="'+a.id+'">Reject request</button><button class="btn sm ghost" data-a="rejno">Back</button></div></div>';
     else h+='<div class="acts"><button class="btn sm" data-a="approve" data-v="'+a.id+'">Approve</button><button class="btn sm ghost" data-a="rejask" data-v="'+a.id+'" style="color:var(--bad)">Reject</button></div>';
   }
-  else h+=(a.mode==="video"?clBox(a):'')+rxDocBox(a);
+  else h+=(a.mode==="video"?callBox(a,true)+clBox(a):'')+rxDocBox(a);
   return h+'</div>';
 }
 function docAppts(d){
@@ -2558,7 +2572,7 @@ function cloudLogout(expired){
   var p=BE.signOut();
   state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;cloud.facs=null;cloud.leads=null;cloud.sf=null;cloud.bcs=null;cloud.bf=null;cloud.dash=undefined;cloud.ambA=undefined;cloud.wds=undefined;cloud.rset=null;cloud.rsf=null;state.rf=null;state.ref=false;cloud.af=null;cloud.adminMsg="";cloud.adminErr="";
   DOCS.forEach(function(d){d.mine=false});
-  state.view="list";state.tab="find";state.notif=false;state.help=false;state.ask=null;render(true);
+  state.view="list";state.tab="find";state.notif=false;state.help=false;state.call=null;state.ask=null;render(true);
   return p;
 }
 /* Slots come from the database (open_slots) so what you see is what the server will accept. */
@@ -3086,6 +3100,7 @@ function render(scroll){
   if(CLOUD&&APPB>0&&MINB>APPB){app.innerHTML=vForceUpdate();return}
   if(state.notif&&notifKey()){app.innerHTML=vNotif();if(scroll)window.scrollTo(0,0);return}
   if(state.help){app.innerHTML=vHelp();if(scroll)window.scrollTo(0,0);return}
+  if(state.call){if(!document.getElementById("callfr")||state.callNew){state.callNew=false;app.innerHTML=vCall();window.scrollTo(0,0)}return} /* keep the call alive when background sync redraws */
   if(state.ref){app.innerHTML=vRef();if(scroll)window.scrollTo(0,0);return}
   if(state.amb){ambLoad();app.innerHTML=vAmb();if(scroll)window.scrollTo(0,0);return}
   state.notif=false;
@@ -3163,6 +3178,8 @@ app.addEventListener("click",function(ev){
     case "cprof":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"view")})();break;
     case "cedit":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"edit")})();break;
     case "cdel":(function(){var q=v.split("|");cloudDelete(q[0],+q[1])})();break;
+    case "callin":state.call=v;state.callNew=true;render(true);break;
+    case "callend":state.call=null;render(true);break;
     case "clsave":(function(){var el=document.getElementById("cl-"+v),val=el?el.value.trim():"";state.cl=state.cl||{};state.clerr=state.clerr||{};state.cl[v]=val;state.clerr[v]="";BE.setCallLink(v,val).then(function(){delete state.cl[v];return cloudSync(true)},function(e){state.clerr[v]=e.message;render()})})();break;
     case "rxview":cloud.rxopen=v;render();break;
     case "rxclose":cloud.rxopen=null;render();break;
@@ -3402,6 +3419,7 @@ app.addEventListener("submit",function(ev){
 });
 /* Back button support for the Android wrapper. Returns true when it handled the press. */
 window.__nirogBack=function(){
+  if(state.call){state.call=null;render(true);return true}
   if(state.staff)return false;
   if(state.ref){state.ref=false;render(true);return true}
   if(state.amb){state.amb=false;render(true);return true}
