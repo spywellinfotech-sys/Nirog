@@ -161,6 +161,8 @@ public class MainActivity extends Activity {
             // no build number: the update check stays off
         }
         webView.addJavascriptInterface(new NativeBridge(), "NirogNative");
+        // The video call page plays the other person's voice without a tap; WebView blocks that by default.
+        settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setDomStorageEnabled(true); // the app keeps bookings and sign-ins in localStorage
         settings.setAllowFileAccess(true);
         settings.setAllowFileAccessFromFileURLs(false);
@@ -234,6 +236,7 @@ public class MainActivity extends Activity {
             }
         });
 
+        setVolumeControlStream(android.media.AudioManager.STREAM_MUSIC);
         startPush();
         captureAuth(getIntent());
         if (savedInstanceState != null) {
