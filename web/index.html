@@ -2827,7 +2827,7 @@ function cloudSubmitFreg(r,t,mp,em){
 }
 function cloudAdminLoad(){
   cloud.adminErr="";cloud.admin=cloud.admin||[];
-  return BE.adminDoctors().then(function(l){cloud.admin=l;render()},function(e){cloud.adminErr=e.message;cloud.admin=cloud.admin||[];render()});
+  return BE.adminDoctors().then(function(l){cloud.admin=l;docStatsLoad(l);render()},function(e){cloud.adminErr=e.message;cloud.admin=cloud.admin||[];render()});
 }
 function cloudReview(id,decision){
   if(cloud.busy)return;cloud.busy=true;cloud.adminMsg="";render();
@@ -2908,11 +2908,20 @@ function cloudDelete(kind,id){
   if(cloud.busy)return;cloud.busy=true;cloud.delAsk=null;cloud.adminMsg="";cloud.adminErr="";render();
   BE.adminDelete(kind,id).then(function(){cloud.busy=false;cloud.pv=null;cloud.edit=null;cloud.adminMsg="Deleted. The mobile number and login are free to register again.";cloud.admin=null;cloud.facs=null;render()},function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
 }
+/* One-line activity summary on each doctor card (super admin). Full numbers are under Full profile. */
+function docStatLine(id){
+  var s=cloud.dst&&cloud.dst[id];if(!s)return '';
+  return '<div class="tiny" style="margin-top:4px;font-weight:600">Appointments '+s.total+' ('+s.confirmed+' confirmed) · Video '+s.video+' · In-clinic '+s.clinic+' · Prescriptions '+s.prescriptions+' · Platform earned '+money(s.platform_fees)+'</div>';
+}
+function docStatsLoad(list){
+  cloud.dst=cloud.dst||{};
+  (list||[]).forEach(function(d){BE.doctorStats(d.id).then(function(s){cloud.dst[d.id]=s;render()},function(){})});
+}
 function cloudCard(d,kind){
   var isF=kind==="fac",key=pvKey(kind,d.id);
   var docs=(d.docs||[]).map(function(x){var bk=(x.kind==="photo"||x.kind==="clinic")?"doctor-media":"verification-docs";return '<button class="btn sm ghost" data-a="cdoc" data-v="'+esc(bk+"|"+x.storage_path)+'">View '+esc(x.kind)+'</button>'}).join("");
   var det=isF?'<div class="tiny">'+esc(d.address)+', '+esc(d.city)+' '+esc(d.pin||"")+(d.priv?' · Contact '+esc(d.priv.contact_name)+' '+esc(d.priv.contact_phone)+' · Licence '+esc(d.priv.licence_no):'')+'</div>'
-    :'<div class="tiny">'+esc(d.qual)+' · '+d.exp_years+' yrs · Fee '+money(d.fee_inr)+'</div>'+(d.ver?'<div class="tiny">Council: '+esc(d.ver.council)+' · Reg no '+esc(d.ver.reg_no)+' ('+d.ver.reg_year+')</div>':'');
+    :'<div class="tiny">'+esc(d.qual)+' · '+d.exp_years+' yrs · Fee '+money(d.fee_inr)+'</div>'+docStatLine(d.id)+(d.ver?'<div class="tiny">Council: '+esc(d.ver.council)+' · Reg no '+esc(d.ver.reg_no)+' ('+d.ver.reg_year+')</div>':'');
   return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(d.name)+'</div><div class="tiny">'+esc(isF?kindName(d.kind):d.spec)+' · '+esc(d.city)+' · '+esc(d.ref)+'</div></div><span class="pill'+(d.status==="pending"?' warn':d.status==="rejected"?' bad':'')+'">'+esc(d.status)+'</span></div>'+det+
    (d.map_url?'<div class="tiny">'+mapLink(d.map_url,"Check on Google Maps","maplink")+'</div>':'')+
    (docs?'<div class="acts" style="margin-top:8px;flex-wrap:wrap">'+docs+'</div>':'')+
