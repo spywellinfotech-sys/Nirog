@@ -217,6 +217,7 @@ BE.adminAccounts=function(){return rpc("admin_accounts",{})};
 BE.addExpense=function(p){return rpc("admin_expense_add",{p:p})};
 BE.deleteExpense=function(id){return rpc("admin_expense_delete",{p_id:id})};
 BE.doctorStats=function(id){return rpc("admin_doctor_stats",{p_doctor:id})};
+BE.adminPatients=function(q,off){return rpc("admin_patients",{p_search:q||"",p_limit:50,p_offset:off||0})};
 BE.dashCounts=function(){return rpc("admin_dashboard_counts",{})};
 BE.ambulances=function(){return sel("ambulance_services","select=*&order=kind.asc,name.asc&limit=300")};
 BE.saveAmbulance=function(p){return rpc("admin_save_ambulance",{p:p})};
