@@ -3081,8 +3081,14 @@ function adPick(files){
     if(v.size>20*1024*1024){f.err="The video is larger than 20 MB. Use a shorter one.";return render()}
     f.vfile=v;return render();
   }
-  var list=[].slice.call(files),left=list.length,room=8-f.imgs.length,picked=[];
-  list.forEach(function(file,idx){shrink(file,1200,.8,function(d){picked[idx]=d;if(--left===0){var ok=picked.filter(Boolean);if(!ok.length)f.err="Those photos could not be read. Try others.";else{f.imgs=f.imgs.concat(ok).slice(0,8);if(ok.length>room)f.err="Only 8 photos fit. The extra ones were left out."}render()}})});
+  var list=[].slice.call(files),room=8-f.imgs.length,bad=0,i=0;
+  if(room<=0){f.err="Already 8 photos. Remove one to add another.";return render()}
+  var extra=list.length>room;list=list.slice(0,room);
+  f.err="Reading photos…";render();
+  (function next(){
+    if(i>=list.length){f.err=bad?(bad+" photo(s) could not be read. Try others."):(extra?"Only 8 photos fit. The extra ones were left out.":"");return render()}
+    shrink(list[i++],1200,.8,function(d){if(d)f.imgs.push(d);else bad++;f.err="Reading photos… "+f.imgs.length;render();setTimeout(next,30)});
+  })();
 }
 function adSave(row,msg){
   if(cloud.busy)return;
