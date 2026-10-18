@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.nirog.app"
+    namespace = "com.yadaplus.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.nirog.app"
+        applicationId = "com.yadaplus.app"
         minSdk = 24
         targetSdk = 35
         versionCode = (project.findProperty("buildNo") ?: "1").toString().toInt()

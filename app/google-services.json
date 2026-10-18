@@ -34,6 +34,35 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:867856960952:android:978c053d1c34f83eb8934d",
+        "android_client_info": {
+          "package_name": "com.yadaplus.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "867856960952-ql4tri4a8be0igpd405dvchqib6c24fu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBBOnOY7M8AuWHovXh6reZimJ_SX7ETlE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "867856960952-ql4tri4a8be0igpd405dvchqib6c24fu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

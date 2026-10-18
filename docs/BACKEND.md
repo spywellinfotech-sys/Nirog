@@ -43,7 +43,7 @@
    ```
    After that, add sales staff from the admin screen (`admin_set_staff`).
 7. In GitHub: **Settings > Secrets and variables > Actions > New repository secret**. Add `SUPABASE_URL`, `SUPABASE_ANON_KEY` and optionally `GOOGLE_MAPS_API_KEY`.
-8. **Google Maps (optional)**: existing Google Maps links keep working with no key. For embedded maps, create a key in Google Cloud, restrict it to the Android app (`com.nirog.app` plus your signing SHA-1) and to the Maps SDK/Embed API only.
+8. **Google Maps (optional)**: existing Google Maps links keep working with no key. For embedded maps, create a key in Google Cloud, restrict it to the Android app (`com.yadaplus.app` plus your signing SHA-1) and to the Maps SDK/Embed API only.
 
 ## Supplying configuration safely
 

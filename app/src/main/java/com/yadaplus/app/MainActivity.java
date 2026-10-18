@@ -1,4 +1,4 @@
-package com.nirog.app;
+package com.yadaplus.app;
 
 import android.app.Activity;
 import android.content.ClipData;
