@@ -56,7 +56,7 @@ async function open(role) {
   await pg.getByRole("button", { name: "Publish ad" }).click(); await pg.waitForTimeout(300);
   check("publishing without a photo asks for one", /Enter a title|Choose at least one photo/.test(await txt()));
   await pg.fill("#ad-title", "Pharmacy discount"); await pg.fill("#ad-adv", "Shree Pharmacy"); await pg.fill("#ad-link", "http://not-secure.example");
-  await pg.setInputFiles("#adp-file", [{ name: "b1.png", mimeType: "image/png", buffer: PNG }, { name: "b2.png", mimeType: "image/png", buffer: PNG }, { name: "b3.png", mimeType: "image/png", buffer: PNG }]); await pg.waitForTimeout(1200);
+  for (const n of ["b1","b2","b3"]) { await pg.setInputFiles("#adp-one", [{ name: n + ".png", mimeType: "image/png", buffer: PNG }]); await pg.waitForTimeout(700); }
   check("several photos can be chosen at once", (await pg.locator('.thumb img[alt^="Photo"]').count()) === 3);
   await pg.getByRole("button", { name: "Publish ad" }).click(); await pg.waitForTimeout(400);
   check("an http sponsor link is refused", /must start with https/.test(await txt()) && t.st.saved === null);
