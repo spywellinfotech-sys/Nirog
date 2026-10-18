@@ -2368,7 +2368,7 @@ function fabHtml(){return '<button class="fab" data-a="amb" aria-label="Ambulanc
 function telHref(n){return "tel:"+String(n).replace(/[^\d+]/g,"")}
 function ambCities(){var c=browseCities().slice();(cloud.amb||[]).concat(ambFacs()).forEach(function(a){if(a.city&&c.indexOf(a.city)<0)c.push(a.city)});return c}
 /* After the patient taps Call on an ambulance, offer to send their location so the crew can find them. */
-document.addEventListener("click",function(ev){var t=ev.target.closest&&ev.target.closest("[data-amcall]");if(!t)return;var p=t.getAttribute("data-amcall").split("|");state.amAfter={phone:p[0],name:p.slice(1).join("|"),msg:"",busy:false};setTimeout(function(){if(state.amOpen!==false&&document.getElementById("ambl"))render(true)},500)},true);
+document.addEventListener("click",function(ev){var t=ev.target.closest&&ev.target.closest("[data-amcall]");if(!t)return;var p=t.getAttribute("data-amcall").split("|");state.amAfter={phone:p[0],wa:p[1],name:p.slice(2).join("|"),msg:"",busy:false};setTimeout(function(){if(state.amOpen!==false&&document.getElementById("ambl"))render(true)},500)},true);
 function amSend(mode){
   var s=state.amAfter;if(!s||s.busy)return;
   if(!navigator.geolocation){s.msg="This phone cannot share its location here. Tell the ambulance your address on the call.";render(true);return}
@@ -2379,7 +2379,7 @@ function amSend(mode){
     var text="Emergency: I need an ambulance. My location: "+link+" (sent from Yada+)";
     s.msg="Location ready. Send the message.";render(true);
     var a=document.createElement("a");
-    a.href=mode==="wa"?"https://wa.me/"+waNum(s.phone)+"?text="+encodeURIComponent(text):"sms:"+String(s.phone).replace(/[^\d+]/g,"")+"?body="+encodeURIComponent(text);
+    a.href=mode==="wa"?"https://wa.me/"+waNum(s.wa)+"?text="+encodeURIComponent(text):"sms:"+String(s.phone).replace(/[^\d+]/g,"")+"?body="+encodeURIComponent(text);
     if(mode==="wa"){a.target="_blank";a.rel="noopener noreferrer"}
     document.body.appendChild(a);a.click();a.remove();
   },function(err){
@@ -2391,14 +2391,14 @@ function amSend(mode){
 function amAfterHtml(){
   var s=state.amAfter;if(!s)return '';
   return '<div class="card" style="border:2px solid var(--brand)"><div style="font-weight:700">Called '+esc(s.name)+'?</div><div class="tiny" style="margin:4px 0 10px">Send your location so the ambulance can find you. It opens a message with a map link. You press send.</div>'+
-   '<div class="acts" style="flex-wrap:wrap"><button class="btn sm" data-a="amsend" data-v="wa"'+(s.busy?' disabled':'')+'>Send on WhatsApp</button><button class="btn sm ghost" data-a="amsend" data-v="sms"'+(s.busy?' disabled':'')+'>Send by SMS</button><button class="btn sm ghost" data-a="amdone">Not needed</button></div>'+
+   '<div class="acts" style="flex-wrap:wrap">'+(s.wa?'<button class="btn sm" data-a="amsend" data-v="wa"'+(s.busy?' disabled':'')+'>Send on WhatsApp</button>':'')+'<button class="btn sm ghost" data-a="amsend" data-v="sms"'+(s.busy?' disabled':'')+'>Send by SMS</button><button class="btn sm ghost" data-a="amdone">Not needed</button></div>'+
    (s.msg?'<div class="hint" role="status" style="margin-top:8px">'+esc(s.msg)+'</div>':'')+'</div>';
 }
 function ambRow(a){
   return '<div class="natamb"><div style="min-width:0"><b>'+esc(a.name)+'</b> <span class="pill">'+(a.kind==="govt"?"Government":"Private")+'</span><div class="tiny">'+esc(a.city||"All locations")+(a.note?' · '+esc(a.note):'')+'</div></div>'+
-   '<a class="btn sm" href="'+esc(telHref(a.phone))+'" aria-label="Call '+esc(a.name)+'" data-amcall="'+esc(a.phone)+'|'+esc(a.name)+'"'+(a.fid?tapAttr("facility",a.fid,"call"):tapAttr("ambulance",a.id,"call"))+'>'+ICPHONE+' Call</a></div>';
+   '<a class="btn sm" href="'+esc(telHref(a.phone))+'" aria-label="Call '+esc(a.name)+'" data-amcall="'+esc(a.phone)+'|'+esc(a.whatsapp||"")+'|'+esc(a.name)+'"'+(a.fid?tapAttr("facility",a.fid,"call"):tapAttr("ambulance",a.id,"call"))+'>'+ICPHONE+' Call</a></div>';
 }
-function ambFacs(){return LABS.filter(function(l){return l.kind==="ambulance"&&l.wa&&l.status!=="pending"&&l.status!=="rejected"}).map(function(l){return {name:l.name,phone:"+91"+l.wa,city:l.city||"",kind:"private",note:"Verified by Yada+",active:true,fid:l.id}})}
+function ambFacs(){return LABS.filter(function(l){return l.kind==="ambulance"&&l.wa&&l.status!=="pending"&&l.status!=="rejected"}).map(function(l){return {name:l.name,phone:"+91"+l.wa,city:l.city||"",kind:"private",note:"Verified by Yada+",active:true,fid:l.id,whatsapp:l.wa}})}
 function ambListHtml(){
   var L=cloud.amb;if(CLOUD&&L===null)return '<div class="empty">Loading...</div>';
   L=(L||[]).concat(ambFacs());var all=state.city===ALL_CITIES,c=String(state.city||"").trim().toLowerCase();
@@ -2623,7 +2623,7 @@ function pushSync(){try{if(window.NirogNative&&window.NirogNative.pushToken)push
 function cloudLogout(expired){
   try{var pt=window.NirogNative&&window.NirogNative.pushToken&&window.NirogNative.pushToken();if(pt&&BE.signedIn()){BE.dropPush(pt).catch(function(){});try{localStorage.removeItem("nirog-push-"+BE.userId())}catch(e){}}}catch(e){}
   var p=BE.signOut();
-  state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.admin=null;cloud.facs=null;cloud.leads=null;cloud.sf=null;cloud.bcs=null;cloud.bf=null;cloud.dash=undefined;cloud.ambA=undefined;cloud.wds=undefined;cloud.acc=undefined;cloud.accf=null;cloud.rset=null;cloud.rsf=null;state.rf=null;state.ref=false;cloud.af=null;cloud.adminMsg="";cloud.adminErr="";
+  state.pat=null;state.staff=null;staffData.users=[];appts=[];NOTIF=[];cloud.hash="";cloud.ads=undefined;cloud.adf=null;state.ads=null;state.adsCity=undefined;cloud.admin=null;cloud.facs=null;cloud.leads=null;cloud.sf=null;cloud.bcs=null;cloud.bf=null;cloud.dash=undefined;cloud.ambA=undefined;cloud.wds=undefined;cloud.acc=undefined;cloud.accf=null;cloud.rset=null;cloud.rsf=null;state.rf=null;state.ref=false;cloud.af=null;cloud.adminMsg="";cloud.adminErr="";
   DOCS.forEach(function(d){d.mine=false});
   state.view="list";state.tab="find";state.notif=false;state.help=false;state.loAsk=false;state.call=null;state.ask=null;render(true);
   return p;
@@ -2995,12 +2995,80 @@ function adminCounts(){
    '<div class="tiny" style="padding:0 16px 10px">App installs counts phones that registered for notifications on a recent Android build. Older builds, the iPhone app and the website are not counted.</div>'+
    (sp.length?'<div class="sec">Doctors by speciality</div><div class="card">'+sp.map(function(s){return '<div class="sumrow"><span>'+esc(s.spec)+'</span><span class="tnum">'+esc(String(s.n))+'</span></div>'}).join("")+'</div>':'');
 }
-function ambNew(){return {id:null,name:"",phone:"",city:"",kind:"private",note:""}}
+/* ---------- ads: the super admin shows a banner image or short video to patients in one city or everywhere ---------- */
+function adsLoad(){
+  if(!CLOUD||state.staff||state.adsBusy)return;
+  var c=state.city===ALL_CITIES?"":String(state.city||"");
+  if(state.adsCity===c&&state.ads)return;
+  state.adsBusy=true;
+  BE.activeAds(c).then(function(l){state.adsBusy=false;state.adsCity=c;state.ads=l||[];render()},function(){state.adsBusy=false;state.adsCity=c;state.ads=[]});
+}
+function adBanner(){
+  if(!CLOUD||state.staff||!state.ads||!state.ads.length)return '';
+  var i=(state.adIdx=state.adIdx===undefined?Math.floor(Math.random()*state.ads.length):state.adIdx)%state.ads.length,a=state.ads[i];
+  state.adSeen=state.adSeen||{};if(!state.adSeen[a.id]&&BE.userId()){state.adSeen[a.id]=1;BE.logAdView(a.id).catch(function(){})}
+  return '<div class="card" style="padding:10px"><div class="tiny" style="margin-bottom:6px">Sponsored'+(a.advertiser?' · '+esc(a.advertiser):'')+'</div>'+
+   (a.kind==="video"?'<video muted autoplay loop playsinline controls preload="metadata" src="'+esc(BE.mediaUrl(a.media))+'" aria-label="'+esc(a.title)+'" style="width:100%;border-radius:10px;display:block;background:#000;max-height:220px"></video>'
+     :'<img src="'+esc(BE.mediaUrl(a.media))+'" alt="'+esc(a.title)+'" style="width:100%;border-radius:10px;display:block;max-height:220px;object-fit:cover">')+
+   '<div style="font-weight:600;margin-top:6px">'+esc(a.title)+'</div></div>';
+}
+function adNew(){return {id:null,title:"",advertiser:"",city:"",ends:"",file:null,kind:"",preview:"",err:""}}
+function adAdmin(){
+  var f=cloud.adf=cloud.adf||adNew(),L=cloud.ads;
+  var out='';
+  if(cloud.adminMsg)out+='<div class="status-line" role="status" style="margin:12px 16px 0">'+esc(cloud.adminMsg)+'</div>';
+  if(cloud.adminErr)out+='<div class="err" role="alert" style="margin:12px 16px 0">'+esc(cloud.adminErr)+'</div>';
+  out+='<div class="sec">'+(f.id?'Edit ad':'New ad')+'</div><div class="card">'+
+   '<div class="field"><label for="ad-title">Title</label><input id="ad-title" maxlength="80" value="'+esc(f.title)+'" placeholder="e.g. Free eye check-up this Sunday"></div>'+
+   '<div class="field"><label for="ad-adv">Whose ad (doctor, lab, hospital, pharmacy)</label><input id="ad-adv" maxlength="80" value="'+esc(f.advertiser)+'"></div>'+
+   '<div class="field"><label for="ad-city">City (optional)</label>'+cityIn("ad-city",f.city)+'<div class="tiny">Leave empty to show the ad in every city. With a city, only patients who chose that city see it.</div></div>'+
+   '<div class="field"><label for="ad-end">Last day (optional)</label><input id="ad-end" type="date" value="'+esc(f.ends)+'"></div>'+
+   '<div class="upl"><b>Banner photo or short video (MP4 or WebM, up to 20 MB)</b>'+(f.preview?'<div class="thumbs" style="margin:6px 0"><div class="thumb"><img src="'+esc(f.preview)+'" alt="Banner preview"></div></div>':'')+(f.file&&f.kind==="video"?'<div class="tiny" style="margin:6px 0">'+esc(f.file.name)+' · '+bcMb(f.file.size)+'</div>':'')+(f.id&&!f.file?'<div class="tiny">Keeping the current media. Choose a file only to replace it.</div>':'')+'<label class="pick">'+(f.file||f.id?'Change file':'Choose photo or video')+'<input type="file" id="adp-file" accept="image/*,video/mp4,video/webm"></label></div>'+
+   (f.err?'<div class="err" role="alert" style="margin-bottom:10px">'+esc(f.err)+'</div>':'')+
+   '<div class="acts"><button class="btn" type="button" data-a="adsave"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Saving...':f.id?'Save changes':'Publish ad')+'</button>'+(f.id?'<button class="btn ghost" type="button" data-a="adclear">Cancel</button>':'')+'</div></div>';
+  out+='<div class="sec">All ads ('+(L?L.length:0)+')</div>';
+  if(L===undefined||L===null)return out+'<div class="empty">Loading...</div>';
+  return out+(L.length?L.map(function(a){
+    var today=new Date().toISOString().slice(0,10),live=a.active&&a.starts_on<=today&&(!a.ends_on||a.ends_on>=today);
+    return '<div class="appt"><div class="who"><div style="min-width:0"><div class="doc-name">'+esc(a.title)+'</div><div class="tiny">'+esc(a.advertiser||"No advertiser")+' · '+(a.kind==="video"?"Video":"Photo")+' · '+esc(a.city||"Every city")+(a.ends_on?' · until '+esc(a.ends_on):'')+'</div><div class="tiny" style="font-weight:600">Shown '+a.views+' time'+(a.views===1?'':'s')+'</div></div><span class="pill'+(live?'':' warn')+'">'+(live?'Live':a.active?'Not running':'Hidden')+'</span></div>'+
+     (a.kind==="image"?'<img src="'+esc(BE.mediaUrl(a.media_path))+'" alt="" style="max-width:100%;max-height:120px;border-radius:10px;margin-top:6px">':'')+
+     (cloud.addel===a.id?'<div class="confirm"><div>Delete this ad?</div><div class="acts"><button class="btn sm danger" data-a="addel" data-v="'+a.id+'">Yes, delete</button><button class="btn sm ghost" data-a="addelno">Keep</button></div></div>'
+      :'<div class="acts"><button class="btn sm ghost" data-a="adedit" data-v="'+a.id+'">Edit</button><button class="btn sm ghost" data-a="adtoggle" data-v="'+a.id+'">'+(a.active?'Hide':'Show')+'</button><button class="btn sm ghost" data-a="addelask" data-v="'+a.id+'" style="color:var(--bad)">Delete</button></div>')+'</div>'}).join(""):'<div class="empty">No ads yet.</div>');
+}
+function adFind(id){var r=null;(cloud.ads||[]).forEach(function(a){if(a.id===id)r=a});return r}
+function adPick(files){
+  var f=cloud.adf;if(!f||!files||!files.length)return;var v=files[0];f.err="";
+  if(/^image\//.test(v.type)){shrink(v,1200,.8,function(d){if(!d)f.err="That photo could not be read. Try another one.";else{f.file=null;f.kind="image";f.preview=d;f.data=d;f.vfile=null}render()});return}
+  if(!/^video\/(mp4|webm)$/.test(v.type)){f.err="Use a photo, or an MP4 or WebM video.";return render()}
+  if(v.size>20*1024*1024){f.err="The video is larger than 20 MB. Use a shorter one.";return render()}
+  f.file=v;f.vfile=v;f.kind="video";f.preview="";f.data=null;render();
+}
+function adSave(row,msg){
+  if(cloud.busy)return;
+  var f=row||cloud.adf;if(!f)return;
+  if(!row){
+    if(!String(f.title).trim()){f.err="Enter a title.";return render()}
+    if(!f.id&&!f.data&&!f.vfile){f.err="Choose a photo or a video.";return render()}
+  }
+  cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";if(!row)f.err="";render();
+  var st=Date.now(),path="";
+  function fin(){
+    BE.saveAd({id:f.id||null,title:String(f.title).trim(),advertiser:String(f.advertiser||"").trim(),kind:f.kind||"image",media_path:path,city:cityNorm(String(f.city||"").trim())||"",ends_on:f.ends||"",active:f.active===undefined?true:f.active}).then(function(){
+      cloud.busy=false;cloud.adminMsg=msg||(f.id?"Saved.":"Ad published. Patients will see it now.");if(!row)cloud.adf=null;cloud.ads=undefined;state.ads=null;render();
+    },function(e){cloud.busy=false;if(!row)f.err=e.message;else cloud.adminErr=e.message;render()});
+  }
+  function bad(e){cloud.busy=false;if(!row)f.err=e.message;else cloud.adminErr=e.message;render()}
+  if(!row&&f.data){path="ad"+st+".jpg";BE.upload("broadcast-media",path,f.data).then(fin,bad)}
+  else if(!row&&f.vfile){path="ad"+st+(f.vfile.type==="video/webm"?".webm":".mp4");BE.uploadFile("broadcast-media",path,f.vfile).then(fin,bad)}
+  else fin();
+}
+function ambNew(){return {id:null,name:"",phone:"",wa:"",city:"",kind:"private",note:""}}
 function ambAdmin(){
   var f=cloud.af=cloud.af||ambNew(),L=cloud.ambA;
   return '<div class="tiny" style="padding:0 16px 8px">Ambulance services can also register themselves from "List a lab, hospital, pharmacy or ambulance". They appear on the Ambulance page after you approve them in the Facilities tab.</div>'+'<div class="sec">'+(f.id?'Edit ambulance service':'Add an ambulance service')+'</div><form id="caForm" novalidate><div class="card">'+
    '<div class="field"><label for="ca-name">Name</label><input id="ca-name" maxlength="80" value="'+esc(f.name)+'" placeholder="e.g. City Care Ambulance"></div>'+
    '<div class="field"><label for="ca-phone">Phone number</label><input id="ca-phone" inputmode="tel" maxlength="16" value="'+esc(f.phone)+'" placeholder="Mobile or landline"></div>'+
+   '<div class="field"><label for="ca-wa">WhatsApp number (optional)</label><input id="ca-wa" inputmode="numeric" maxlength="10" value="'+esc(f.wa||"")+'" placeholder="10-digit mobile"><div class="tiny">Lets patients send their location on WhatsApp after they call.</div></div>'+
    '<div class="field"><label for="ca-city">City (optional)</label>'+cityIn("ca-city",f.city)+'<div class="tiny">Leave empty to list the service in every location.</div></div>'+
    '<div class="field"><label for="ca-kind">Type</label><select id="ca-kind"><option value="private"'+(f.kind==="private"?" selected":"")+'>Private</option><option value="govt"'+(f.kind==="govt"?" selected":"")+'>Government</option></select></div>'+
    '<div class="field" style="margin-bottom:0"><label for="ca-note">Note (optional)</label><input id="ca-note" maxlength="120" value="'+esc(f.note)+'" placeholder="e.g. 24x7, oxygen and ventilator"></div></div>'+
@@ -3015,8 +3083,9 @@ function ambSave(row,msg){
   var f=row||cloud.af;
   if(!f||String(f.name).trim().length<3){cloud.adminErr="Enter the service name.";cloud.adminMsg="";render();return}
   if(!/^\+?[0-9][0-9 -]{2,14}$/.test(String(f.phone).trim())){cloud.adminErr="Enter a valid phone number.";cloud.adminMsg="";render();return}
+  if(f.wa&&!/^[6-9]\d{9}$/.test(String(f.wa))){cloud.adminErr="Enter a valid 10-digit WhatsApp number, or leave it empty.";cloud.adminMsg="";render();return}
   cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";render();
-  BE.saveAmbulance({id:f.id||null,name:String(f.name).trim(),phone:String(f.phone).trim(),city:cityNorm(String(f.city||"").trim())||"",kind:f.kind,note:String(f.note||"").trim(),active:f.active===undefined?true:f.active}).then(function(){
+  BE.saveAmbulance({id:f.id||null,name:String(f.name).trim(),phone:String(f.phone).trim(),whatsapp:String(f.wa||""),city:cityNorm(String(f.city||"").trim())||"",kind:f.kind,note:String(f.note||"").trim(),active:f.active===undefined?true:f.active}).then(function(){
     cloud.busy=false;cloud.adminMsg=msg||(f.id?"Saved.":"Added.");if(!row)cloud.af=null;cloud.ambA=undefined;cloud.amb=undefined;render();
   },function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
 }
@@ -3024,6 +3093,7 @@ function ambFind(id){var r=null;(cloud.ambA||[]).forEach(function(a){if(a.id===i
 function cloudTabLoad(){
   var t=cloud.tab;
   if(t==="ov"&&cloud.dash===undefined&&!cloud.dashLoading){cloud.dashLoading=true;BE.dashCounts().then(function(d){cloud.dashLoading=false;cloud.dash=d;render()},function(e){cloud.dashLoading=false;cloud.dash=false;cloud.adminErr=e.message;render()})}
+  if(t==="ad"&&cloud.ads===undefined&&!cloud.adLoading){cloud.adLoading=true;BE.adminAds().then(function(l){cloud.adLoading=false;cloud.ads=l||[];render()},function(e){cloud.adLoading=false;cloud.ads=[];cloud.adminErr=e.message;render()})}
   if(t==="pt"&&cloud.pts===undefined&&!cloud.ptLoading){cloud.ptLoading=true;BE.adminPatients(cloud.ptq||"",0).then(function(r){cloud.ptLoading=false;cloud.pts=r;render()},function(e){cloud.ptLoading=false;cloud.pts=false;cloud.adminErr=e.message;render()})}
   if(t==="acc"&&cloud.acc===undefined&&!cloud.accLoading){cloud.accLoading=true;BE.adminAccounts().then(function(a){cloud.accLoading=false;cloud.acc=a;render()},function(e){cloud.accLoading=false;cloud.acc=false;cloud.adminErr=e.message;render()})}
   if(t==="pay"&&cloud.wds===undefined&&!cloud.wdLoading){cloud.wdLoading=true;Promise.all([BE.adminWithdrawals("pending"),BE.referralSettings(null)]).then(function(r){cloud.wdLoading=false;cloud.wds=r[0];cloud.rset=r[1];render()},function(e){cloud.wdLoading=false;cloud.wds=[];cloud.adminErr=e.message;render()})}
@@ -3067,7 +3137,7 @@ function cloudSaveSettings(){
 }
 function vCloudAdmin(){
   var u=getUser(state.staff),admin=u.role==="admin";
-  var tabs=admin?[["ov","Overview"],["doc","Doctors"],["fac","Facilities"],["lead","Leads"],["bc","Notify"],["amb","Ambulance"],["pt","Patients"],["acc","Accounts"],["pay","Payouts"],["set","Settings"]]:[["lead","Leads"]];
+  var tabs=admin?[["ov","Overview"],["doc","Doctors"],["fac","Facilities"],["lead","Leads"],["bc","Notify"],["amb","Ambulance"],["pt","Patients"],["ad","Ads"],["acc","Accounts"],["pay","Payouts"],["set","Settings"]]:[["lead","Leads"]];
   if(!tabs.some(function(t){return t[0]===cloud.tab}))cloud.tab=tabs[0][0];
   cloudTabLoad();
   var t=cloud.tab,body="";
@@ -3075,6 +3145,8 @@ function vCloudAdmin(){
     body=adminCounts();
   }else if(t==="amb"){
     body=ambAdmin();
+  }else if(t==="ad"){
+    body=adAdmin();
   }else if(t==="pt"){
     body=ptAdmin();
   }else if(t==="acc"){
@@ -3258,6 +3330,7 @@ function render(scroll){
   else if(state.view==="doctor")h=vDoctor();
   else if(state.view==="confirm")h=vConfirm();
   else h=vDone();
+  if(showNav&&!state.staff&&(state.tab==="find"||state.tab==="labs")){adsLoad();var ab=adBanner();if(ab){var ti=h.indexOf('<div class="title-block"');h=ti>=0?h.slice(0,ti)+ab+h.slice(ti):ab+h}}
   app.innerHTML=nbHtml()+h+(showNav?nav()+fabHtml():"")+lbHtml();
   if(scroll)window.scrollTo(0,0);
 }
@@ -3298,8 +3371,8 @@ app.addEventListener("click",function(ev){
     case "gdoc":googleStart("docreg");break;
     case "gstaff":googleStart("staff");break;
     case "caclear":cloud.af=null;render();break;
-    case "caedit":var ea=ambFind(+v);if(ea){cloud.af={id:ea.id,name:ea.name,phone:ea.phone,city:ea.city||"",kind:ea.kind,note:ea.note||""};render(true)}break;
-    case "catoggle":var ta=ambFind(+v);if(ta)ambSave({id:ta.id,name:ta.name,phone:ta.phone,city:ta.city||"",kind:ta.kind,note:ta.note||"",active:!ta.active},ta.active?"Hidden from patients.":"Showing to patients.");break;
+    case "caedit":var ea=ambFind(+v);if(ea){cloud.af={id:ea.id,name:ea.name,phone:ea.phone,wa:ea.whatsapp||"",city:ea.city||"",kind:ea.kind,note:ea.note||""};render(true)}break;
+    case "catoggle":var ta=ambFind(+v);if(ta)ambSave({id:ta.id,name:ta.name,phone:ta.phone,wa:ta.whatsapp||"",city:ta.city||"",kind:ta.kind,note:ta.note||"",active:!ta.active},ta.active?"Hidden from patients.":"Showing to patients.");break;
     case "cadelask":cloud.adel=+v;render();break;
     case "cadelno":cloud.adel=null;render();break;
     case "cadel":if(!cloud.busy){cloud.busy=true;BE.deleteAmbulance(+v).then(function(){cloud.busy=false;cloud.adel=null;cloud.ambA=undefined;cloud.amb=undefined;cloud.adminMsg="Removed.";render()},function(e){cloud.busy=false;cloud.adel=null;cloud.adminErr=e.message;render()})}break;
@@ -3362,6 +3435,13 @@ app.addEventListener("click",function(ev){
     case "ptdel":(function(){if(cloud.ptDel!==v){cloud.ptDel=v;render();return}if(cloud.busy)return;cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";render();BE.adminDeletePatient(v).then(function(){cloud.busy=false;cloud.ptDel=null;cloud.pts=undefined;cloud.adminMsg="Patient deleted.";render()},function(e){cloud.busy=false;cloud.ptDel=null;cloud.adminErr=e.message;render()})})();break;
     case "ptdelno":cloud.ptDel=null;render();break;
     case "rggps":rgGps();break;
+    case "adsave":adSave();break;
+    case "adclear":cloud.adf=null;render();break;
+    case "adedit":(function(){var a=adFind(+v);if(a){cloud.adf={id:a.id,title:a.title,advertiser:a.advertiser||"",city:a.city||"",ends:a.ends_on||"",file:null,kind:a.kind,preview:"",err:""};render(true)}})();break;
+    case "adtoggle":(function(){var a=adFind(+v);if(a)adSave({id:a.id,title:a.title,advertiser:a.advertiser||"",city:a.city||"",ends:a.ends_on||"",kind:a.kind,active:!a.active},a.active?"Hidden from patients.":"Showing to patients.")})();break;
+    case "addelask":cloud.addel=+v;render();break;
+    case "addelno":cloud.addel=null;render();break;
+    case "addel":(function(){if(cloud.busy)return;cloud.busy=true;BE.deleteAd(+v).then(function(){cloud.busy=false;cloud.addel=null;cloud.ads=undefined;state.ads=null;cloud.adminMsg="Ad deleted.";render()},function(e){cloud.busy=false;cloud.addel=null;cloud.adminErr=e.message;render()})})();break;
     case "amsend":amSend(v);break;
     case "amdone":state.amAfter=null;render(true);break;
     case "ptshow":cloud.ptShow=cloud.ptShow||{};cloud.ptShow[v]=!cloud.ptShow[v];render();break;
@@ -3502,8 +3582,13 @@ app.addEventListener("input",function(ev){
   else if(t.id==="o-phone"&&state.otp){t.value=t.value.replace(/\D/g,"").slice(0,10);state.otp.phone=t.value}
   else if(t.id==="o-code"&&state.otp){t.value=t.value.replace(/\D/g,"").slice(0,8);state.otp.code=t.value}
   else if(t.id==="o-email"&&state.otp)state.otp.email=t.value.trim();
+  else if(t.id==="ad-title"&&cloud.adf)cloud.adf.title=t.value;
+  else if(t.id==="ad-adv"&&cloud.adf)cloud.adf.advertiser=t.value;
+  else if(t.id==="ad-city"&&cloud.adf)cloud.adf.city=t.value;
+  else if(t.id==="ad-end"&&cloud.adf)cloud.adf.ends=t.value;
   else if(t.id==="ca-name"&&cloud.af)cloud.af.name=t.value;
   else if(t.id==="ca-phone"&&cloud.af){t.value=t.value.replace(/[^\d+ -]/g,"").slice(0,16);cloud.af.phone=t.value}
+  else if(t.id==="ca-wa"&&cloud.af){t.value=t.value.replace(/\D/g,"").slice(0,10);cloud.af.wa=t.value}
   else if(t.id==="ca-city"&&cloud.af)cloud.af.city=t.value;
   else if(t.id==="ca-kind"&&cloud.af)cloud.af.kind=t.value;
   else if(t.id==="ca-note"&&cloud.af)cloud.af.note=t.value;
@@ -3542,6 +3627,7 @@ app.addEventListener("change",function(ev){
   if(t&&t.type==="file"&&t.id&&t.id.indexOf("fu-")===0){onFacUpload(t.id,t.files)}
   if(t&&t.type==="file"&&t.id==="pu-photo"){onProfPhoto(t.files)}
   if(t&&t.type==="file"&&t.id==="rxp-add"){rxAddPhotos(t.files)}
+  if(t&&t.type==="file"&&t.id==="adp-file"){adPick(t.files)}
   if(t&&t.type==="file"&&t.id==="bfp-img"){bcPickImage(t.files)}
   if(t&&t.type==="file"&&t.id==="bfp-vid"){bcPickVideo(t.files)}
 });
