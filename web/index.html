@@ -2586,9 +2586,10 @@ function bcPopup(list){
   o.style.cssText="position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px";
   o.innerHTML='<div style="position:relative;max-width:440px;width:100%"><button id="bcclose" type="button" aria-label="Close" style="position:absolute;top:8px;right:8px;z-index:2;width:36px;height:36px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">\u2715</button><div style="background:var(--surface,#fff);color:var(--ink,#222);border-radius:16px;width:100%;max-height:92vh;overflow:auto;padding:16px">'+
    (b.image_path?'<img src="'+esc(BE.mediaUrl(b.image_path))+'" alt="" style="width:100%;border-radius:12px;display:block;margin-bottom:12px">':'')+
-   (b.video_path?'<video controls playsinline preload="metadata" src="'+esc(BE.mediaUrl(b.video_path))+'" style="width:100%;border-radius:12px;display:block;margin-bottom:12px;background:#000"></video>':'')+
+   (b.video_path?'<video controls autoplay playsinline preload="auto" src="'+esc(BE.mediaUrl(b.video_path))+'" style="width:100%;border-radius:12px;display:block;margin-bottom:12px;background:#000"></video>':'')+
    '<h2 style="margin:0 0 8px;font-size:20px;padding-right:40px">'+esc(b.title)+'</h2>'+(b.body?'<div style="white-space:pre-wrap">'+esc(b.body)+'</div>':'')+'</div></div>';
   document.body.appendChild(o);
+  var av=o.querySelector("video");if(av){var pl=function(){var r=null;try{r=av.play()}catch(e){}if(r&&r.catch)r.catch(function(){av.muted=true;try{var r2=av.play();if(r2&&r2.catch)r2.catch(function(){})}catch(e){}})};pl();av.addEventListener("loadeddata",function(){if(av.paused)pl()})}
   document.getElementById("bcclose").onclick=function(){bcMark(maxId);var v=o.querySelector("video");if(v)try{v.pause()}catch(e){}if(o.parentNode)o.parentNode.removeChild(o)};
 }
 function cloudSync(force){
