@@ -3081,17 +3081,23 @@ function adsLoad(){
 }
 /* Banner slideshow: every photo of every running banner ad, one after another. A tap opens the sponsor's link. Videos sit in their own place at the bottom. */
 function adSlides(){
-  var s=[];(state.ads||[]).forEach(function(a){if(a.kind!=="image")return;(a.images&&a.images.length?a.images:[a.media]).forEach(function(m){s.push({ad:a.id,src:BE.mediaUrl(m),link:a.link||"",adv:a.advertiser||"",title:a.title})})});
+  var s=[];(state.ads||[]).forEach(function(a){
+    if(a.kind==="video"){s.push({ad:a.id,kind:"video",src:BE.mediaUrl(a.media),link:a.link||"",adv:a.advertiser||"",title:a.title});return}
+    (a.images&&a.images.length?a.images:[a.media]).forEach(function(m){s.push({ad:a.id,kind:"image",src:BE.mediaUrl(m),link:a.link||"",adv:a.advertiser||"",title:a.title})})});
   return s;
 }
 function adBanner(){
   if(!CLOUD||state.staff)return '';
   var s=adSlides();if(!s.length)return '';
+  adShowI=0;adShowT=0;
   return '<div class="card" style="padding:10px"><div class="tiny" style="margin-bottom:6px">Sponsored</div><div id="adshow" data-n="'+s.length+'" style="position:relative">'+
    s.map(function(x,i){
-     var im='<img src="'+esc(x.src)+'" alt="'+esc(x.title)+'" style="width:100%;border-radius:10px;display:block;max-height:220px;object-fit:cover">';
-     return '<div class="adslide" data-i="'+i+'" data-ad="'+x.ad+'" style="'+(i?'display:none':'')+'">'+(x.link?'<a href="'+esc(x.link)+'" target="_blank" rel="noopener noreferrer sponsored" data-adclick="'+x.ad+'">'+im+'</a>':im)+
-      '<div style="font-weight:600;margin-top:6px">'+esc(x.title)+(x.adv?' <span class="tiny" style="font-weight:400">· '+esc(x.adv)+'</span>':'')+'</div></div>'}).join("")+
+     var im=x.kind==="video"?'<video muted playsinline preload="auto" src="'+esc(x.src)+'" aria-label="'+esc(x.title)+'" style="width:100%;border-radius:10px;display:block;background:#000;max-height:240px"></video>'
+       :'<img src="'+esc(x.src)+'" alt="'+esc(x.title)+'" style="width:100%;border-radius:10px;display:block;max-height:220px;object-fit:cover">';
+     var linkBtn=x.link?(x.kind==="video"?'<div style="margin-top:8px"><a class="btn sm" href="'+esc(x.link)+'" target="_blank" rel="noopener noreferrer sponsored" data-adclick="'+x.ad+'">Visit sponsor</a></div>':'')
+     :'';
+     return '<div class="adslide" data-i="'+i+'" data-ad="'+x.ad+'" data-k="'+x.kind+'" style="'+(i?'display:none':'')+'">'+(x.link&&x.kind!=="video"?'<a href="'+esc(x.link)+'" target="_blank" rel="noopener noreferrer sponsored" data-adclick="'+x.ad+'">'+im+'</a>':im)+
+      '<div style="font-weight:600;margin-top:6px">'+esc(x.title)+(x.adv?' <span class="tiny" style="font-weight:400">· '+esc(x.adv)+'</span>':'')+'</div>'+linkBtn+'</div>'}).join("")+
    (s.length>1?'<div class="adstop" style="display:flex;gap:6px;justify-content:center;margin-top:8px">'+s.map(function(x,i){return '<span class="addot" data-i="'+i+'" style="width:7px;height:7px;border-radius:50%;background:'+(i?'#c9ced6':'var(--brand)')+'"></span>'}).join("")+'</div>':'')+'</div></div>';
 }
 function adVideoSection(){
@@ -3103,16 +3109,28 @@ function adVideoSection(){
   return '<div class="sec">Sponsored video</div><div class="card" style="padding:10px"><div class="tiny" style="margin-bottom:6px">'+(a.advertiser?esc(a.advertiser):'Sponsored')+'</div>'+vid+
    '<div style="font-weight:600;margin-top:6px">'+esc(a.title)+'</div>'+(a.link?'<div style="margin-top:8px"><a class="btn sm" href="'+esc(a.link)+'" target="_blank" rel="noopener noreferrer sponsored" data-adclick="'+a.id+'">Visit sponsor</a></div>':'')+'</div>';
 }
-var adShowI=0;
+var adShowI=0,adShowT=0;
+function adPlayCurrent(el){
+  var sl=el.querySelectorAll(".adslide"),cur=sl[adShowI];
+  [].forEach.call(el.querySelectorAll("video"),function(v){try{v.pause()}catch(e){}});
+  if(cur&&cur.getAttribute("data-k")==="video"){var v=cur.querySelector("video");if(v){try{v.currentTime=0;var r=v.play();if(r&&r.catch)r.catch(function(){})}catch(e){}}}
+}
 setInterval(function(){
   var el=document.getElementById("adshow");if(!el)return;
-  var n=+el.getAttribute("data-n");if(n<2)return;
-  adShowI=(adShowI+1)%n;
-  var sl=el.querySelectorAll(".adslide"),dots=el.querySelectorAll(".addot");
+  var n=+el.getAttribute("data-n");
+  var sl=el.querySelectorAll(".adslide"),cur=sl[adShowI];if(!cur)return;
+  adShowT+=1;
+  var isV=cur.getAttribute("data-k")==="video",v=isV?cur.querySelector("video"):null;
+  if(adShowT===1&&adShowI===0&&isV)adPlayCurrent(el);
+  if(n<2){if(isV&&v&&v.ended){adPlayCurrent(el)}return}
+  var done=isV?((v&&v.ended)||adShowT>=25):adShowT>=4;
+  if(!done)return;
+  adShowI=(adShowI+1)%n;adShowT=0;
+  var dots=el.querySelectorAll(".addot");
   for(var i=0;i<sl.length;i++)sl[i].style.display=(i===adShowI?"":"none");
   for(var k=0;k<dots.length;k++)dots[k].style.background=(k===adShowI?"var(--brand)":"#c9ced6");
-  adSeeSlide(sl[adShowI]);
-},4000);
+  adPlayCurrent(el);adSeeSlide(sl[adShowI]);
+},1000);
 function adSeeSlide(s){
   if(!s||!BE.userId())return;var id=+s.getAttribute("data-ad");state.adSeen=state.adSeen||{};
   if(!state.adSeen[id]){state.adSeen[id]=1;BE.logAdView(id).catch(function(){})}
@@ -3131,7 +3149,7 @@ function adAdmin(){
    '<div class="field"><label for="ad-city">City (optional)</label>'+cityIn("ad-city",f.city)+'<div class="tiny">Leave empty to show the ad in every city. With a city, only patients who chose that city see it.</div></div>'+
    '<div class="field"><label for="ad-end">Last day (optional)</label><input id="ad-end" type="date" value="'+esc(f.ends)+'"></div>'+
    '<div class="field"><label for="ad-link">Sponsor link (optional)</label><input id="ad-link" inputmode="url" autocapitalize="none" maxlength="300" value="'+esc(f.link||"")+'" placeholder="https://..."><div class="tiny">Patients who tap the banner go to this page. It must start with https://</div></div>'+
-   '<div class="field"><label for="ad-kind">Type</label><select id="ad-kind"><option value="image"'+(f.kind==="image"?" selected":"")+'>Banner slideshow (photos)</option><option value="video"'+(f.kind==="video"?" selected":"")+'>Video (shown at the bottom)</option></select></div>'+
+   '<div class="field"><label for="ad-kind">Type</label><select id="ad-kind"><option value="image"'+(f.kind==="image"?" selected":"")+'>Banner slideshow (photos)</option><option value="video"'+(f.kind==="video"?" selected":"")+'>Video (plays in the top banner)</option></select></div>'+
    (f.kind==="image"?'<div class="upl"><b>Photos (up to 8, shown one after another)</b>'+(f.imgs.length?'<div class="thumbs" style="margin:6px 0">'+f.imgs.map(function(d,i){return '<div class="thumb"><img src="'+esc(d)+'" alt="Photo '+(i+1)+'"><button type="button" class="x" data-a="adrmimg" data-v="'+i+'" aria-label="Remove photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'')+(f.id&&!f.imgs.length?'<div class="tiny">Keeping the current photos. Choose photos only to replace them.</div>':'')+'<label class="pick">'+(f.imgs.length?'Add another photo':'Add a photo')+'<input type="file" id="adp-one" accept="image/*"></label><div class="tiny">Add photos one at a time. Up to 8.</div></div>'
     :'<div class="upl"><b>Short video (MP4 or WebM, up to 20 MB)</b>'+(f.vfile?'<div class="tiny" style="margin:6px 0">'+esc(f.vfile.name)+' · '+bcMb(f.vfile.size)+'</div>':'')+(f.id&&!f.vfile?'<div class="tiny">Keeping the current video. Choose a file only to replace it.</div>':'')+'<label class="pick">'+(f.vfile?'Change video':'Choose video')+'<input type="file" id="adp-file" accept="video/mp4,video/webm"></label></div>')+
    (f.err?'<div class="err" role="alert" style="margin-bottom:10px">'+esc(f.err)+'</div>':'')+
@@ -3458,7 +3476,7 @@ function render(scroll){
   else if(state.view==="doctor")h=vDoctor();
   else if(state.view==="confirm")h=vConfirm();
   else h=vDone();
-  if(showNav&&!state.staff&&(state.tab==="find"||state.tab==="labs")){adsLoad();var ab=adBanner();if(ab){var ti=h.indexOf('<div class="title-block"');h=ti>=0?h.slice(0,ti)+ab+h.slice(ti):ab+h}h+=adVideoSection();if(ab)setTimeout(function(){adSeeSlide(document.querySelector("#adshow .adslide"))},0)}
+  if(showNav&&!state.staff&&(state.tab==="find"||state.tab==="labs")){adsLoad();var ab=adBanner();if(ab){var ti=h.indexOf('<div class="title-block"');h=ti>=0?h.slice(0,ti)+ab+h.slice(ti):ab+h}if(ab)setTimeout(function(){adSeeSlide(document.querySelector("#adshow .adslide"))},0)}
   app.innerHTML=nbHtml()+h+(showNav?nav()+fabHtml():"")+lbHtml();
   if(scroll)window.scrollTo(0,0);
 }

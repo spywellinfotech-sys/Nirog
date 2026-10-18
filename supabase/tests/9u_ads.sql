@@ -20,6 +20,8 @@ select t.ok((select count(*) from jsonb_array_elements(:'pa'::jsonb)) >= 2 and :
 select t.ok(:'pa'::jsonb::text not like '%Hidden ad%' and :'pa'::jsonb::text not like '%Expired ad%', 'hidden and expired ads are not shown');
 select public.active_ads('Delhi') as da \gset
 select t.ok(:'da'::jsonb::text not like '%Pune clinic offer%' and :'da'::jsonb::text like '%Everywhere lab%', 'a Delhi patient does not see the Pune ad');
+select public.active_ads('') as aa \gset
+select t.ok(:'aa'::jsonb::text like '%Pune clinic offer%' and :'aa'::jsonb::text like '%Everywhere lab%', 'a patient who has not picked a city sees every running ad');
 select public.log_ad_view(:pune);
 select public.log_ad_view(:pune);
 select t.root();

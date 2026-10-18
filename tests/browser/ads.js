@@ -36,7 +36,7 @@ async function open(role) {
   let t = await open("patient"), pg = t.pg; const txt = () => pg.evaluate(() => document.body.innerText);
   await pg.waitForTimeout(800);
   check("the patient sees a sponsored banner with the advertiser", /Sponsored/.test(await txt()) && /Asha Eye Clinic/.test(await txt()) && /Free eye check-up/.test(await txt()));
-  check("all photos of the banner are in the slideshow, the first one showing", (await pg.locator("#adshow .adslide").count()) === 3 && (await pg.locator("#adshow .adslide").first().isVisible()) && !(await pg.locator("#adshow .adslide").nth(1).isVisible()));
+  check("all photos of the banner are in the slideshow, the first one showing", (await pg.locator("#adshow .adslide").count()) === 4 && (await pg.locator("#adshow .adslide").first().isVisible()) && !(await pg.locator("#adshow .adslide").nth(1).isVisible()));
   check("the banner image comes from the media bucket", (await pg.locator('img[src*="/object/public/broadcast-media/ad1.jpg"]').count()) === 1);
   await pg.waitForTimeout(4400);
   check("the slideshow moves on to the next photo by itself", (await pg.locator("#adshow .adslide").nth(1).isVisible()) && !(await pg.locator("#adshow .adslide").first().isVisible()));
@@ -45,8 +45,10 @@ async function open(role) {
   await pg.evaluate(() => document.addEventListener("click", (e) => { if (e.target.closest("a")) e.preventDefault(); }, true));
   await pg.locator("#adshow .adslide:visible a").first().click(); await pg.waitForTimeout(400);
   check("the link tap is counted", t.st.clicks.length === 1 && t.st.clicks[0] === 1);
-  check("the video ad sits in its own place at the bottom, after the page content", /sponsored video/i.test(await txt()) && (await txt()).toLowerCase().indexOf("sponsored video") > (await txt()).toLowerCase().indexOf("sponsored") && (await pg.locator("video[src*='v2.mp4']").count()) === 1 && (await pg.locator("#adshow video").count()) === 0);
-  check("the video ad has a Visit sponsor link", (await pg.locator('a[data-adclick="2"]').count()) === 1);
+  check("the video ad is part of the top banner, not a separate section", (await pg.locator("#adshow video[src*='v2.mp4']").count()) === 1 && !/sponsored video/i.test(await txt()));
+  check("the video ad has a Visit sponsor link", (await pg.locator('#adshow a[data-adclick="2"]').count()) === 1);
+  await pg.waitForTimeout(9000);
+  check("the banner reaches the video slide and it is the visible one", await pg.evaluate(() => { const v = document.querySelector("#adshow video"); return !!v && v.closest(".adslide").style.display !== "none"; }));
   check("each ad is counted once as shown", t.st.views.indexOf(1) >= 0 && t.st.views.indexOf(2) >= 0 && t.st.views.length === 2);
   check("the app asked for ads for the chosen city", t.st.cityAsked.length >= 1);
   check("no page errors (patient)", t.errs.length === 0); await t.b.close();
