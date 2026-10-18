@@ -1564,14 +1564,14 @@ function labCard(l){
    '<div class="tiny" style="font-weight:600">'+(l.kind==="hospital"?"Specialities":l.kind==="other"||l.kind==="pharmacy"?"Services":"Tests")+'</div>'+
    '<div class="tests">'+shown.map(function(t){return '<span>'+esc(t[0])+(t.length>1?' <b>'+money(t[1])+'</b>':'')+'</span>'}).join("")+'</div>'+
    '<div class="tiny">Location: '+esc(l.address||"")+(l.address?", ":"")+esc(l.city||"")+(l.pin?" "+esc(l.pin):"")+'</div>'+
-   '<div class="acts">'+(l.wa&&l.kind==="ambulance"?'<a class="btn sm" href="'+esc(telHref("+91"+l.wa))+'"'+tapAttr("facility",l.id,"call")+'>'+ICPHONE+' Call</a>':'')+(l.wa&&(l.kind==="pharmacy"||l.kind==="other")?mapLink(waLink(l.wa,l.name),"WhatsApp","btn sm",tapAttr("facility",l.id,"whatsapp")):'')+'</div>'+
+   (frqOk(l)?'<div class="acts"><button class="btn sm" data-a="frqopen" data-v="'+esc(l.fid)+'">Request appointment</button></div>'+frqForm(l):'')+'<div class="acts">'+(l.wa&&l.kind==="ambulance"?'<a class="btn sm" href="'+esc(telHref("+91"+l.wa))+'"'+tapAttr("facility",l.fid,"call")+'>'+ICPHONE+' Call</a>':'')+(l.wa&&(l.kind==="pharmacy"||l.kind==="other")?mapLink(waLink(l.wa,l.name),"WhatsApp","btn sm",tapAttr("facility",l.fid,"whatsapp")):'')+'</div>'+
    (l.sample?'<div class="hint">Sample listing. Names, services and prices are examples.</div>':'')+'</div>';
 }
 function labsListHtml(){
   var q=state.lq.trim().toLowerCase();
   var list=LABS.filter(function(l){return l.status!=="pending"&&l.status!=="rejected"&&(state.fk==="all"||l.kind===state.fk||(state.fk==="pharmacy"&&l.kind==="other"&&l.sub==="Pharmacy"))&&(state.city===ALL_CITIES||l.city===state.city)&&labMatches(l,q)});
   if(!list.length)return '<div class="empty">Nothing matches. Try another name, service or location.</div>';
-  return '<div class="count">'+list.length+(list.length===1?' listing':' listings')+(state.city===ALL_CITIES?'':' in '+esc(state.city))+'</div><div class="list">'+list.map(labCard).join("")+'</div>';
+  return (cloud.frqMsg?'<div class="hint" style="margin:0 0 10px">'+esc(cloud.frqMsg)+'</div>':'')+'<div class="count">'+list.length+(list.length===1?' listing':' listings')+(state.city===ALL_CITIES?'':' in '+esc(state.city))+'</div><div class="list">'+list.map(labCard).join("")+'</div>';
 }
 function kindChips(){
   return '<div class="chips" role="group" aria-label="Type of facility">'+[["all","All","All"]].concat(KINDS).map(function(k){return '<button class="chip" data-a="fkind" data-v="'+k[0]+'" aria-pressed="'+(state.fk===k[0])+'">'+esc(k[1])+'</button>'}).join("")+'</div>';
@@ -1783,7 +1783,7 @@ function facStatus(u){
    (st==="pending"?'<div class="hint" style="margin-top:8px">A super admin is checking your licence and location. You will appear to patients once verified.</div>':'')+
    (st==="approved"?'<div class="hint" style="margin-top:8px">Your listing is live with the Verified tag.</div>':'')+
    (st==="rejected"?'<div class="err" style="margin-top:8px">Not listed. Reason: '+esc(l.reason||FREJ[0])+'</div><div class="acts" style="margin-top:10px"><button class="btn sm" data-a="fregagain">Apply again</button></div>':'')+'</div>'+
-   (st==="approved"?'<div class="sec" style="padding:16px 16px 8px">How patients see it</div><div style="padding:0 16px">'+labCard(l)+'</div>':'');
+   (st==="approved"?frqInbox():'')+(st==="approved"?'<div class="sec" style="padding:16px 16px 8px">How patients see it</div><div style="padding:0 16px">'+labCard(l)+'</div>':'');
 }
 function sFacStatus(v){
   var p=v.split("|"),me=getUser(state.staff),l=facById(p[0]);
@@ -2360,7 +2360,7 @@ function vAppts(){
    (state.dmsg?'<div class="err" role="alert" style="margin:0 16px 10px">'+esc(state.dmsg)+'</div>':'')+'<div class="title-block"><h1>Your appointments</h1>'+(state.pat?'<div class="tiny" style="margin-top:8px">'+patLine()+'</div>':'')+'</div>'+
    (up.length?up.map(apptCard).join(""):'<div class="empty">No upcoming appointments. Book a doctor from the first tab and it will show up here.</div>')+
    (done.length?'<div class="sec">Past visits</div>'+done.map(apptCard).join(""):'')+
-   (cx.length?'<div class="sec">Cancelled or rejected</div>'+cx.map(apptCard).join(""):'')+
+   (cx.length?'<div class="sec">Cancelled or rejected</div>'+cx.map(apptCard).join(""):'')+frqMine()+
    '<div style="height:16px"></div>';
 }
 
@@ -2601,7 +2601,7 @@ function cloudSync(force){
     var h=cloudSig(),ae=document.activeElement,typing=ae&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName);
     if(force||(h!==cloud.hash&&!typing)){cloud.hash=h;render()}
     cloud.hash=h;
-    BE.broadcasts().then(function(l){cloud.bcl=(l||[]).filter(function(b){return !b.revoked_at});bcPopup(cloud.bcl)});pushSync();refAuto();
+    BE.broadcasts().then(function(l){cloud.bcl=(l||[]).filter(function(b){return !b.revoked_at});bcPopup(cloud.bcl)});pushSync();refAuto();frqRefresh();
     if(state.staff&&getUser(state.staff)&&getUser(state.staff).role==="doctor"){
       appts.filter(function(a){return a.status==="pending"}).forEach(function(a){var d=byId(a.docId);if(d)ensureSlots(d,[a.dateKey])});
     }
@@ -2951,6 +2951,78 @@ function cloudDelete(kind,id){
   BE.adminDelete(kind,id).then(function(){cloud.busy=false;cloud.pv=null;cloud.edit=null;cloud.adminMsg="Deleted. The mobile number and login are free to register again.";cloud.admin=null;cloud.facs=null;render()},function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
 }
 /* One-line activity summary on each doctor card (super admin). Full numbers are under Full profile. */
+/* ---------- appointment requests to labs, diagnostic centres and hospitals ---------- */
+function frqOk(l){return CLOUD&&!state.staff&&/^\d+$/.test(String(l.fid))&&(l.kind==="lab"||l.kind==="centre"||l.kind==="hospital")}
+function frqOpen(id){
+  var ph=state.pat&&/^\d{10}$/.test(String(state.pat.phone||""))?state.pat.phone:"";
+  cloud.frq={fid:+id,item:"",date:"",name:(state.pat&&state.pat.name)||"",phone:ph,note:"",err:""};cloud.frqMsg="";render()
+}
+function frqForm(l){
+  var f=cloud.frq;if(!f||String(f.fid)!==String(l.fid))return '';
+  var t0=dkey(new Date()),d2=new Date();d2.setDate(d2.getDate()+60);
+  var dl='<datalist id="frq-dl">'+(l.tests||[]).map(function(t){return '<option value="'+esc(t[0])+'">'}).join("")+'</datalist>';
+  return '<div class="vbox" style="margin-top:8px"><b>Request an appointment</b>'+
+   '<div class="field"><label for="frq-item">'+(l.kind==="hospital"?"Speciality or service":"Test or service")+'</label><input id="frq-item" list="frq-dl" maxlength="120" value="'+esc(f.item)+'" placeholder="Choose from the list or type">'+dl+'</div>'+
+   '<div class="field"><label for="frq-date">Preferred date</label><input id="frq-date" type="date" min="'+t0+'" max="'+dkey(d2)+'" value="'+esc(f.date)+'"></div>'+
+   '<div class="field"><label for="frq-name">Your name</label><input id="frq-name" maxlength="80" value="'+esc(f.name)+'"></div>'+
+   '<div class="field"><label for="frq-phone">Mobile number</label><input id="frq-phone" inputmode="numeric" maxlength="10" value="'+esc(f.phone)+'" placeholder="10-digit mobile"></div>'+
+   '<div class="field"><label for="frq-note">Note (optional)</label><input id="frq-note" maxlength="300" value="'+esc(f.note)+'" placeholder="e.g. fasting, home collection"></div>'+
+   (f.err?'<div class="err" role="alert">'+esc(f.err)+'</div>':'')+
+   '<div class="tiny">The centre will confirm or decline. Your number is shared with this centre only.</div>'+
+   '<div class="acts"><button class="btn sm" data-a="frqsend"'+(cloud.busy?' disabled':'')+'>Send request</button><button class="btn sm ghost" data-a="frqclose">Close</button></div></div>';
+}
+function frqSend(){
+  var f=cloud.frq;if(!f||cloud.busy)return;
+  if(f.item.trim().length<2){f.err="Choose or type the test or service you need.";return render()}
+  if(!f.date){f.err="Choose a preferred date.";return render()}
+  if(f.name.trim().length<2){f.err="Enter your name.";return render()}
+  if(!/^[6-9]\d{9}$/.test(f.phone)){f.err="Enter a 10-digit mobile number.";return render()}
+  cloud.busy=true;f.err="";render();
+  BE.createFacRequest(f.fid,f.item.trim(),f.date,f.name.trim(),f.phone,f.note.trim()).then(function(ref){
+    cloud.busy=false;cloud.frq=null;cloud.frqMsg="Request "+ref+" sent. You will get a notification when the centre replies. Track it under Appointments.";cloud.frqList=undefined;frqRefresh(true);render()
+  },function(e){cloud.busy=false;f.err=e.message;render()});
+}
+function frqRefresh(force){
+  if(!CLOUD||!BE.signedIn()||cloud.frqBusy)return;
+  var u=state.staff&&getUser(state.staff);if(u&&u.role==="admin")return;
+  cloud.frqBusy=true;
+  BE.myFacRequests().then(function(l){cloud.frqBusy=false;var sig=JSON.stringify((l||[]).map(function(x){return x.id+x.status}));var ch=force||cloud.frqSig!==sig;cloud.frqSig=sig;cloud.frqList=l||[];if(ch)render()},function(){cloud.frqBusy=false;if(cloud.frqList===undefined)cloud.frqList=[]});
+}
+var FRQST={pending:"Waiting for reply",confirmed:"Confirmed",rejected:"Declined",cancelled:"Cancelled"};
+function frqRow(x,mine){
+  var fn=x.facilities&&x.facilities.name?x.facilities.name:"Facility",pc=x.status==="confirmed"?"pill":x.status==="pending"?"pill warn":"pill bad";
+  return '<div class="appt"><div class="who"><div style="min-width:0"><div class="doc-name">'+esc(mine?fn:x.patient_name)+'</div><div class="tiny">'+esc(x.item)+' · '+esc(x.preferred_date)+' · '+esc(x.ref)+'</div></div><span class="'+pc+'">'+esc(FRQST[x.status]||x.status)+'</span></div>'+
+   (mine?'':'<div class="tiny tnum">Mobile <span class="sel">'+esc(x.patient_phone)+'</span></div>')+
+   (x.note?'<div class="tiny">Note: '+esc(x.note)+'</div>':'')+(x.reason?'<div class="tiny">Reason: '+esc(x.reason)+'</div>':'')+
+   (mine&&(x.status==="pending"||x.status==="confirmed")?'<div class="acts"><button class="btn sm ghost" data-a="frqcancel" data-v="'+x.id+'" style="color:var(--bad)">Cancel request</button></div>':'')+
+   (!mine&&x.status==="pending"?'<div class="acts"><button class="btn sm" data-a="frqyes" data-v="'+x.id+'">Confirm</button><button class="btn sm ghost" data-a="frqno" data-v="'+x.id+'" style="color:var(--bad)">Decline</button></div>':'')+'</div>';
+}
+function frqMine(){
+  if(!CLOUD||state.staff)return '';
+  if(cloud.frqList===undefined)frqRefresh();
+  var l=cloud.frqList||[];
+  return (cloud.frqMsg?'<div class="hint" style="margin:0 16px 10px">'+esc(cloud.frqMsg)+'</div>':'')+(l.length?'<div class="sec">Lab, centre and hospital requests</div>'+l.map(function(x){return frqRow(x,true)}).join(""):'');
+}
+function frqInbox(){
+  if(!CLOUD)return '';
+  if(cloud.frqList===undefined)frqRefresh();
+  var l=cloud.frqList||[];
+  return '<div class="sec" style="padding:16px 16px 8px">Appointment requests</div>'+(cloud.frqErr?'<div class="err" role="alert" style="margin:0 16px 8px">'+esc(cloud.frqErr)+'</div>':'')+(l.length?'<div style="padding:0 16px">'+l.map(function(x){return frqRow(x,false)}).join("")+'</div>':'<div class="empty">No requests yet. Patients can send one from your listing.</div>');
+}
+function frqDecide(id,st){
+  if(cloud.busy)return;cloud.busy=true;cloud.frqErr="";
+  BE.decideFacRequest(+id,st,"").then(function(){cloud.busy=false;frqRefresh(true)},function(e){cloud.busy=false;cloud.frqErr=e.message;render()});
+}
+function frqLine(id){
+  var m=cloud.frqStats;if(!m)return '';
+  var s=m[String(id)]||{total:0,pending:0,confirmed:0,rejected:0,last30:0};
+  return '<div class="tiny" style="margin-top:4px;font-weight:600">Appointment requests '+s.total+' (Confirmed '+s.confirmed+' · Declined '+s.rejected+' · Waiting '+s.pending+') · last 30 days '+s.last30+'</div>';
+}
+function frqStatsLoad(){
+  if(cloud.frqStats!==undefined||cloud.frqStatsBusy)return;
+  cloud.frqStatsBusy=true;
+  BE.requestStats().then(function(m){cloud.frqStatsBusy=false;cloud.frqStats=m||{};render()},function(){cloud.frqStatsBusy=false;cloud.frqStats=null});
+}
 function tapLine(kind,id){
   var m=cloud.taps&&cloud.taps[kind];if(!m)return '';
   var s=m[String(id)]||{total:0,call:0,whatsapp:0,last30:0};
@@ -2973,7 +3045,7 @@ function docStatsLoad(list){
 function cloudCard(d,kind){
   var isF=kind==="fac",key=pvKey(kind,d.id);
   var docs=(d.docs||[]).map(function(x){var bk=(x.kind==="photo"||x.kind==="clinic")?"doctor-media":"verification-docs";return '<button class="btn sm ghost" data-a="cdoc" data-v="'+esc(bk+"|"+x.storage_path)+'">View '+esc(x.kind)+'</button>'}).join("");
-  var det=isF?'<div class="tiny">'+esc(d.address)+', '+esc(d.city)+' '+esc(d.pin||"")+(d.priv?' · Contact '+esc(d.priv.contact_name)+' '+esc(d.priv.contact_phone)+' · Licence '+esc(d.priv.licence_no):'')+'</div>'+tapLine("facility",d.id)
+  var det=isF?'<div class="tiny">'+esc(d.address)+', '+esc(d.city)+' '+esc(d.pin||"")+(d.priv?' · Contact '+esc(d.priv.contact_name)+' '+esc(d.priv.contact_phone)+' · Licence '+esc(d.priv.licence_no):'')+'</div>'+tapLine("facility",d.id)+frqLine(d.id)
     :'<div class="tiny">'+esc(d.qual)+' · '+d.exp_years+' yrs · Fee '+money(d.fee_inr)+'</div>'+docStatLine(d.id)+(d.ver?'<div class="tiny">Council: '+esc(d.ver.council)+' · Reg no '+esc(d.ver.reg_no)+' ('+d.ver.reg_year+')</div>':'');
   return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(d.name)+'</div><div class="tiny">'+esc(isF?kindName(d.kind):d.spec)+' · '+esc(d.city)+' · '+esc(d.ref)+'</div></div><span class="pill'+(d.status==="pending"?' warn':d.status==="rejected"?' bad':'')+'">'+esc(d.status)+'</span></div>'+det+
    (d.map_url?'<div class="tiny">'+mapLink(d.map_url,"Check on Google Maps","maplink")+'</div>':'')+
@@ -3154,7 +3226,7 @@ function cloudTabLoad(){
   if(t==="pay"&&cloud.wds===undefined&&!cloud.wdLoading){cloud.wdLoading=true;Promise.all([BE.adminWithdrawals("pending"),BE.referralSettings(null)]).then(function(r){cloud.wdLoading=false;cloud.wds=r[0];cloud.rset=r[1];render()},function(e){cloud.wdLoading=false;cloud.wds=[];cloud.adminErr=e.message;render()})}
   if(t==="amb"&&cloud.ambA===undefined&&!cloud.ambLoading){cloud.ambLoading=true;BE.ambulances().then(function(l){cloud.ambLoading=false;cloud.ambA=l;render()},function(e){cloud.ambLoading=false;cloud.ambA=[];cloud.adminErr=e.message;render()})}
   if(t==="doc"&&cloud.admin===null)cloudAdminLoad();
-  if(t==="fac")tapsLoad("facility");
+  if(t==="fac"){tapsLoad("facility");frqStatsLoad()}
   if(t==="amb")tapsLoad("ambulance");
   if(t==="fac"&&cloud.facs===null)BE.adminFacilities().then(function(l){cloud.facs=l;render()},function(e){cloud.facs=[];cloud.adminErr=e.message;render()});
   if(t==="bc"&&cloud.bf&&!cloud.bf.reachTried){cloud.bf.reachTried=true;bcReachSoon()}
@@ -3490,6 +3562,12 @@ app.addEventListener("click",function(ev){
     case "ptdel":(function(){if(cloud.ptDel!==v){cloud.ptDel=v;render();return}if(cloud.busy)return;cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";render();BE.adminDeletePatient(v).then(function(){cloud.busy=false;cloud.ptDel=null;cloud.pts=undefined;cloud.adminMsg="Patient deleted.";render()},function(e){cloud.busy=false;cloud.ptDel=null;cloud.adminErr=e.message;render()})})();break;
     case "ptdelno":cloud.ptDel=null;render();break;
     case "rggps":rgGps();break;
+    case "frqopen":frqOpen(v);break;
+    case "frqclose":cloud.frq=null;render();break;
+    case "frqsend":frqSend();break;
+    case "frqyes":frqDecide(v,"confirmed");break;
+    case "frqno":frqDecide(v,"rejected");break;
+    case "frqcancel":if(!cloud.busy){cloud.busy=true;BE.cancelFacRequest(+v).then(function(){cloud.busy=false;frqRefresh(true)},function(e){cloud.busy=false;cloud.frqMsg=e.message;render()})}break;
     case "adsave":adSave();break;
     case "adrmimg":cloud.adf.imgs.splice(+v,1);render();break;
     case "adclear":cloud.adf=null;render();break;
@@ -3638,6 +3716,7 @@ app.addEventListener("input",function(ev){
   else if(t.id==="o-phone"&&state.otp){t.value=t.value.replace(/\D/g,"").slice(0,10);state.otp.phone=t.value}
   else if(t.id==="o-code"&&state.otp){t.value=t.value.replace(/\D/g,"").slice(0,8);state.otp.code=t.value}
   else if(t.id==="o-email"&&state.otp)state.otp.email=t.value.trim();
+  else if(t.id&&t.id.indexOf("frq-")===0&&cloud.frq){var fk=t.id.slice(4);if(fk==="phone"){t.value=t.value.replace(/\D/g,"").slice(0,10)}cloud.frq[fk]=t.value}
   else if(t.id==="ad-title"&&cloud.adf)cloud.adf.title=t.value;
   else if(t.id==="ad-adv"&&cloud.adf)cloud.adf.advertiser=t.value;
   else if(t.id==="ad-city"&&cloud.adf)cloud.adf.city=t.value;
