@@ -35,6 +35,7 @@ const www = path.resolve(__dirname, "../../app/src/main/assets/www/index.html");
   await pg.getByRole("button", { name: "Submit review" }).click(); await pg.waitForTimeout(800);
   console.log("RPC body:", JSON.stringify(sent));
   console.log("shows my rating:", /Your rating/.test(await pg.evaluate(() => document.body.innerText)));
+  console.log("confirmed clinic visit shows Google Maps links:", /Open in Google Maps/.test(await pg.evaluate(() => document.body.innerText)) && /Directions/.test(await pg.evaluate(() => document.body.innerText)));
   console.log("pageerrors:", errs.join("; ") || "none");
   await b.close();
 })();

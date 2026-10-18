@@ -2054,6 +2054,7 @@ function vDoctor(){
    '<div class="about">'+esc(d.about)+'<br><span style="font-size:13px">'+esc(d.clinic)+', '+esc(d.city)+' · '+esc(d.lang)+'</span></div>'+
    ((d.gallery&&d.gallery.length)?'<div class="sec">Clinic photos</div><div class="gal">'+d.gallery.map(function(g,i){return '<button data-a="viewimg" data-v="'+d.id+'|g|'+i+'" aria-label="View clinic photo '+(i+1)+'"><img src="'+esc(g)+'" alt="Clinic photo '+(i+1)+'"></button>'}).join("")+'</div>':'')+
    reviewList(d)+'<div class="sec">Clinic location</div><div class="card"><div class="locrow"><div class="pinbox">'+ic2.pin+'</div><div style="min-width:0"><b>'+esc(d.clinic)+'</b><div class="tiny">'+esc(d.address||"")+(d.address?", ":"")+esc(d.city)+(d.pin?" "+esc(d.pin):"")+'</div></div></div>'+
+   (hasConfirmedVisit(d.id)?'<div class="acts" style="margin-top:12px">'+mapLink(siteOpen(d),"Open in Google Maps","btn sm")+mapLink(siteDir(d),"Directions","btn sm ghost")+'</div><div class="hint">Shown because you have a confirmed visit here.</div>':'<div class="hint">The map link appears once your appointment is confirmed.</div>')+
    '</div>'+
    '<div class="sec">Visit type</div>'+seg+
    '<div class="sec">Choose a date</div><div class="dates">'+dates+'</div>'+
@@ -2344,9 +2345,11 @@ function apptCard(a){
    '<div class="when tnum">'+ic.cal.replace('width="22" height="22"','width="18" height="18"')+'<span>'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+'</span></div>'+
    '<div class="doc-sub">'+(a.mode==="video"?'Video consult':esc(d.clinic)+', '+esc(d.city))+' · For '+esc(a.name)+(a.reason?' · '+esc(a.reason):'')+'</div>'+
    (a.status==="rejected"?'<div class="doc-sub" style="color:var(--bad)">The doctor could not accept this request'+(a.rreason?': '+esc(a.rreason):'.')+' Please book another time.</div>':'')+
-   callBox(a)+(a.mode==="clinic"&&conf&&d.address?'<div class="tiny">Location: '+esc(d.address)+', '+esc(d.city)+'</div>':'')+
+   callBox(a)+(a.mode==="clinic"&&conf?'<div class="tiny">Location: '+esc(d.address||d.clinic||"")+(d.city?', '+esc(d.city):'')+'</div><div class="acts" style="margin:6px 0">'+mapLink(siteOpen(d),"Open in Google Maps","btn sm")+mapLink(siteDir(d),"Directions","btn sm ghost")+'</div>':'')+
    '<div class="row"><span class="hint tnum">Ref '+esc(a.ref)+' · '+money(a.fee!=null?a.fee:visitFee(d,a.mode))+(a.pf?' + '+money(a.pf)+' platform fee':'')+'</span>'+(a.sample?'<span class="pill warn">Example</span>':'')+'</div>'+acts+(CLOUD&&conf&&a.cloud?rxView(a):'')+(CLOUD&&conf&&a.cloud&&visitPast(a)?reviewBox(a):'')+'</div>';
 }
+/* The map link is only for patients whose clinic visit with this doctor is confirmed. */
+function hasConfirmedVisit(docId){return myAppts().some(function(a){return a.docId===docId&&a.mode==="clinic"&&a.status==="upcoming"})}
 function vAppts(){
   var mineA=myAppts();
   var upAll=mineA.filter(function(a){return a.status==="upcoming"||a.status==="pending"}).sort(function(x,y){return (x.dateKey+x.time)<(y.dateKey+y.time)?-1:1});
