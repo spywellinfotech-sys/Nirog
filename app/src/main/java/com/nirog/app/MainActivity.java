@@ -229,7 +229,11 @@ public class MainActivity extends Activity {
                 }
                 filePathCallback = callback;
                 try {
-                    startActivityForResult(params.createIntent(), FILE_REQ);
+                    Intent pick = params.createIntent();
+                    if (params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) {
+                        pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                    }
+                    startActivityForResult(pick, FILE_REQ);
                 } catch (ActivityNotFoundException e) {
                     filePathCallback = null;
                     return false;
