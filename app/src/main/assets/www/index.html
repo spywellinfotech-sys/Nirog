@@ -3001,18 +3001,49 @@ function adsLoad(){
   var c=state.city===ALL_CITIES?"":String(state.city||"");
   if(state.adsCity===c&&state.ads)return;
   state.adsBusy=true;
-  BE.activeAds(c).then(function(l){state.adsBusy=false;state.adsCity=c;state.ads=l||[];render()},function(){state.adsBusy=false;state.adsCity=c;state.ads=[]});
+  BE.activeAds(c).then(function(l){state.adsBusy=false;state.adsCity=c;state.ads=Array.isArray(l)?l:[];render()},function(){state.adsBusy=false;state.adsCity=c;state.ads=[]});
+}
+/* Banner slideshow: every photo of every running banner ad, one after another. A tap opens the sponsor's link. Videos sit in their own place at the bottom. */
+function adSlides(){
+  var s=[];(state.ads||[]).forEach(function(a){if(a.kind!=="image")return;(a.images&&a.images.length?a.images:[a.media]).forEach(function(m){s.push({ad:a.id,src:BE.mediaUrl(m),link:a.link||"",adv:a.advertiser||"",title:a.title})})});
+  return s;
 }
 function adBanner(){
-  if(!CLOUD||state.staff||!state.ads||!state.ads.length)return '';
-  var i=(state.adIdx=state.adIdx===undefined?Math.floor(Math.random()*state.ads.length):state.adIdx)%state.ads.length,a=state.ads[i];
-  state.adSeen=state.adSeen||{};if(!state.adSeen[a.id]&&BE.userId()){state.adSeen[a.id]=1;BE.logAdView(a.id).catch(function(){})}
-  return '<div class="card" style="padding:10px"><div class="tiny" style="margin-bottom:6px">Sponsored'+(a.advertiser?' · '+esc(a.advertiser):'')+'</div>'+
-   (a.kind==="video"?'<video muted autoplay loop playsinline controls preload="metadata" src="'+esc(BE.mediaUrl(a.media))+'" aria-label="'+esc(a.title)+'" style="width:100%;border-radius:10px;display:block;background:#000;max-height:220px"></video>'
-     :'<img src="'+esc(BE.mediaUrl(a.media))+'" alt="'+esc(a.title)+'" style="width:100%;border-radius:10px;display:block;max-height:220px;object-fit:cover">')+
-   '<div style="font-weight:600;margin-top:6px">'+esc(a.title)+'</div></div>';
+  if(!CLOUD||state.staff)return '';
+  var s=adSlides();if(!s.length)return '';
+  return '<div class="card" style="padding:10px"><div class="tiny" style="margin-bottom:6px">Sponsored</div><div id="adshow" data-n="'+s.length+'" style="position:relative">'+
+   s.map(function(x,i){
+     var im='<img src="'+esc(x.src)+'" alt="'+esc(x.title)+'" style="width:100%;border-radius:10px;display:block;max-height:220px;object-fit:cover">';
+     return '<div class="adslide" data-i="'+i+'" data-ad="'+x.ad+'" style="'+(i?'display:none':'')+'">'+(x.link?'<a href="'+esc(x.link)+'" target="_blank" rel="noopener noreferrer sponsored" data-adclick="'+x.ad+'">'+im+'</a>':im)+
+      '<div style="font-weight:600;margin-top:6px">'+esc(x.title)+(x.adv?' <span class="tiny" style="font-weight:400">· '+esc(x.adv)+'</span>':'')+'</div></div>'}).join("")+
+   (s.length>1?'<div class="adstop" style="display:flex;gap:6px;justify-content:center;margin-top:8px">'+s.map(function(x,i){return '<span class="addot" data-i="'+i+'" style="width:7px;height:7px;border-radius:50%;background:'+(i?'#c9ced6':'var(--brand)')+'"></span>'}).join("")+'</div>':'')+'</div></div>';
 }
-function adNew(){return {id:null,title:"",advertiser:"",city:"",ends:"",file:null,kind:"",preview:"",err:""}}
+function adVideoSection(){
+  if(!CLOUD||state.staff||!state.ads)return '';
+  var v=state.ads.filter(function(a){return a.kind==="video"});if(!v.length)return '';
+  var a=v[(state.advIdx=state.advIdx===undefined?Math.floor(Math.random()*v.length):state.advIdx)%v.length];
+  state.adSeen=state.adSeen||{};if(!state.adSeen[a.id]&&BE.userId()){state.adSeen[a.id]=1;BE.logAdView(a.id).catch(function(){})}
+  var vid='<video muted autoplay loop playsinline controls preload="metadata" src="'+esc(BE.mediaUrl(a.media))+'" aria-label="'+esc(a.title)+'" style="width:100%;border-radius:10px;display:block;background:#000;max-height:240px"></video>';
+  return '<div class="sec">Sponsored video</div><div class="card" style="padding:10px"><div class="tiny" style="margin-bottom:6px">'+(a.advertiser?esc(a.advertiser):'Sponsored')+'</div>'+vid+
+   '<div style="font-weight:600;margin-top:6px">'+esc(a.title)+'</div>'+(a.link?'<div style="margin-top:8px"><a class="btn sm" href="'+esc(a.link)+'" target="_blank" rel="noopener noreferrer sponsored" data-adclick="'+a.id+'">Visit sponsor</a></div>':'')+'</div>';
+}
+var adShowI=0;
+setInterval(function(){
+  var el=document.getElementById("adshow");if(!el)return;
+  var n=+el.getAttribute("data-n");if(n<2)return;
+  adShowI=(adShowI+1)%n;
+  var sl=el.querySelectorAll(".adslide"),dots=el.querySelectorAll(".addot");
+  for(var i=0;i<sl.length;i++)sl[i].style.display=(i===adShowI?"":"none");
+  for(var k=0;k<dots.length;k++)dots[k].style.background=(k===adShowI?"var(--brand)":"#c9ced6");
+  adSeeSlide(sl[adShowI]);
+},4000);
+function adSeeSlide(s){
+  if(!s||!BE.userId())return;var id=+s.getAttribute("data-ad");state.adSeen=state.adSeen||{};
+  if(!state.adSeen[id]){state.adSeen[id]=1;BE.logAdView(id).catch(function(){})}
+}
+/* Counts taps on a sponsor link without ever blocking it. */
+document.addEventListener("click",function(ev){var t=ev.target.closest&&ev.target.closest("[data-adclick]");if(!t||!BE.userId())return;try{BE.logAdClick(+t.getAttribute("data-adclick")).catch(function(){})}catch(e){}},true);
+function adNew(){return {id:null,title:"",advertiser:"",city:"",ends:"",link:"",kind:"image",imgs:[],vfile:null,err:""}}
 function adAdmin(){
   var f=cloud.adf=cloud.adf||adNew(),L=cloud.ads;
   var out='';
@@ -3023,44 +3054,59 @@ function adAdmin(){
    '<div class="field"><label for="ad-adv">Whose ad (doctor, lab, hospital, pharmacy)</label><input id="ad-adv" maxlength="80" value="'+esc(f.advertiser)+'"></div>'+
    '<div class="field"><label for="ad-city">City (optional)</label>'+cityIn("ad-city",f.city)+'<div class="tiny">Leave empty to show the ad in every city. With a city, only patients who chose that city see it.</div></div>'+
    '<div class="field"><label for="ad-end">Last day (optional)</label><input id="ad-end" type="date" value="'+esc(f.ends)+'"></div>'+
-   '<div class="upl"><b>Banner photo or short video (MP4 or WebM, up to 20 MB)</b>'+(f.preview?'<div class="thumbs" style="margin:6px 0"><div class="thumb"><img src="'+esc(f.preview)+'" alt="Banner preview"></div></div>':'')+(f.file&&f.kind==="video"?'<div class="tiny" style="margin:6px 0">'+esc(f.file.name)+' · '+bcMb(f.file.size)+'</div>':'')+(f.id&&!f.file?'<div class="tiny">Keeping the current media. Choose a file only to replace it.</div>':'')+'<label class="pick">'+(f.file||f.id?'Change file':'Choose photo or video')+'<input type="file" id="adp-file" accept="image/*,video/mp4,video/webm"></label></div>'+
+   '<div class="field"><label for="ad-link">Sponsor link (optional)</label><input id="ad-link" inputmode="url" autocapitalize="none" maxlength="300" value="'+esc(f.link||"")+'" placeholder="https://..."><div class="tiny">Patients who tap the banner go to this page. It must start with https://</div></div>'+
+   '<div class="field"><label for="ad-kind">Type</label><select id="ad-kind"><option value="image"'+(f.kind==="image"?" selected":"")+'>Banner slideshow (photos)</option><option value="video"'+(f.kind==="video"?" selected":"")+'>Video (shown at the bottom)</option></select></div>'+
+   (f.kind==="image"?'<div class="upl"><b>Photos (up to 8, shown one after another)</b>'+(f.imgs.length?'<div class="thumbs" style="margin:6px 0">'+f.imgs.map(function(d,i){return '<div class="thumb"><img src="'+esc(d)+'" alt="Photo '+(i+1)+'"><button type="button" class="x" data-a="adrmimg" data-v="'+i+'" aria-label="Remove photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'')+(f.id&&!f.imgs.length?'<div class="tiny">Keeping the current photos. Choose photos only to replace them.</div>':'')+'<label class="pick">'+(f.imgs.length?'Add more photos':'Choose photos')+'<input type="file" id="adp-file" accept="image/*" multiple></label></div>'
+    :'<div class="upl"><b>Short video (MP4 or WebM, up to 20 MB)</b>'+(f.vfile?'<div class="tiny" style="margin:6px 0">'+esc(f.vfile.name)+' · '+bcMb(f.vfile.size)+'</div>':'')+(f.id&&!f.vfile?'<div class="tiny">Keeping the current video. Choose a file only to replace it.</div>':'')+'<label class="pick">'+(f.vfile?'Change video':'Choose video')+'<input type="file" id="adp-file" accept="video/mp4,video/webm"></label></div>')+
    (f.err?'<div class="err" role="alert" style="margin-bottom:10px">'+esc(f.err)+'</div>':'')+
    '<div class="acts"><button class="btn" type="button" data-a="adsave"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Saving...':f.id?'Save changes':'Publish ad')+'</button>'+(f.id?'<button class="btn ghost" type="button" data-a="adclear">Cancel</button>':'')+'</div></div>';
   out+='<div class="sec">All ads ('+(L?L.length:0)+')</div>';
   if(L===undefined||L===null)return out+'<div class="empty">Loading...</div>';
   return out+(L.length?L.map(function(a){
     var today=new Date().toISOString().slice(0,10),live=a.active&&a.starts_on<=today&&(!a.ends_on||a.ends_on>=today);
-    return '<div class="appt"><div class="who"><div style="min-width:0"><div class="doc-name">'+esc(a.title)+'</div><div class="tiny">'+esc(a.advertiser||"No advertiser")+' · '+(a.kind==="video"?"Video":"Photo")+' · '+esc(a.city||"Every city")+(a.ends_on?' · until '+esc(a.ends_on):'')+'</div><div class="tiny" style="font-weight:600">Shown '+a.views+' time'+(a.views===1?'':'s')+'</div></div><span class="pill'+(live?'':' warn')+'">'+(live?'Live':a.active?'Not running':'Hidden')+'</span></div>'+
+    return '<div class="appt"><div class="who"><div style="min-width:0"><div class="doc-name">'+esc(a.title)+'</div><div class="tiny">'+esc(a.advertiser||"No advertiser")+' · '+(a.kind==="video"?"Video":((a.images&&a.images.length)||1)+" photo"+(((a.images&&a.images.length)||1)===1?"":"s"))+' · '+esc(a.city||"Every city")+(a.ends_on?' · until '+esc(a.ends_on):'')+'</div><div class="tiny" style="font-weight:600">Shown '+a.views+' time'+(a.views===1?'':'s')+(a.link_url?' · Link tapped '+a.clicks+' time'+(a.clicks===1?'':'s'):'')+'</div></div><span class="pill'+(live?'':' warn')+'">'+(live?'Live':a.active?'Not running':'Hidden')+'</span></div>'+
      (a.kind==="image"?'<img src="'+esc(BE.mediaUrl(a.media_path))+'" alt="" style="max-width:100%;max-height:120px;border-radius:10px;margin-top:6px">':'')+
      (cloud.addel===a.id?'<div class="confirm"><div>Delete this ad?</div><div class="acts"><button class="btn sm danger" data-a="addel" data-v="'+a.id+'">Yes, delete</button><button class="btn sm ghost" data-a="addelno">Keep</button></div></div>'
       :'<div class="acts"><button class="btn sm ghost" data-a="adedit" data-v="'+a.id+'">Edit</button><button class="btn sm ghost" data-a="adtoggle" data-v="'+a.id+'">'+(a.active?'Hide':'Show')+'</button><button class="btn sm ghost" data-a="addelask" data-v="'+a.id+'" style="color:var(--bad)">Delete</button></div>')+'</div>'}).join(""):'<div class="empty">No ads yet.</div>');
 }
 function adFind(id){var r=null;(cloud.ads||[]).forEach(function(a){if(a.id===id)r=a});return r}
 function adPick(files){
-  var f=cloud.adf;if(!f||!files||!files.length)return;var v=files[0];f.err="";
-  if(/^image\//.test(v.type)){shrink(v,1200,.8,function(d){if(!d)f.err="That photo could not be read. Try another one.";else{f.file=null;f.kind="image";f.preview=d;f.data=d;f.vfile=null}render()});return}
-  if(!/^video\/(mp4|webm)$/.test(v.type)){f.err="Use a photo, or an MP4 or WebM video.";return render()}
-  if(v.size>20*1024*1024){f.err="The video is larger than 20 MB. Use a shorter one.";return render()}
-  f.file=v;f.vfile=v;f.kind="video";f.preview="";f.data=null;render();
+  var f=cloud.adf;if(!f||!files||!files.length)return;f.err="";
+  if(f.kind==="video"){
+    var v=files[0];
+    if(!/^video\/(mp4|webm)$/.test(v.type)){f.err="Use an MP4 or WebM video.";return render()}
+    if(v.size>20*1024*1024){f.err="The video is larger than 20 MB. Use a shorter one.";return render()}
+    f.vfile=v;return render();
+  }
+  var list=[].slice.call(files),left=list.length,room=8-f.imgs.length,picked=[];
+  list.forEach(function(file,idx){shrink(file,1200,.8,function(d){picked[idx]=d;if(--left===0){var ok=picked.filter(Boolean);if(!ok.length)f.err="Those photos could not be read. Try others.";else{f.imgs=f.imgs.concat(ok).slice(0,8);if(ok.length>room)f.err="Only 8 photos fit. The extra ones were left out."}render()}})});
 }
 function adSave(row,msg){
   if(cloud.busy)return;
   var f=row||cloud.adf;if(!f)return;
   if(!row){
     if(!String(f.title).trim()){f.err="Enter a title.";return render()}
-    if(!f.id&&!f.data&&!f.vfile){f.err="Choose a photo or a video.";return render()}
+    if(f.link&&!/^https:\/\/\S+$/.test(String(f.link).trim())){f.err="The sponsor link must start with https://";return render()}
+    if(!f.id&&f.kind==="image"&&!f.imgs.length){f.err="Choose at least one photo.";return render()}
+    if(!f.id&&f.kind==="video"&&!f.vfile){f.err="Choose a video.";return render()}
   }
   cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";if(!row)f.err="";render();
-  var st=Date.now(),path="";
-  function fin(){
-    BE.saveAd({id:f.id||null,title:String(f.title).trim(),advertiser:String(f.advertiser||"").trim(),kind:f.kind||"image",media_path:path,city:cityNorm(String(f.city||"").trim())||"",ends_on:f.ends||"",active:f.active===undefined?true:f.active}).then(function(){
-      cloud.busy=false;cloud.adminMsg=msg||(f.id?"Saved.":"Ad published. Patients will see it now.");if(!row)cloud.adf=null;cloud.ads=undefined;state.ads=null;render();
-    },function(e){cloud.busy=false;if(!row)f.err=e.message;else cloud.adminErr=e.message;render()});
-  }
+  var st=Date.now(),paths=[],vpath="";
   function bad(e){cloud.busy=false;if(!row)f.err=e.message;else cloud.adminErr=e.message;render()}
-  if(!row&&f.data){path="ad"+st+".jpg";BE.upload("broadcast-media",path,f.data).then(fin,bad)}
-  else if(!row&&f.vfile){path="ad"+st+(f.vfile.type==="video/webm"?".webm":".mp4");BE.uploadFile("broadcast-media",path,f.vfile).then(fin,bad)}
-  else fin();
+  function fin(){
+    BE.saveAd({id:f.id||null,title:String(f.title).trim(),advertiser:String(f.advertiser||"").trim(),kind:f.kind||"image",media_path:vpath,images:paths,link_url:String(f.link||"").trim(),city:cityNorm(String(f.city||"").trim())||"",ends_on:f.ends||"",active:f.active===undefined?true:f.active}).then(function(){
+      cloud.busy=false;cloud.adminMsg=msg||(f.id?"Saved.":"Ad published. Patients will see it now.");if(!row)cloud.adf=null;cloud.ads=undefined;state.ads=null;render();
+    },bad);
+  }
+  if(row)return fin();
+  if(f.kind==="video"){
+    if(!f.vfile)return fin();
+    vpath="ad"+st+(f.vfile.type==="video/webm"?".webm":".mp4");
+    return BE.uploadFile("broadcast-media",vpath,f.vfile).then(fin,bad);
+  }
+  var chain=Promise.resolve();
+  f.imgs.forEach(function(d,i){var pth="ad"+st+"-"+i+".jpg";paths.push(pth);chain=chain.then(function(){return BE.upload("broadcast-media",pth,d)})});
+  chain.then(fin,bad);
 }
 function ambNew(){return {id:null,name:"",phone:"",wa:"",city:"",kind:"private",note:""}}
 function ambAdmin(){
@@ -3330,7 +3376,7 @@ function render(scroll){
   else if(state.view==="doctor")h=vDoctor();
   else if(state.view==="confirm")h=vConfirm();
   else h=vDone();
-  if(showNav&&!state.staff&&(state.tab==="find"||state.tab==="labs")){adsLoad();var ab=adBanner();if(ab){var ti=h.indexOf('<div class="title-block"');h=ti>=0?h.slice(0,ti)+ab+h.slice(ti):ab+h}}
+  if(showNav&&!state.staff&&(state.tab==="find"||state.tab==="labs")){adsLoad();var ab=adBanner();if(ab){var ti=h.indexOf('<div class="title-block"');h=ti>=0?h.slice(0,ti)+ab+h.slice(ti):ab+h}h+=adVideoSection();if(ab)setTimeout(function(){adSeeSlide(document.querySelector("#adshow .adslide"))},0)}
   app.innerHTML=nbHtml()+h+(showNav?nav()+fabHtml():"")+lbHtml();
   if(scroll)window.scrollTo(0,0);
 }
@@ -3436,9 +3482,10 @@ app.addEventListener("click",function(ev){
     case "ptdelno":cloud.ptDel=null;render();break;
     case "rggps":rgGps();break;
     case "adsave":adSave();break;
+    case "adrmimg":cloud.adf.imgs.splice(+v,1);render();break;
     case "adclear":cloud.adf=null;render();break;
-    case "adedit":(function(){var a=adFind(+v);if(a){cloud.adf={id:a.id,title:a.title,advertiser:a.advertiser||"",city:a.city||"",ends:a.ends_on||"",file:null,kind:a.kind,preview:"",err:""};render(true)}})();break;
-    case "adtoggle":(function(){var a=adFind(+v);if(a)adSave({id:a.id,title:a.title,advertiser:a.advertiser||"",city:a.city||"",ends:a.ends_on||"",kind:a.kind,active:!a.active},a.active?"Hidden from patients.":"Showing to patients.")})();break;
+    case "adedit":(function(){var a=adFind(+v);if(a){cloud.adf={id:a.id,title:a.title,advertiser:a.advertiser||"",city:a.city||"",ends:a.ends_on||"",link:a.link_url||"",kind:a.kind,imgs:[],vfile:null,err:""};render(true)}})();break;
+    case "adtoggle":(function(){var a=adFind(+v);if(a)adSave({id:a.id,title:a.title,advertiser:a.advertiser||"",city:a.city||"",ends:a.ends_on||"",link:a.link_url||"",kind:a.kind,imgs:[],active:!a.active},a.active?"Hidden from patients.":"Showing to patients.")})();break;
     case "addelask":cloud.addel=+v;render();break;
     case "addelno":cloud.addel=null;render();break;
     case "addel":(function(){if(cloud.busy)return;cloud.busy=true;BE.deleteAd(+v).then(function(){cloud.busy=false;cloud.addel=null;cloud.ads=undefined;state.ads=null;cloud.adminMsg="Ad deleted.";render()},function(e){cloud.busy=false;cloud.addel=null;cloud.adminErr=e.message;render()})})();break;
@@ -3586,6 +3633,8 @@ app.addEventListener("input",function(ev){
   else if(t.id==="ad-adv"&&cloud.adf)cloud.adf.advertiser=t.value;
   else if(t.id==="ad-city"&&cloud.adf)cloud.adf.city=t.value;
   else if(t.id==="ad-end"&&cloud.adf)cloud.adf.ends=t.value;
+  else if(t.id==="ad-link"&&cloud.adf)cloud.adf.link=t.value;
+  else if(t.id==="ad-kind"&&cloud.adf){cloud.adf.kind=t.value;cloud.adf.imgs=[];cloud.adf.vfile=null;render()}
   else if(t.id==="ca-name"&&cloud.af)cloud.af.name=t.value;
   else if(t.id==="ca-phone"&&cloud.af){t.value=t.value.replace(/[^\d+ -]/g,"").slice(0,16);cloud.af.phone=t.value}
   else if(t.id==="ca-wa"&&cloud.af){t.value=t.value.replace(/\D/g,"").slice(0,10);cloud.af.wa=t.value}

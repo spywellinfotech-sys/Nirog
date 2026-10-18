@@ -29,3 +29,20 @@ select t.ok((select count(*) from public.ads) >= 4, 'the admin can read every ad
 select public.admin_delete_ad(:old);
 select t.ok((select count(*) from public.ads where id = :old) = 0, 'an ad can be deleted');
 select t.root();
+select t.login(:'ADM');
+select (public.admin_save_ad('{"title":"Slideshow","advertiser":"Shree Pharmacy","kind":"image","images":["s1.jpg","s2.jpg","s3.jpg"],"link_url":"https://example.com/offer"}')).id as ss \gset
+select t.denied($$select public.admin_save_ad('{"title":"Bad link","kind":"image","images":["a.jpg"],"link_url":"http://example.com"}')$$, 'invalid_link', 'the sponsor link must be https');
+select t.denied($$select public.admin_save_ad('{"title":"Bad link","kind":"image","images":["a.jpg"],"link_url":"javascript:alert(1)"}')$$, 'invalid_link', 'script links are refused');
+select t.denied($$select public.admin_save_ad('{"title":"Too many","kind":"image","images":["1","2","3","4","5","6","7","8","9"]}')$$, 'too_many_images', 'at most 8 photos');
+select t.root();
+select t.login(:'A1');
+select public.active_ads('Pune') as sa \gset
+select t.ok(:'sa'::jsonb::text like '%s2.jpg%' and :'sa'::jsonb::text like '%https://example.com/offer%', 'the slideshow photos and the sponsor link reach the patient');
+select public.log_ad_click(:ss);
+select public.log_ad_click(:ss);
+select t.root();
+select t.ok((select clicks from public.ads where id = :ss) = 2 and (select cardinality(images) from public.ads where id = :ss) = 3, 'clicks are counted and the photos are kept');
+select t.login(:'ADM');
+select public.admin_save_ad(format('{"id":%s,"title":"Slideshow v2","kind":"image","link_url":""}', :ss)::jsonb);
+select t.root();
+select t.ok((select cardinality(images) from public.ads where id = :ss) = 3 and (select link_url from public.ads where id = :ss) is null, 'editing without new photos keeps the old ones; an empty link clears it');
