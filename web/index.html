@@ -403,7 +403,10 @@ function siteDir(d){
   if(isNum(d.lat)&&isNum(d.lng))return "https://www.google.com/maps/dir/?api=1&destination="+d.lat+","+d.lng;
   return siteOpen(d);
 }
-function mapLink(url,label,cls){return '<a class="'+cls+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>'}
+function mapLink(url,label,cls,extra){return '<a class="'+cls+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer"'+(extra||"")+'>'+label+'</a>'}
+function tapAttr(kind,id,ch){return CLOUD&&/^\d+$/.test(String(id))?' data-tap="'+kind+"|"+id+"|"+ch+'"':""}
+/* Counts Call and WhatsApp taps on facility and ambulance listings for the admin. Never blocks the call or the chat. */
+document.addEventListener("click",function(ev){var t=ev.target.closest&&ev.target.closest("[data-tap]");if(!t||!CLOUD||!BE.userId())return;var p=t.getAttribute("data-tap").split("|");try{BE.logTap(p[0],+p[1],p[2]).catch(function(){})}catch(e){}},true);
 function mapStatus(s){
   if(!String(s||"").trim())return "";
   var p=parseMap(s);
@@ -1072,6 +1075,16 @@ function newReg(){
     days:[1,2,3,4,5,6],s1f:"600",s1t:"780",s2f:"1020",s2t:"1200",step:"20",
     fee:"",vfee:"",phone:"",email:"",pass:"",lang:"Hindi, English",about:"",council:"",regno:"",ryear:"",photo:"",gallery:[],docs:{reg:null,id:null,deg:null},upMsg:"",errs:{}};
 }
+function rgGps(){
+  var st=document.getElementById("rg-map-status");function say(t){if(st)st.textContent=t}
+  if(!navigator.geolocation){say("This phone cannot share its location here. Paste a Google Maps link instead.");return}
+  say("Finding your location. Stay at your clinic...");
+  navigator.geolocation.getCurrentPosition(function(p){
+    var v=p.coords.latitude.toFixed(6)+", "+p.coords.longitude.toFixed(6);state.reg.map=v;
+    var i=document.getElementById("rg-map");if(i)i.value=v;
+    say(mapStatus(v)+" (accurate to about "+Math.round(p.coords.accuracy)+" m)");
+  },function(e){say(e&&e.code===1?"Location is off for Yada+. Allow it in the phone settings, or paste a Google Maps link.":"Could not get your location. Go to an open spot and try again, or paste a link.")},{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+}
 function findUrl(){
   var r=state.reg||{};
   return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent([r.clinic,r.addr,r.city,r.pin].filter(function(x){return x&&String(x).trim()}).join(", ")||"clinic");
@@ -1115,10 +1128,10 @@ function vRegister(){
    fld("addr","Full street address",'<textarea id="rg-addr" placeholder="Floor, building, street, area">'+esc(r.addr)+'</textarea>')+
    '<div class="field" style="margin-bottom:0"><label for="rg-pin">PIN code</label><input id="rg-pin" inputmode="numeric" maxlength="6" value="'+esc(r.pin)+'">'+(e.pin?'<div class="err">'+e.pin+'</div>':'')+'</div>'+
    '</div>'+
-   '<div class="sec">Google Maps location</div><div class="card">'+
-   '<div class="mapfind"><a id="rg-find" class="btn sm ghost" style="align-self:flex-start" href="'+esc(findUrl())+'" target="_blank" rel="noopener noreferrer">1. Find your clinic on Google Maps</a>'+
-   '<div class="hint">Open your clinic in Google Maps, tap Share, copy the link and paste it below. You can also paste coordinates such as 12.9352, 77.6245.</div></div>'+
-   fld("map","2. Paste the Google Maps link",'<input id="rg-map" inputmode="url" autocomplete="off" value="'+esc(r.map)+'" placeholder="https://maps.app.goo.gl/...">')+
+   '<div class="sec">Clinic location</div><div class="card">'+
+   '<button type="button" class="btn sm ghost" style="align-self:flex-start" data-a="rggps">Use my GPS location</button>'+
+   '<div class="hint">Stand at your clinic and tap the button, or paste a Google Maps link below. Patients will see only the address; this location is used by Yada+ to verify your clinic.</div>'+
+   fld("map","Or paste a Google Maps link",'<input id="rg-map" inputmode="url" autocomplete="off" value="'+esc(r.map)+'" placeholder="https://maps.app.goo.gl/...">')+
    '<div class="status-line" id="rg-map-status" aria-live="polite">'+esc(mapStatus(r.map))+'</div></div>'+
    '<div class="sec">Your time slots</div><div class="card">'+schedHtml(r,"reg")+'<div class="hint" style="margin-top:10px">You decide when patients can book. You can change days, hours, single slots and days off any time from your doctor login.</div></div>'+
    '<div class="sec">Fees</div><div class="card">'+
@@ -1126,7 +1139,6 @@ function vRegister(){
    '<div class="field" style="margin-bottom:0"><label for="rg-vfee">Video consult fee (₹, optional)</label><input id="rg-vfee" type="number" inputmode="numeric" min="0" value="'+esc(r.vfee)+'">'+(e.vfee?'<div class="err">'+e.vfee+'</div>':'<div class="hint">Leave blank if you do not offer video consults.</div>')+'</div></div>'+
    '<div class="sec">Contact and login</div><div class="card">'+
    fld("phone","Mobile number",'<input id="rg-phone" inputmode="numeric" maxlength="10" autocomplete="tel" value="'+esc(r.phone)+'">')+
-   fld("wa","WhatsApp number for patients (optional)",'<input id="rg-wa" inputmode="numeric" maxlength="10" autocomplete="off" value="'+esc(r.wa)+'">',"Patients can message you on WhatsApp from your profile. Leave empty to hide it.")+
    (CLOUD&&cloud.greg?'<div class="field" style="margin-bottom:0"><div class="demo-note" role="status">Signed in with Google as <b>'+esc(cloud.greg)+'</b>. You will sign in to the doctor app with Google.</div></div></div></div>':((CLOUD?'<div class="field"><div class="hint" style="margin-bottom:8px">Fastest: use your Google account.</div><button type="button" class="btn ghost" data-a="gdoc">Continue with Google</button><div class="hint" style="margin:10px 0 0">Or use an email and password below.</div></div>':'')+
    fld("email","Email (your login)",'<input id="rg-email" type="email" autocomplete="username" value="'+esc(r.email)+'">')+
    '<div class="field" style="margin-bottom:0"><label for="rg-pass">Password</label><input id="rg-pass" type="password" autocomplete="new-password" value="'+esc(r.pass)+'">'+(e.pass?'<div class="err">'+e.pass+'</div>':'<div class="hint">At least 8 characters. Demo only: stored in this browser.</div>')+'</div></div>'))+
@@ -1328,7 +1340,6 @@ function clBox(a){
 function callBox(a,doc){
   if(a.mode!=="video"||a.status!=="upcoming")return '';
   return '<button class="btn" data-a="callin" data-v="'+a.id+'">'+(doc?'Start video call':'Join video call')+'</button>'+
-   (a.link&&!doc?'<a class="btn ghost" style="text-decoration:none;display:flex;justify-content:center;margin-top:8px" href="'+esc(a.link)+'" target="_blank" rel="noopener noreferrer">Open the doctor\'s link instead</a>':'')+
    '<div class="hint">'+(doc?'The patient joins from My appointments.':'The doctor joins from the same booking. You can join a little early.')+'</div>';
 }
 function dApptCard(a,pend){
@@ -1342,7 +1353,7 @@ function dApptCard(a,pend){
     if(state.rask===a.id)h+='<div class="confirm"><div class="field"><label for="rr-'+a.id+'">Reason for the patient (optional)</label><input id="rr-'+a.id+'" maxlength="140" value="'+esc(state.rrs[a.id]||"")+'" placeholder="e.g. Not available that day"></div><div class="acts"><button class="btn sm danger" data-a="rejgo" data-v="'+a.id+'">Reject request</button><button class="btn sm ghost" data-a="rejno">Back</button></div></div>';
     else h+='<div class="acts"><button class="btn sm" data-a="approve" data-v="'+a.id+'">Approve</button><button class="btn sm ghost" data-a="rejask" data-v="'+a.id+'" style="color:var(--bad)">Reject</button></div>';
   }
-  else h+=(a.mode==="video"?callBox(a,true)+clBox(a):'')+rxDocBox(a);
+  else h+=(a.mode==="video"?callBox(a,true):'')+rxDocBox(a);
   return h+'</div>';
 }
 function docAppts(d){
@@ -1552,7 +1563,8 @@ function labCard(l){
    '<div class="tiny">'+(/^open 24/i.test(l.hours)?esc(l.hours):'Open '+esc(l.hours))+(l.beds?' · '+l.beds+' beds':'')+'</div>'+
    '<div class="tiny" style="font-weight:600">'+(l.kind==="hospital"?"Specialities":l.kind==="other"||l.kind==="pharmacy"?"Services":"Tests")+'</div>'+
    '<div class="tests">'+shown.map(function(t){return '<span>'+esc(t[0])+(t.length>1?' <b>'+money(t[1])+'</b>':'')+'</span>'}).join("")+'</div>'+
-   '<div class="acts">'+(l.wa?(l.kind==="ambulance"?'<a class="btn sm" href="'+esc(telHref("+91"+l.wa))+'">'+ICPHONE+' Call</a>':mapLink(waLink(l.wa,l.name),"WhatsApp","btn sm")):'')+mapLink(siteOpen({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Open in Google Maps","btn sm")+mapLink(siteDir({mapUrl:l.mapUrl,clinic:l.name,address:l.address,city:l.city}),"Directions","btn sm ghost")+'</div>'+
+   '<div class="tiny">Location: '+esc(l.address||"")+(l.address?", ":"")+esc(l.city||"")+(l.pin?" "+esc(l.pin):"")+'</div>'+
+   '<div class="acts">'+(l.wa&&l.kind==="ambulance"?'<a class="btn sm" href="'+esc(telHref("+91"+l.wa))+'"'+tapAttr("facility",l.id,"call")+'>'+ICPHONE+' Call</a>':'')+(l.wa&&(l.kind==="pharmacy"||l.kind==="other")?mapLink(waLink(l.wa,l.name),"WhatsApp","btn sm",tapAttr("facility",l.id,"whatsapp")):'')+'</div>'+
    (l.sample?'<div class="hint">Sample listing. Names, services and prices are examples.</div>':'')+'</div>';
 }
 function labsListHtml(){
@@ -2039,10 +2051,10 @@ function vDoctor(){
    (state.resched?'<div class="card" style="margin-bottom:10px;background:var(--accent-soft);border-color:transparent;font-size:14px">Rescheduling your appointment. Choose a new date and time.</div>':'')+
    '<div class="profile">'+avatar(d,"lg")+'<div style="min-width:0"><h1>'+esc(d.name)+'</h1><div style="margin:2px 0">'+vtag(d)+'</div><div class="doc-sub">'+esc(d.spec)+'</div><div class="doc-sub">'+esc(d.qual)+'</div></div></div>'+
    '<div class="facts"><div class="fact"><b class="tnum">'+d.exp+' yrs</b><span>Experience</span></div><div class="fact"><b class="tnum">'+(d.reviews?d.rating.toFixed(1):"New")+'</b><span>'+(d.reviews?d.reviews.toLocaleString("en-IN")+' reviews':'No reviews yet')+'</span></div><div class="fact"><b class="tnum">'+d.step+' min</b><span>Per visit</span></div></div>'+
-   (d.wa?'<div style="margin:0 0 12px">'+mapLink(waLink(d.wa,d.name),"Chat with the clinic on WhatsApp","btn sm")+'</div>':'')+'<div class="about">'+esc(d.about)+'<br><span style="font-size:13px">'+esc(d.clinic)+', '+esc(d.city)+' · '+esc(d.lang)+'</span></div>'+
+   '<div class="about">'+esc(d.about)+'<br><span style="font-size:13px">'+esc(d.clinic)+', '+esc(d.city)+' · '+esc(d.lang)+'</span></div>'+
    ((d.gallery&&d.gallery.length)?'<div class="sec">Clinic photos</div><div class="gal">'+d.gallery.map(function(g,i){return '<button data-a="viewimg" data-v="'+d.id+'|g|'+i+'" aria-label="View clinic photo '+(i+1)+'"><img src="'+esc(g)+'" alt="Clinic photo '+(i+1)+'"></button>'}).join("")+'</div>':'')+
    reviewList(d)+'<div class="sec">Clinic location</div><div class="card"><div class="locrow"><div class="pinbox">'+ic2.pin+'</div><div style="min-width:0"><b>'+esc(d.clinic)+'</b><div class="tiny">'+esc(d.address||"")+(d.address?", ":"")+esc(d.city)+(d.pin?" "+esc(d.pin):"")+'</div></div></div>'+
-   '<div class="acts" style="margin-top:12px">'+mapLink(siteOpen(d),"Open in Google Maps","btn sm")+mapLink(siteDir(d),"Directions","btn sm ghost")+'</div></div>'+
+   '</div>'+
    '<div class="sec">Visit type</div>'+seg+
    '<div class="sec">Choose a date</div><div class="dates">'+dates+'</div>'+
    '<div class="sec" style="padding-bottom:0">Choose a time</div>'+gh+
@@ -2081,7 +2093,7 @@ function vDone(){
    '<div class="sumrow"><span>Visit</span><span>'+(a.mode==="video"?'Video consult':esc(d.clinic)+', '+esc(d.city))+'</span></div>'+
    '<div class="sumrow"><span>Mobile</span><span class="tnum">'+esc(a.phone)+'</span></div>'+
    '<div class="sumrow"><span>Doctor fee</span><span class="tnum">'+money(a.fee!=null?a.fee:visitFee(d,a.mode))+'</span></div>'+(a.pf?'<div class="sumrow"><span>Platform fee</span><span class="tnum">'+money(a.pf)+'</span></div>':'')+
-   (a.mode==="video"?'':'<div class="sumrow"><span>Address</span><span>'+esc(d.address||d.clinic)+', '+esc(d.city)+'<br>'+mapLink(siteDir(d),"Get directions","maplink")+'</span></div>')+'</div>'+
+   (a.mode==="video"?'':'<div class="sumrow"><span>Address</span><span>'+esc(d.address||d.clinic)+', '+esc(d.city)+'</span></div>')+'</div>'+
    '<div class="stick" style="display:flex;flex-direction:column;gap:8px"><button class="btn" data-a="mine">View my appointments</button><button class="btn ghost" data-a="home">Book another</button></div>';
 }
 function stars(n){var o="";for(var i=1;i<=5;i++)o+=(i<=Math.round(n)?"★":"☆");return '<span aria-label="'+n+' out of 5 stars" style="color:#e0a100;letter-spacing:1px">'+o+'</span>'}
@@ -2332,7 +2344,7 @@ function apptCard(a){
    '<div class="when tnum">'+ic.cal.replace('width="22" height="22"','width="18" height="18"')+'<span>'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+'</span></div>'+
    '<div class="doc-sub">'+(a.mode==="video"?'Video consult':esc(d.clinic)+', '+esc(d.city))+' · For '+esc(a.name)+(a.reason?' · '+esc(a.reason):'')+'</div>'+
    (a.status==="rejected"?'<div class="doc-sub" style="color:var(--bad)">The doctor could not accept this request'+(a.rreason?': '+esc(a.rreason):'.')+' Please book another time.</div>':'')+
-   callBox(a)+(a.mode==="clinic"&&conf?'<div>'+mapLink(siteDir(d),"Get directions on Google Maps","maplink")+'</div>':'')+
+   callBox(a)+(a.mode==="clinic"&&conf&&d.address?'<div class="tiny">Location: '+esc(d.address)+', '+esc(d.city)+'</div>':'')+
    '<div class="row"><span class="hint tnum">Ref '+esc(a.ref)+' · '+money(a.fee!=null?a.fee:visitFee(d,a.mode))+(a.pf?' + '+money(a.pf)+' platform fee':'')+'</span>'+(a.sample?'<span class="pill warn">Example</span>':'')+'</div>'+acts+(CLOUD&&conf&&a.cloud?rxView(a):'')+(CLOUD&&conf&&a.cloud&&visitPast(a)?reviewBox(a):'')+'</div>';
 }
 function vAppts(){
@@ -2355,11 +2367,38 @@ var ICPHONE='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke=
 function fabHtml(){return '<button class="fab" data-a="amb" aria-label="Ambulance numbers">'+ICPHONE+'Ambulance</button>'}
 function telHref(n){return "tel:"+String(n).replace(/[^\d+]/g,"")}
 function ambCities(){var c=browseCities().slice();(cloud.amb||[]).concat(ambFacs()).forEach(function(a){if(a.city&&c.indexOf(a.city)<0)c.push(a.city)});return c}
+/* After the patient taps Call on an ambulance, offer to send their location so the crew can find them. */
+document.addEventListener("click",function(ev){var t=ev.target.closest&&ev.target.closest("[data-amcall]");if(!t)return;var p=t.getAttribute("data-amcall").split("|");state.amAfter={phone:p[0],name:p.slice(1).join("|"),msg:"",busy:false};setTimeout(function(){if(state.amOpen!==false&&document.getElementById("ambl"))render(true)},500)},true);
+function amSend(mode){
+  var s=state.amAfter;if(!s||s.busy)return;
+  if(!navigator.geolocation){s.msg="This phone cannot share its location here. Tell the ambulance your address on the call.";render(true);return}
+  s.busy=true;s.msg="Finding your location...";render(true);
+  navigator.geolocation.getCurrentPosition(function(pos){
+    s.busy=false;
+    var c=pos.coords,link="https://maps.google.com/?q="+c.latitude.toFixed(6)+","+c.longitude.toFixed(6);
+    var text="Emergency: I need an ambulance. My location: "+link+" (sent from Yada+)";
+    s.msg="Location ready. Send the message.";render(true);
+    var a=document.createElement("a");
+    a.href=mode==="wa"?"https://wa.me/"+waNum(s.phone)+"?text="+encodeURIComponent(text):"sms:"+String(s.phone).replace(/[^\d+]/g,"")+"?body="+encodeURIComponent(text);
+    if(mode==="wa"){a.target="_blank";a.rel="noopener noreferrer"}
+    document.body.appendChild(a);a.click();a.remove();
+  },function(err){
+    s.busy=false;
+    s.msg=err&&err.code===1?"Location is off for Yada+. Allow it in the phone settings, or tell them your address on the call.":"Could not get your location. Move to an open spot and try again, or tell them your address.";
+    render(true);
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+}
+function amAfterHtml(){
+  var s=state.amAfter;if(!s)return '';
+  return '<div class="card" style="border:2px solid var(--brand)"><div style="font-weight:700">Called '+esc(s.name)+'?</div><div class="tiny" style="margin:4px 0 10px">Send your location so the ambulance can find you. It opens a message with a map link. You press send.</div>'+
+   '<div class="acts" style="flex-wrap:wrap"><button class="btn sm" data-a="amsend" data-v="wa"'+(s.busy?' disabled':'')+'>Send on WhatsApp</button><button class="btn sm ghost" data-a="amsend" data-v="sms"'+(s.busy?' disabled':'')+'>Send by SMS</button><button class="btn sm ghost" data-a="amdone">Not needed</button></div>'+
+   (s.msg?'<div class="hint" role="status" style="margin-top:8px">'+esc(s.msg)+'</div>':'')+'</div>';
+}
 function ambRow(a){
   return '<div class="natamb"><div style="min-width:0"><b>'+esc(a.name)+'</b> <span class="pill">'+(a.kind==="govt"?"Government":"Private")+'</span><div class="tiny">'+esc(a.city||"All locations")+(a.note?' · '+esc(a.note):'')+'</div></div>'+
-   '<a class="btn sm" href="'+esc(telHref(a.phone))+'" aria-label="Call '+esc(a.name)+'">'+ICPHONE+' Call</a></div>';
+   '<a class="btn sm" href="'+esc(telHref(a.phone))+'" aria-label="Call '+esc(a.name)+'" data-amcall="'+esc(a.phone)+'|'+esc(a.name)+'"'+(a.fid?tapAttr("facility",a.fid,"call"):tapAttr("ambulance",a.id,"call"))+'>'+ICPHONE+' Call</a></div>';
 }
-function ambFacs(){return LABS.filter(function(l){return l.kind==="ambulance"&&l.wa&&l.status!=="pending"&&l.status!=="rejected"}).map(function(l){return {name:l.name,phone:"+91"+l.wa,city:l.city||"",kind:"private",note:"Verified by Yada+",active:true}})}
+function ambFacs(){return LABS.filter(function(l){return l.kind==="ambulance"&&l.wa&&l.status!=="pending"&&l.status!=="rejected"}).map(function(l){return {name:l.name,phone:"+91"+l.wa,city:l.city||"",kind:"private",note:"Verified by Yada+",active:true,fid:l.id}})}
 function ambListHtml(){
   var L=cloud.amb;if(CLOUD&&L===null)return '<div class="empty">Loading...</div>';
   L=(L||[]).concat(ambFacs());var all=state.city===ALL_CITIES,c=String(state.city||"").trim().toLowerCase();
@@ -2371,7 +2410,7 @@ function ambListHtml(){
 function vAmb(){
   return '<div class="top"><div class="brand">'+LOGO+'<small>Ambulance</small></div><button class="btn sm ghost" data-a="ambclose">Close</button></div>'+
    '<div class="title-block"><h1>Need an ambulance?</h1><p>In an emergency call a national number first.</p></div>'+
-   '<div class="card">'+NATAMB.map(function(n){return '<div class="natamb"><div style="min-width:0"><b class="num tnum">'+n[0]+'</b> <span class="pill">Free</span><div style="font-weight:600">'+esc(n[1])+'</div><div class="tiny">'+esc(n[2])+'</div></div><a class="btn" href="'+esc(telHref(n[0]))+'" aria-label="Call '+n[0]+'">'+ICPHONE+' Call</a></div>'}).join("")+'</div>'+
+   amAfterHtml()+'<div class="card">'+NATAMB.map(function(n){return '<div class="natamb"><div style="min-width:0"><b class="num tnum">'+n[0]+'</b> <span class="pill">Free</span><div style="font-weight:600">'+esc(n[1])+'</div><div class="tiny">'+esc(n[2])+'</div></div><a class="btn" href="'+esc(telHref(n[0]))+'" aria-label="Call '+n[0]+'">'+ICPHONE+' Call</a></div>'}).join("")+'</div>'+
    '<div class="loc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'+
    '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(ambCities()).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
    '<div id="ambl">'+ambListHtml()+'</div><div class="tiny" style="padding:10px 16px 24px">Yada+ lists these numbers for convenience and does not run the ambulances. Check the number before you rely on it.</div>';
@@ -2909,6 +2948,17 @@ function cloudDelete(kind,id){
   BE.adminDelete(kind,id).then(function(){cloud.busy=false;cloud.pv=null;cloud.edit=null;cloud.adminMsg="Deleted. The mobile number and login are free to register again.";cloud.admin=null;cloud.facs=null;render()},function(e){cloud.busy=false;cloud.adminErr=e.message;render()});
 }
 /* One-line activity summary on each doctor card (super admin). Full numbers are under Full profile. */
+function tapLine(kind,id){
+  var m=cloud.taps&&cloud.taps[kind];if(!m)return '';
+  var s=m[String(id)]||{total:0,call:0,whatsapp:0,last30:0};
+  return '<div class="tiny" style="margin-top:4px;font-weight:600">Contacted '+s.total+' time'+(s.total===1?'':'s')+' (Call '+s.call+' · WhatsApp '+s.whatsapp+') · last 30 days '+s.last30+'</div>';
+}
+function tapsLoad(kind){
+  cloud.taps=cloud.taps||{};
+  if(cloud.taps[kind]!==undefined||(cloud.tapBusy=cloud.tapBusy||{})[kind])return;
+  cloud.tapBusy[kind]=true;
+  BE.contactStats(kind).then(function(m){cloud.tapBusy[kind]=false;cloud.taps[kind]=m||{};render()},function(){cloud.tapBusy[kind]=false;cloud.taps[kind]=null});
+}
 function docStatLine(id){
   var s=cloud.dst&&cloud.dst[id];if(!s||typeof s.total!=="number")return '';
   return '<div class="tiny" style="margin-top:4px;font-weight:600">Appointments '+s.total+' ('+s.confirmed+' confirmed) · Video '+s.video+' · In-clinic '+s.clinic+' · Prescriptions '+s.prescriptions+' · Platform earned '+money(s.platform_fees)+'</div>';
@@ -2920,7 +2970,7 @@ function docStatsLoad(list){
 function cloudCard(d,kind){
   var isF=kind==="fac",key=pvKey(kind,d.id);
   var docs=(d.docs||[]).map(function(x){var bk=(x.kind==="photo"||x.kind==="clinic")?"doctor-media":"verification-docs";return '<button class="btn sm ghost" data-a="cdoc" data-v="'+esc(bk+"|"+x.storage_path)+'">View '+esc(x.kind)+'</button>'}).join("");
-  var det=isF?'<div class="tiny">'+esc(d.address)+', '+esc(d.city)+' '+esc(d.pin||"")+(d.priv?' · Contact '+esc(d.priv.contact_name)+' '+esc(d.priv.contact_phone)+' · Licence '+esc(d.priv.licence_no):'')+'</div>'
+  var det=isF?'<div class="tiny">'+esc(d.address)+', '+esc(d.city)+' '+esc(d.pin||"")+(d.priv?' · Contact '+esc(d.priv.contact_name)+' '+esc(d.priv.contact_phone)+' · Licence '+esc(d.priv.licence_no):'')+'</div>'+tapLine("facility",d.id)
     :'<div class="tiny">'+esc(d.qual)+' · '+d.exp_years+' yrs · Fee '+money(d.fee_inr)+'</div>'+docStatLine(d.id)+(d.ver?'<div class="tiny">Council: '+esc(d.ver.council)+' · Reg no '+esc(d.ver.reg_no)+' ('+d.ver.reg_year+')</div>':'');
   return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(d.name)+'</div><div class="tiny">'+esc(isF?kindName(d.kind):d.spec)+' · '+esc(d.city)+' · '+esc(d.ref)+'</div></div><span class="pill'+(d.status==="pending"?' warn':d.status==="rejected"?' bad':'')+'">'+esc(d.status)+'</span></div>'+det+
    (d.map_url?'<div class="tiny">'+mapLink(d.map_url,"Check on Google Maps","maplink")+'</div>':'')+
@@ -2956,7 +3006,7 @@ function ambAdmin(){
    '<div class="field" style="margin-bottom:0"><label for="ca-note">Note (optional)</label><input id="ca-note" maxlength="120" value="'+esc(f.note)+'" placeholder="e.g. 24x7, oxygen and ventilator"></div></div>'+
    '<div style="padding:0 16px;display:flex;gap:8px"><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(f.id?'Save changes':'Add service')+'</button>'+(f.id?'<button class="btn ghost" type="button" data-a="caclear">Cancel</button>':'')+'</div></form>'+
    '<div class="sec">Listed ('+(L?L.length:0)+')</div>'+(L===undefined||L===null?'<div class="empty">Loading...</div>':L.length?L.map(function(a){
-     return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny tnum">'+esc(a.phone)+' · '+esc(a.city||"All locations")+' · '+(a.kind==="govt"?"Government":"Private")+(a.note?' · '+esc(a.note):'')+'</div></div>'+(a.active?'':'<span class="pill">Hidden</span>')+'</div>'+
+     return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny tnum">'+esc(a.phone)+' · '+esc(a.city||"All locations")+' · '+(a.kind==="govt"?"Government":"Private")+(a.note?' · '+esc(a.note):'')+'</div>'+tapLine("ambulance",a.id)+'</div>'+(a.active?'':'<span class="pill">Hidden</span>')+'</div>'+
      (cloud.adel===a.id?'<div class="confirm"><div>Remove this service from the list?</div><div class="acts"><button class="btn sm danger" data-a="cadel" data-v="'+a.id+'">Yes, remove</button><button class="btn sm ghost" data-a="cadelno">Keep</button></div></div>':
      '<div class="acts"><button class="btn sm ghost" data-a="caedit" data-v="'+a.id+'">Edit</button><button class="btn sm ghost" data-a="catoggle" data-v="'+a.id+'">'+(a.active?'Hide':'Show')+'</button><button class="btn sm ghost" data-a="cadelask" data-v="'+a.id+'" style="color:var(--bad)">Remove</button></div>')+'</div>'}).join(""):'<div class="empty">No services added yet. The national numbers 112, 108 and 102 always show first.</div>');
 }
@@ -2979,6 +3029,8 @@ function cloudTabLoad(){
   if(t==="pay"&&cloud.wds===undefined&&!cloud.wdLoading){cloud.wdLoading=true;Promise.all([BE.adminWithdrawals("pending"),BE.referralSettings(null)]).then(function(r){cloud.wdLoading=false;cloud.wds=r[0];cloud.rset=r[1];render()},function(e){cloud.wdLoading=false;cloud.wds=[];cloud.adminErr=e.message;render()})}
   if(t==="amb"&&cloud.ambA===undefined&&!cloud.ambLoading){cloud.ambLoading=true;BE.ambulances().then(function(l){cloud.ambLoading=false;cloud.ambA=l;render()},function(e){cloud.ambLoading=false;cloud.ambA=[];cloud.adminErr=e.message;render()})}
   if(t==="doc"&&cloud.admin===null)cloudAdminLoad();
+  if(t==="fac")tapsLoad("facility");
+  if(t==="amb")tapsLoad("ambulance");
   if(t==="fac"&&cloud.facs===null)BE.adminFacilities().then(function(l){cloud.facs=l;render()},function(e){cloud.facs=[];cloud.adminErr=e.message;render()});
   if(t==="bc"&&cloud.bf&&!cloud.bf.reachTried){cloud.bf.reachTried=true;bcReachSoon()}
   if(t==="bc"&&!cloud.bcs&&!cloud.bcLoading){cloud.bcLoading=true;BE.broadcasts().then(function(l){cloud.bcLoading=false;cloud.bcs=l;render()})}
@@ -3309,6 +3361,9 @@ app.addEventListener("click",function(ev){
     case "ptfind":cloud.ptq=((document.getElementById("pt-q")||{}).value||"").trim();cloud.pts=undefined;cloud.ptShow={};cloud.adminErr="";render();break;
     case "ptdel":(function(){if(cloud.ptDel!==v){cloud.ptDel=v;render();return}if(cloud.busy)return;cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";render();BE.adminDeletePatient(v).then(function(){cloud.busy=false;cloud.ptDel=null;cloud.pts=undefined;cloud.adminMsg="Patient deleted.";render()},function(e){cloud.busy=false;cloud.ptDel=null;cloud.adminErr=e.message;render()})})();break;
     case "ptdelno":cloud.ptDel=null;render();break;
+    case "rggps":rgGps();break;
+    case "amsend":amSend(v);break;
+    case "amdone":state.amAfter=null;render(true);break;
     case "ptshow":cloud.ptShow=cloud.ptShow||{};cloud.ptShow[v]=!cloud.ptShow[v];render();break;
     case "accadd":accAdd();break;
     case "accdel":accDel(+v);break;
@@ -3317,7 +3372,7 @@ app.addEventListener("click",function(ev){
     case "rssave":rsSave();break;
     case "rson":(function(){var on=!(cloud.rset?cloud.rset.enabled:true);cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";render();BE.referralSettings({enabled:on}).then(function(s){cloud.busy=false;cloud.rset=s;cloud.adminMsg=on?"Referral programme is on.":"Referral programme is paused.";render()},function(e){cloud.busy=false;cloud.adminErr=e.message;render()})})();break;
     case "amb":state.amb=true;render(true);break;
-    case "ambclose":state.amb=false;render(true);break;
+    case "ambclose":state.amb=false;state.amAfter=null;render(true);break;
     case "regdoc":state.view="register";state.reg=newReg();state.regDone=null;state.tab="find";render(true);break;
     case "rgday":toggleDay("reg",+v);break;
     case "scday":toggleDay("sched",+v);break;

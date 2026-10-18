@@ -55,6 +55,21 @@ async function open(role) {
   await pg.selectOption("#city", "Pune"); await pg.dispatchEvent("#city", "input"); await pg.waitForTimeout(500);
   tx = await txt();
   check("choosing Pune keeps Pune and all-location services, hides Delhi", /City Care Ambulance/.test(tx) && /Anywhere Ambulance/.test(tx) && !/Delhi Rapid Ambulance/.test(tx));
+  // After calling an ambulance, offer to send the patient's location.
+  await pg.context().grantPermissions(["geolocation"]); await pg.context().setGeolocation({ latitude: 18.5204, longitude: 73.8567 });
+  await pg.evaluate(() => { window.__opened = []; document.addEventListener("click", (e) => { const a = e.target.closest && e.target.closest("a"); if (a && /^tel:/.test(a.href)) e.preventDefault(); if (a && /^(https:\/\/wa\.me|sms:)/.test(a.href)) { window.__opened.push(a.href); e.preventDefault(); } }, true); });
+  check("no location prompt before a call", !/Send your location/.test(await txt()));
+  await pg.locator('a[href="tel:9876543210"]').click().catch(() => {}); await pg.waitForTimeout(900);
+  tx = await txt();
+  check("after tapping Call the patient is offered to send their location", /Called City Care Ambulance\?/.test(tx) && /Send on WhatsApp/.test(tx) && /Send by SMS/.test(tx));
+  await pg.getByRole("button", { name: "Send on WhatsApp" }).click(); await pg.waitForTimeout(1200);
+  const op = await pg.evaluate(() => window.__opened);
+  check("WhatsApp opens to that number with a map link of the location", op.length === 1 && /wa\.me\/919876543210\?text=/.test(op[0]) && decodeURIComponent(op[0]).indexOf("https://maps.google.com/?q=18.520400,73.856700") > 0);
+  await pg.getByRole("button", { name: "Send by SMS" }).click(); await pg.waitForTimeout(1200);
+  const op2 = await pg.evaluate(() => window.__opened);
+  check("SMS opens to that number with the same map link", op2.length === 2 && /^sms:9876543210\?body=/.test(op2[1]) && decodeURIComponent(op2[1]).indexOf("18.520400,73.856700") > 0);
+  await pg.getByRole("button", { name: "Not needed" }).click(); await pg.waitForTimeout(300);
+  check("the location offer can be dismissed", !/Send your location/.test(await txt()));
   await pg.getByRole("button", { name: "Close" }).click(); await pg.waitForTimeout(400);
   check("closing returns to the app", (await pg.locator("button.fab").count()) === 1);
   await pg.locator("button.bell").click(); await pg.waitForTimeout(600); tx = await txt();

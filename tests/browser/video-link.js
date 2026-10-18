@@ -55,8 +55,7 @@ async function run(role, link, startedAt) {
   check("no page errors (patient, no link)", t.errs.length === 0); await t.b.close();
   t = await run("patient", "https://meet.google.com/abc-defg-hij"); pg = t.pg;
   await pg.locator('[data-a="tab"][data-v="appts"]').first().click({ timeout: 8000 }).catch(() => {}); await pg.waitForTimeout(600);
-  const jl = pg.getByRole("link", { name: /doctor.s link/ });
-  check("patient also gets the doctor's own link", (await jl.count()) === 1 && (await jl.getAttribute("href")) === "https://meet.google.com/abc-defg-hij" && (await jl.getAttribute("target")) === "_blank");
+  check("the patient is not given the doctor's own link (no way around the platform)", (await pg.getByRole("link", { name: /doctor.s link/ }).count()) === 0 && !/meet\.google\.com/.test(await pg.content()));
   await t.b.close();
   t = await run("patient", null, new Date().toISOString()); pg = t.pg;
   await pg.locator("#callbn button[aria-label=Dismiss]").click(); await pg.waitForTimeout(300);
@@ -71,17 +70,13 @@ async function run(role, link, startedAt) {
   check("a call started a while ago does not show the banner", (await pg.locator("#callbn").count()) === 0);
   await t.b.close();
   t = await run("doctor"); pg = t.pg; tx = await txt();
-  const input = pg.locator('input[id^="cl-"]'); await input.first().waitFor({ timeout: 8000 });
-  check("doctor sees Start video call and an optional link box", (await input.count()) === 1 && /Use another call link/.test(await txt()) && (await pg.getByRole("button", { name: "Start video call" }).count()) === 1);
-  await input.fill("javascript:alert(1)"); await pg.locator('[data-a="clsave"]').click(); await pg.waitForTimeout(600);
-  check("a bad link shows a clear error", /starts with https/.test(await txt()));
-  await input.fill("https://meet.google.com/abc-defg-hij"); await pg.locator('[data-a="clsave"]').click(); await pg.waitForTimeout(1200);
+  await pg.getByRole("button", { name: "Start video call" }).first().waitFor({ timeout: 8000 });
+  check("doctor has no box to put in an outside call link", (await pg.locator('input[id^="cl-"]').count()) === 0 && !/another call link/.test(await txt()));
   await pg.getByRole("button", { name: "Start video call" }).click(); await pg.waitForTimeout(600);
   check("starting the call tells the server so the patient is alerted", t.get().startCalls.indexOf("b-1") >= 0 && (await pg.locator("iframe#callfr").count()) === 1);
   await pg.getByRole("button", { name: "Leave call" }).click(); await pg.waitForTimeout(400);
   check("when the doctor leaves, the server is told the call ended", t.get().endCalls.indexOf("b-1") >= 0);
-  check("the link is sent to the server", t.get().linkCalls.some((c) => c.p_link === "https://meet.google.com/abc-defg-hij" && c.p_booking === "b-1"));
-  check("after saving the button says Update link", /Update link/.test(await txt()));
+  check("no outside link is ever saved", t.get().linkCalls.length === 0);
   check("no page errors (doctor)", t.errs.length === 0); await t.b.close();
   
   console.log(ok ? "ALL PASSED" : "SOME FAILED"); process.exit(ok ? 0 : 1);

@@ -35,6 +35,9 @@ public class MainActivity extends Activity {
     private static MainActivity current; // lets the push service hand a new token to the open page
     private static final int FILE_REQ = 1001;
     private static final int MEDIA_REQ = 2002;
+    private static final int LOC_REQ = 2003;
+    private android.webkit.GeolocationPermissions.Callback pendingGeo; // location request from the ambulance page
+    private String pendingGeoOrigin;
     private android.webkit.PermissionRequest pendingMedia; // camera/microphone request from the video call page
     private ValueCallback<Uri[]> filePathCallback; // pending file picker for <input type="file">
     private String pendingAuth; // fragment of a nirog://auth#... sign-in return, delivered once the page is ready
@@ -198,6 +201,22 @@ public class MainActivity extends Activity {
                 });
             }
 
+            /** The ambulance page asks for the patient's location: pass the request on to Android's own permission prompt. */
+            @Override
+            public void onGeolocationPermissionsShowPrompt(final String origin, final android.webkit.GeolocationPermissions.Callback callback) {
+                runOnUiThread(() -> {
+                    if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                            || checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                        callback.invoke(origin, true, false);
+                    } else {
+                        if (pendingGeo != null) pendingGeo.invoke(pendingGeoOrigin, false, false);
+                        pendingGeo = callback;
+                        pendingGeoOrigin = origin;
+                        requestPermissions(new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION}, LOC_REQ);
+                    }
+                });
+            }
+
             @Override
             public void onPermissionRequestCanceled(android.webkit.PermissionRequest request) {
                 if (pendingMedia == request) pendingMedia = null;
@@ -254,6 +273,13 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
         super.onRequestPermissionsResult(code, perms, results);
+        if (code == LOC_REQ && pendingGeo != null) {
+            boolean any = false;
+            for (int r : results) if (r == PackageManager.PERMISSION_GRANTED) any = true;
+            pendingGeo.invoke(pendingGeoOrigin, any, false);
+            pendingGeo = null;
+            return;
+        }
         if (code != MEDIA_REQ || pendingMedia == null) return;
         android.webkit.PermissionRequest req = pendingMedia;
         pendingMedia = null;
