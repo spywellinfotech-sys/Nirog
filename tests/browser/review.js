@@ -16,7 +16,7 @@ const www = path.resolve(__dirname, "../../app/src/main/assets/www/index.html");
     if (m === "OPTIONS") return r.fulfill({ status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*" } });
     let body = {}; try { body = JSON.parse(r.request().postData() || "{}"); } catch (e) {}
     if (p.endsWith("/rpc/submit_review")) { sent = body; reviewed = true; return j(200, { id: 1 }); }
-    if (p === "/rest/v1/profiles") return j(200, [{ id: "p1", role: "patient", full_name: "Asha Verma", phone: null, email: "pat@x.in" }]);
+    if (p === "/rest/v1/profiles") return j(200, [{ id: "p1", role: "patient", full_name: "Asha Verma", phone: "+919876500001", email: "pat@x.in" }]);
     if (p === "/rest/v1/doctors") return j(200, [doc]);
     if (p === "/rest/v1/bookings") return j(200, [booking]);
     if (p === "/rest/v1/reviews") return j(200, reviewed ? [{ booking_id: "b-1", rating: 4, comment: "Great" }] : []);

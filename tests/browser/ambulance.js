@@ -26,7 +26,7 @@ async function open(role) {
     if (p === "/rest/v1/facilities") return j(200, [{ id: 51, kind: "ambulance", sub: "", name: "Self Listed Ambulance", city: "Pune", address: "Depot", pin: "411001", map_url: "", hours: "24x7", beds: null, emergency: true, ambulance: false, home_service: false, services: [["Basic life support"]], wa: "9811122233", status: "approved", verified: true, ref: "FC-1" }]);
     if (p === "/rest/v1/broadcasts") return j(200, BC);
     if (p === "/rest/v1/notifications") return j(200, [{ id: 1, body: "Free eye camp: Sunday at the town hall", created_at: new Date().toISOString(), read_at: null, broadcast_id: 7 }, { id: 2, body: "Your booking is confirmed", created_at: new Date().toISOString(), read_at: null, broadcast_id: null }]);
-    if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: "X", phone: null, email: "u@x.in" }]);
+    if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: "X", phone: "+919876500001", email: "u@x.in" }]);
     if (m === "GET") return j(200, []);
     return j(200, {});
   });

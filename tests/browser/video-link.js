@@ -26,7 +26,7 @@ async function run(role, link, startedAt) {
     if (p.endsWith("/rpc/start_call")) { startCalls.push(body.p_booking); return j(200, true); }
     if (p.endsWith("/rpc/set_call_link")) { linkCalls.push(body); if (body.p_link && !/^https:/.test(body.p_link) && !/^\d{10}$/.test(body.p_link)) return j(400, { code: "P0001", message: "invalid_link" }); booking.call_link = body.p_link; return j(200, true); }
     if (p.endsWith("/rpc/my_doctor_id")) return j(200, 7);
-    if (p === "/rest/v1/profiles") return j(200, [{ id: "u1", role, full_name: role === "doctor" ? "Dr. Rx Writer" : "Asha Verma", phone: null, email: "u@x.in" }]);
+    if (p === "/rest/v1/profiles") return j(200, [{ id: "u1", role, full_name: role === "doctor" ? "Dr. Rx Writer" : "Asha Verma", phone: "+919876500001", email: "u@x.in" }]);
     if (p === "/rest/v1/doctors") return j(200, [doc]);
     if (p === "/rest/v1/bookings") return j(200, [booking]);
     if (p === "/rest/v1/prescriptions") return j(200, stored ? [stored] : []);

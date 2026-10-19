@@ -21,7 +21,7 @@ async function open(role, url) {
     if (p.endsWith("/rpc/admin_decide_withdrawal")) { st.decided = body; return j(200, true); }
     if (p.endsWith("/rpc/admin_referral_settings")) { if (body.p) st.settings = Object.assign(st.settings || {}, body.p); return j(200, { enabled: st.settings && st.settings.enabled === false ? false : true, doctor_inr: 10, facility_inr: 10, patient_inr: 1, min_withdraw: 50, patient_daily_cap: 50 }); }
     if (p.endsWith("/rpc/admin_dashboard_counts")) return j(200, { patients: 1, doctors: { listed: 0, pending: 0 }, facilities: {} });
-    if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: "X", phone: null, email: "u@x.in" }]);
+    if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: "X", phone: "+919876500001", email: "u@x.in" }]);
     if (m === "GET") return j(200, []);
     return j(200, {});
   });

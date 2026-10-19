@@ -19,7 +19,7 @@ async function open(role, extra) {
     if (p.endsWith("/rpc/admin_broadcast_reach")) { st.reachBody = body; return j(200, 7); }
     if (p === "/rest/v1/patients" && m === "PATCH") { st.cityPatch = { q: u.search, body }; return j(204, {}); }
     if (p.endsWith("/rpc/admin_revoke_broadcast")) { st.del = body; st.list = st.list.map((x) => Object.assign({}, x, { revoked_at: new Date().toISOString() })); return j(200, 2); }
-    if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: role === "admin" ? "Admin" : "Asha", phone: null, email: "u@x.in" }]);
+    if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: role === "admin" ? "Admin" : "Asha", phone: "+919876500001", email: "u@x.in" }]);
     if (p === "/rest/v1/broadcasts") return j(200, st.list);
     if (m === "GET") return j(200, []);
     return j(200, {});

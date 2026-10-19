@@ -23,7 +23,7 @@ async function open(role) {
     if (p.endsWith("/rpc/admin_save_ad")) { st.saved = body.p; const row = Object.assign({ id: 9, advertiser: "", views: 0, starts_on: "2020-01-01", ends_on: null, active: true, city: null, media_path: body.p.media_path, created_at: new Date().toISOString() }, body.p); if (body.p.id) st.ads = st.ads.map((a) => (a.id === body.p.id ? Object.assign({}, a, { active: body.p.active, title: body.p.title }) : a)); else st.ads = st.ads.concat([row]); return j(200, row); }
     if (p.endsWith("/rpc/admin_delete_ad")) { st.deleted = body.p_id; st.ads = st.ads.filter((a) => a.id !== body.p_id); return j(200, true); }
     if (p.endsWith("/rpc/admin_dashboard_counts")) return j(200, { patients: 1, doctors: { listed: 0, pending: 0 }, facilities: {}, specialties: [], phones: 0, phone_users: 0 });
-    if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: "X", phone: null, email: "u@x.in" }]);
+    if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: "X", phone: "+919876500001", email: "u@x.in" }]);
     if (m === "GET") return j(200, []);
     return j(200, {});
   });

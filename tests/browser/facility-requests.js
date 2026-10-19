@@ -21,7 +21,7 @@ async function open(role) {
     if (p.endsWith("/rpc/admin_request_stats")) return j(200, { "61": { total: 4, pending: 1, confirmed: 2, rejected: 1, last30: 4 } });
     if (p === "/rest/v1/facility_requests") return j(200, st.reqs);
     if (p === "/rest/v1/facilities") return j(200, [FAC]);
-    if (p === "/rest/v1/profiles") return j(200, [{ id: "x", role: role, full_name: "Asha", phone: null, email: "u@x.in" }]);
+    if (p === "/rest/v1/profiles") return j(200, [{ id: "x", role: role, full_name: "Asha", phone: "+919876500001", email: "u@x.in" }]);
     if (m === "GET") return j(200, []);
     return j(200, {});
   });

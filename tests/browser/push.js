@@ -20,7 +20,7 @@ async function open(role) {
     if (p.endsWith("/functions/v1/send-push")) { st.push.push(body); return j(200, { ok: true, total: 3, sent: 3, failed: 0, removed: 0 }); }
     if (p.endsWith("/rpc/admin_send_broadcast")) return j(200, { id: 9, title: body.p.title, body: body.p.body, audience: body.p.audience, sent_count: 4, created_at: new Date().toISOString() });
     if (p.endsWith("/rpc/admin_broadcast_reach")) return j(200, 4);
-    if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: "X", phone: null, email: "u@x.in" }]);
+    if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: "X", phone: "+919876500001", email: "u@x.in" }]);
     if (m === "GET") return j(200, []);
     return j(200, {});
   });

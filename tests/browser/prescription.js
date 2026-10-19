@@ -21,7 +21,7 @@ async function run(role) {
     if (p === "/storage/v1/object/sign/x") return r.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG });
     if (p.endsWith("/rpc/save_prescription")) { saved = body; stored = { id: 1, booking_id: "b-1", doctor_id: 7, patient_id: "u1", diagnosis: body.p.diagnosis, medicines: body.p.medicines, advice: body.p.advice, follow_up: body.p.follow_up || null, files: body.p.files, updated_at: new Date().toISOString() }; return j(200, stored); }
     if (p.endsWith("/rpc/my_doctor_id")) return j(200, 7);
-    if (p === "/rest/v1/profiles") return j(200, [{ id: "u1", role, full_name: role === "doctor" ? "Dr. Rx Writer" : "Asha Verma", phone: null, email: "u@x.in" }]);
+    if (p === "/rest/v1/profiles") return j(200, [{ id: "u1", role, full_name: role === "doctor" ? "Dr. Rx Writer" : "Asha Verma", phone: "+919876500001", email: "u@x.in" }]);
     if (p === "/rest/v1/doctors") return j(200, [doc]);
     if (p === "/rest/v1/bookings") return j(200, [booking]);
     if (p === "/rest/v1/prescriptions") return j(200, stored ? [stored] : []);
