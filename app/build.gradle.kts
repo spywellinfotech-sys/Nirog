@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.yadaplus.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.yadaplus.app"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = (project.findProperty("buildNo") ?: "1").toString().toInt()
         versionName = "1.0.0." + (project.findProperty("buildNo") ?: "1")
     }
