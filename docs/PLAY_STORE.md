@@ -45,10 +45,12 @@ Find doctors
 - After your visit, rate your doctor and see your prescription in the app.
 
 Labs, hospitals, pharmacies and more
-- Find diagnostic labs and centres, hospitals, pharmacies and other care near you, with opening hours, services and a one-tap route in Google Maps.
+- Find diagnostic labs and centres, hospitals, pharmacies and other care near you, with opening hours, services and prices.
+- Send an appointment request to a lab, diagnostic centre or hospital and get a reply as a notification.
+- After a clinic visit is confirmed, open the clinic in Google Maps.
 
 Ambulance
-- A floating Ambulance button is always one tap away. National numbers 112, 108 and 102 are shown first, followed by ambulance services in your area.
+- A floating Ambulance button is always one tap away. National numbers 112, 108 and 102 are shown first, followed by ambulance services in your area. After calling, you can send your location to the service on WhatsApp.
 
 For doctors, labs, hospitals, pharmacies and ambulance services
 - Register your practice from the app. Our team verifies your licence before you are listed.
@@ -57,7 +59,7 @@ For doctors, labs, hospitals, pharmacies and ambulance services
 Stay informed
 - Get appointment updates and announcements as notifications on your phone.
 
-Your privacy matters. We do not show ads or sell your data. You can delete your account any time from Help and support.
+Your privacy matters. We do not sell your data. Sponsored banners placed by Yada+ may appear. You can delete your account any time from Help and support.
 
 Yada+ is a booking and listing service. It does not give medical advice. In an emergency call 112 or 108.
 
@@ -74,8 +76,15 @@ Yada+ is a booking and listing service. It does not give medical advice. In an e
 ## 6. Forms to fill (suggested answers)
 **Data safety**
 - Collects data: Yes. Shared with third parties: No (service providers only process data for us). Encrypted in transit: Yes. Users can request deletion: Yes (link above).
-- Data types collected: Name, email address, phone number (Personal info). Health info (reason for visit, prescriptions). Photos (profile photo, verification documents). App activity is not collected. Device or other IDs (notification token).
-- Purpose: App functionality, Account management. Nothing for advertising or analytics.
+- Data types collected and why:
+  - Personal info: name, email address, phone number, user IDs. Purpose: app functionality, account management.
+  - Health info: reason for visit, prescriptions. Purpose: app functionality.
+  - Photos and videos: profile photo, verification documents, facility photos, prescription photos. Purpose: app functionality.
+  - Audio: only during video calls, handled live by Jitsi, not stored by Yada+. Purpose: app functionality.
+  - Approximate and precise location: optional, only when the user taps a location button. Purpose: app functionality. Patient location sent to an ambulance goes via WhatsApp/SMS from the phone and is not stored by Yada+.
+  - Financial info: UPI ID for referral payouts. Purpose: app functionality.
+  - App activity: counts of ad views and Call/WhatsApp taps on listings. Purpose: app functionality, analytics for listing owners. No advertising profile.
+  - Device or other IDs: push notification token. Purpose: app functionality.
 
 **Health apps declaration:** Yes, the app provides health-related features (appointment booking, medical records). It is not a medical device and gives no diagnosis. 
 
@@ -83,14 +92,16 @@ Yada+ is a booking and listing service. It does not give medical advice. In an e
 
 **Target audience:** 18 and over.
 
-**Ads:** No ads.
+**Ads:** Yes, the app contains ads. They are sponsored banners and videos placed by Yada+ itself. There is no third-party ad SDK.
 
 **Government apps / financial features:** No.
 
-**Medical app permissions:** Notifications (POST_NOTIFICATIONS) only.
+**Permissions used:** Notifications (POST_NOTIFICATIONS), Camera and Microphone (video consultations), Location (optional buttons only), Internet. Be ready to explain each one in the Play Console permissions declaration.
 
 ## 7. Before you submit
 - Test the release build on a real phone, including push, Google sign-in and delete account.
 - Keep the web app address and the privacy and deletion pages live.
 - Check the name "Yada+" for trademark and Play Store conflicts.
 - Rotate the exposed SMS (apitxt) key and the admin password.
+- Package name is `com.yadaplus.app`. Remove the demo accounts (demo.*@yadademo.test) before the Play review.
+- Give the Play reviewers a test Google account for patient login, and a demo doctor login for the doctor side.
