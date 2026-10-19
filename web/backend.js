@@ -224,6 +224,7 @@ BE.decideFacRequest=function(id,status,reason){return rpc("decide_facility_reque
 BE.cancelFacRequest=function(id){return rpc("cancel_facility_request",{p_id:id})};
 BE.myFacRequests=function(){return sel("facility_requests","select=*,facilities(name,kind)&order=created_at.desc&limit=100").catch(function(){return []})};
 BE.requestStats=function(){return rpc("admin_request_stats",{})};
+BE.setMyMobile=function(m){return rpc("set_my_mobile",{p_mobile:m})};
 BE.logTap=function(kind,id,ch){return rpc("log_contact_tap",{p_kind:kind,p_target:id,p_channel:ch})};
 BE.contactStats=function(kind){return rpc("admin_contact_stats",{p_kind:kind})};
 BE.activeAds=function(city){return rpc("active_ads",{p_city:city||null})};

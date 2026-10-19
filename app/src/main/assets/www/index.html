@@ -2464,7 +2464,7 @@ function cloudWho(pf,name){
   if(r==="patient"){
     state.staff=null;staffData.users=[];
     var ph10=last10(pf.phone||(BE.sess&&BE.sess.user.phone)),em=ph10||String(pf.email||(BE.sess&&BE.sess.user.email)||"").toLowerCase(),pr=getProf(em)||{};
-    state.pat={phone:em,vph:!!ph10,mobile:ph10||(pr.mobile||""),name:pf.full_name||name||"Patient"};state.nb=true;
+    state.pat={phone:em,vph:!!ph10,mobile:ph10||(pr.mobile||""),name:pf.full_name||name||"Patient"};state.nb=true;state.needMobile=!ph10;state.mg={phone:pr.mobile||"",err:""};
     if(state.city&&state.city!==ALL_CITIES)BE.setCity(cityNorm(state.city));
     return Promise.resolve("");
   }
@@ -3452,6 +3452,18 @@ function callBanner(){
   bs[0].onclick=function(){state.call=a.id;state.callNew=true;render(true)};
   bs[1].onclick=function(){state.dropCall=a.callAt;callBanner()};
 }
+function vMobileGate(){
+  var g=state.mg||(state.mg={phone:"",err:""});
+  return '<div class="top"><div class="brand">'+LOGO+'<small>One last step</small></div></div><div class="title-block"><h1>Add your mobile number</h1><p>Doctors and labs use it to reach you about your bookings. It is not shown to other patients.</p></div>'+
+   '<div class="card"><div class="field"><label for="mg-phone">Mobile number</label><input id="mg-phone" inputmode="numeric" autocomplete="tel" maxlength="10" value="'+esc(g.phone)+'" placeholder="10-digit number">'+(g.err?'<div class="err" role="alert">'+esc(g.err)+'</div>':'')+'</div>'+
+   '<div class="acts"><button class="btn" data-a="mgsave"'+(cloud.busy?' disabled':'')+'>Save and continue</button></div></div>';
+}
+function mgSave(){
+  var g=state.mg;if(!g||cloud.busy)return;
+  if(!/^[6-9]\d{9}$/.test(g.phone)){g.err="Enter a valid 10-digit mobile number starting with 6, 7, 8 or 9.";return render()}
+  cloud.busy=true;g.err="";render();
+  BE.setMyMobile(g.phone).then(function(){cloud.busy=false;state.needMobile=false;state.pat.mobile=g.phone;render(true)},function(e){cloud.busy=false;g.err=e.message;render()});
+}
 function render(scroll){
   callBanner();
   var h,showNav=false;
@@ -3459,6 +3471,7 @@ function render(scroll){
   if(CLOUD&&APPB>0&&MINB>APPB){app.innerHTML=vForceUpdate();return}
   if(state.notif&&notifKey()){app.innerHTML=vNotif();if(scroll)window.scrollTo(0,0);return}
   if(state.loAsk){app.innerHTML=vLogoutAsk();if(scroll)window.scrollTo(0,0);return}
+  if(CLOUD&&state.pat&&!state.staff&&state.needMobile){app.innerHTML=vMobileGate();if(scroll)window.scrollTo(0,0);return}
   if(state.help){app.innerHTML=vHelp();if(scroll)window.scrollTo(0,0);return}
   if(state.call){if(!document.getElementById("callfr")||state.callNew){state.callNew=false;app.innerHTML=vCall();window.scrollTo(0,0)}return} /* keep the call alive when background sync redraws */
   if(state.ref){app.innerHTML=vRef();if(scroll)window.scrollTo(0,0);return}
@@ -3581,6 +3594,7 @@ app.addEventListener("click",function(ev){
     case "ptdel":(function(){if(cloud.ptDel!==v){cloud.ptDel=v;render();return}if(cloud.busy)return;cloud.busy=true;cloud.adminErr="";cloud.adminMsg="";render();BE.adminDeletePatient(v).then(function(){cloud.busy=false;cloud.ptDel=null;cloud.pts=undefined;cloud.adminMsg="Patient deleted.";render()},function(e){cloud.busy=false;cloud.ptDel=null;cloud.adminErr=e.message;render()})})();break;
     case "ptdelno":cloud.ptDel=null;render();break;
     case "rggps":rgGps();break;
+    case "mgsave":mgSave();break;
     case "frqopen":frqOpen(v);break;
     case "frqclose":cloud.frq=null;render();break;
     case "frqsend":frqSend();break;
@@ -3736,6 +3750,7 @@ app.addEventListener("input",function(ev){
   else if(t.id==="o-code"&&state.otp){t.value=t.value.replace(/\D/g,"").slice(0,8);state.otp.code=t.value}
   else if(t.id==="o-email"&&state.otp)state.otp.email=t.value.trim();
   else if(t.id&&t.id.indexOf("frq-")===0&&cloud.frq){var fk=t.id.slice(4);if(fk==="phone"){t.value=t.value.replace(/\D/g,"").slice(0,10)}cloud.frq[fk]=t.value}
+  else if(t.id==="mg-phone"&&state.mg){t.value=t.value.replace(/\D/g,"").slice(0,10);state.mg.phone=t.value}
   else if(t.id==="ad-title"&&cloud.adf)cloud.adf.title=t.value;
   else if(t.id==="ad-adv"&&cloud.adf)cloud.adf.advertiser=t.value;
   else if(t.id==="ad-city"&&cloud.adf)cloud.adf.city=t.value;
