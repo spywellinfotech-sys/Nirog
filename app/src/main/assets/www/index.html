@@ -1337,10 +1337,23 @@ function clBox(a){
   var cur=state.cl&&state.cl[a.id]!==undefined?state.cl[a.id]:a.link;
   return '<div class="field" style="margin-top:8px"><label for="cl-'+a.id+'">Use another call link (optional)</label><input id="cl-'+a.id+'" autocapitalize="none" autocomplete="off" placeholder="Google Meet / Zoom link or WhatsApp number" value="'+esc(cur||"")+'">'+(state.clerr&&state.clerr[a.id]?'<div class="err">'+esc(state.clerr[a.id])+'</div>':'<div class="hint">'+(a.link?'The patient also sees this link.':'Leave empty to use the in-app video call.')+'</div>')+'</div><div class="acts"><button class="btn sm ghost" data-a="clsave" data-v="'+a.id+'">'+(a.link?'Update link':'Save link')+'</button></div>';
 }
+/* The video call is open from the slot time until 24 hours later. The patient may join 10 minutes early. */
+function callSlotMs(a){return Date.parse(a.dateKey+"T"+a.time+":00+05:30")}
+function callWin(a,doc){
+  var st=callSlotMs(a),now=Date.now(),from=doc?st:st-600000;
+  if(isNaN(st))return {s:"open",from:0};
+  if(now<from)return {s:"early",from:from};
+  if(now>st+86400000)return {s:"closed",from:from};
+  return {s:"open",from:from};
+}
+function callWhen(a){var m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],p=a.dateKey.split("-");return t12(a.time)+" on "+(+p[2])+" "+m[+p[1]-1]}
 function callBox(a,doc){
   if(a.mode!=="video"||a.status!=="upcoming")return '';
+  var w=callWin(a,doc);
+  if(w.s==="early")return '<button class="btn" disabled style="opacity:.55">'+(doc?'Start video call':'Join video call')+'</button><div class="hint">The video call opens at '+callWhen(a)+(doc?'.':' (you can join 10 minutes early).')+'</div>';
+  if(w.s==="closed")return '<div class="hint">The video call window for this visit has ended (it stays open for 24 hours after the slot time).</div>';
   return '<button class="btn" data-a="callin" data-v="'+a.id+'">'+(doc?'Start video call':'Join video call')+'</button>'+
-   '<div class="hint">'+(doc?'The patient joins from My appointments.':'The doctor joins from the same booking. You can join a little early.')+'</div>';
+   '<div class="hint">'+(doc?'The patient joins from My appointments. The call stays open for 24 hours after the slot time.':'The doctor joins from the same booking.')+'</div>';
 }
 function dApptCard(a,pend){
   var d=docOrGone(a.docId),h='<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">'+(a.mode==="video"?"Video consult":"In-clinic visit")+'</div></div><span class="pill'+(pend?' warn':'')+'">'+(pend?"Needs your approval":"Confirmed")+'</span></div>'+
@@ -3555,7 +3568,7 @@ app.addEventListener("click",function(ev){
     case "lask":state.loAsk=true;render(true);break;
     case "lno":state.loAsk=false;render(true);break;
     case "lyes":doLogout();break;
-    case "callin":(function(){var a=null;appts.forEach(function(x){if(x.id===v)a=x});if(CLOUD&&state.staff&&a&&a.cloud)BE.startCall(v).catch(function(){});state.call=v;state.callNew=true;render(true)})();break;
+    case "callin":(function(){var a=null;appts.forEach(function(x){if(x.id===v)a=x});if(a&&callWin(a,!!state.staff).s!=="open"){return}if(CLOUD&&state.staff&&a&&a.cloud)BE.startCall(v).catch(function(){});state.call=v;state.callNew=true;render(true)})();break;
     case "callend":(function(){var id=state.call,a=null;appts.forEach(function(x){if(x.id===id)a=x});if(CLOUD&&state.staff&&a&&a.cloud)BE.endCall(id).catch(function(){});state.call=null;render(true)})();break;
     case "clsave":(function(){var el=document.getElementById("cl-"+v),val=el?el.value.trim():"";state.cl=state.cl||{};state.clerr=state.clerr||{};state.cl[v]=val;state.clerr[v]="";BE.setCallLink(v,val).then(function(){delete state.cl[v];return cloudSync(true)},function(e){state.clerr[v]=e.message;render()})})();break;
     case "rxview":cloud.rxopen=v;render();break;

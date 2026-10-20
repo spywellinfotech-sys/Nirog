@@ -3,13 +3,13 @@ const { chromium } = require("playwright");
 const path = require("path");
 const www = path.resolve(__dirname, "../../app/src/main/assets/www/index.html");
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
-async function run(role, link, startedAt) {
+async function run(role, link, startedAt, dayOff) {
   const b = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
   const ctx = await b.newContext({ viewport: { width: 390, height: 900 } });
   await ctx.addInitScript(() => { try { localStorage.setItem("nirog-sb-session-v1", JSON.stringify({ access_token: "tok", refresh_token: "r", expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: "u1", email: "u@x.in" } })); } catch (e) {} });
   const pg = await ctx.newPage(); let saved = null, uploaded = [], stored = null, linkCalls = [], startCalls = [], endCalls = [];
   const doc = { id: 7, name: "Dr. Rx Writer", spec: "General Physician", qual: "MBBS", exp_years: 8, fee_inr: 600, video_fee_inr: 0, video: false, languages: "Hindi", about: "Hello", clinic: "Mock Clinic", city: "Pune", photo_path: null, wa: null, status: "approved", verified: true, ref: "DR-M" };
-  const today = new Date(); const tk = new Date(today.getTime() + 19800000).toISOString().slice(0, 10);
+  const today = new Date(); const tk = new Date(today.getTime() + 19800000 + (dayOff || 0) * 86400000).toISOString().slice(0, 10);
   const booking = { id: "b-1", ref: "BK-1", doctor_id: 7, slot_date: tk, slot_time: "00:05:00", mode: "video", patient_name: "Asha Verma", patient_age: 30, patient_sex: "Female", patient_phone: "9876500011", reason: "", doctor_fee: 600, platform_fee: 0, status: "confirmed", decision_reason: null, retimed: false };
   if (link) booking.call_link = link;
   if (startedAt) booking.call_started_at = startedAt;
@@ -78,6 +78,16 @@ async function run(role, link, startedAt) {
   check("when the doctor leaves, the server is told the call ended", t.get().endCalls.indexOf("b-1") >= 0);
   check("no outside link is ever saved", t.get().linkCalls.length === 0);
   check("no page errors (doctor)", t.errs.length === 0); await t.b.close();
-  
+  t = await run("doctor", null, null, 2); pg = t.pg;
+  const dbtn = pg.getByRole("button", { name: "Start video call" }).first(); await dbtn.waitFor({ timeout: 8000 });
+  check("before the slot the doctor's Start button is disabled and says when it opens", (await dbtn.isDisabled()) && /video call opens at/i.test(await txt()));
+  await t.b.close();
+  t = await run("doctor", null, null, -2); pg = t.pg; await pg.waitForTimeout(800);
+  check("more than 24 hours after the slot the doctor has no Start button", (await pg.getByRole("button", { name: "Start video call" }).count()) === 0 && /window for this visit has ended/.test(await txt()));
+  await t.b.close();
+  t = await run("patient", null, null, 2); pg = t.pg;
+  await pg.locator('[data-a="tab"][data-v="appts"]').first().click({ timeout: 8000 }).catch(() => {}); await pg.waitForTimeout(600);
+  check("before the slot the patient's Join button is disabled", (await pg.getByRole("button", { name: "Join video call" }).isDisabled()) && /video call opens at/i.test(await txt()));
+  await t.b.close();
   console.log(ok ? "ALL PASSED" : "SOME FAILED"); process.exit(ok ? 0 : 1);
 })();

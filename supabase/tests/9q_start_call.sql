@@ -3,16 +3,22 @@
 \set A1 '00000000-0000-0000-0000-0000000000a1'
 select id as did from public.doctors where user_id = :'D1' \gset
 insert into public.bookings (ref, patient_id, doctor_id, slot_date, slot_time, mode, patient_name, patient_age, patient_sex, patient_phone, reason, doctor_fee, status)
-values ('CALL-1', :'A1', :did, public.clinic_now()::date + 12, '06:11', 'video', 'Asha', 30, 'Female', '9876500302', '', 300, 'confirmed'),
+values ('CALL-1', :'A1', :did, (public.clinic_now() - interval '1 hour')::date, (public.clinic_now() - interval '1 hour')::time(0), 'video', 'Asha', 30, 'Female', '9876500302', '', 300, 'confirmed'),
+       ('CALL-3', :'A1', :did, public.clinic_now()::date + 12, '06:11', 'video', 'Asha', 30, 'Female', '9876500302', '', 300, 'confirmed'),
+       ('CALL-4', :'A1', :did, public.clinic_now()::date - 3, '06:11', 'video', 'Asha', 30, 'Female', '9876500302', '', 300, 'confirmed'),
        ('CALL-2', :'A1', :did, public.clinic_now()::date + 12, '06:31', 'clinic', 'Asha', 30, 'Female', '9876500302', '', 500, 'confirmed');
 select id as c1 from public.bookings where ref = 'CALL-1' \gset
 select id as c2 from public.bookings where ref = 'CALL-2' \gset
+select id as c3 from public.bookings where ref = 'CALL-3' \gset
+select id as c4 from public.bookings where ref = 'CALL-4' \gset
 select t.login(:'A1');
 select t.denied(format($$select public.start_call(%L)$$, :'c1'), 'booking_not_found', 'a patient cannot start the call');
 select t.login(:'D2');
 select t.denied(format($$select public.start_call(%L)$$, :'c1'), 'booking_not_found', 'another doctor cannot start the call');
 select t.login(:'D1');
 select t.denied(format($$select public.start_call(%L)$$, :'c2'), 'not_video', 'a clinic visit has no call');
+select t.denied(format($$select public.start_call(%L)$$, :'c3'), 'call_not_open', 'the call cannot start before the slot time');
+select t.denied(format($$select public.start_call(%L)$$, :'c4'), 'call_closed', 'the call cannot start more than 24 hours after the slot');
 select t.ok(public.start_call(:'c1'), 'the doctor starts the call');
 select t.login(:'A1');
 select t.ok((select call_started_at from public.bookings where id = :'c1') > now() - interval '1 minute', 'the patient sees when the call started');

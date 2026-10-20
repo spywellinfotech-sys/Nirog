@@ -50,6 +50,7 @@ $P -f migrations/0037_ads_all_cities.sql
 $P -f migrations/0038_booking_reminders.sql
 $P -f migrations/0039_patient_phone_from_booking.sql
 $P -f migrations/0040_set_my_mobile.sql
+$P -f migrations/0041_call_window.sql
 for t in tests/[0-9]*.sql; do echo "== $t"; $P -f "$t" ; done
 
 echo "== concurrency: 12 patients race for one slot"
