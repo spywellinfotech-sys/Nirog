@@ -6,8 +6,18 @@ name: Build Play Store bundle
 #   KEYSTORE_PASSWORD  keystore password
 #   KEY_ALIAS          key alias
 #   KEY_PASSWORD       key password
+#   PLAY_SERVICE_ACCOUNT_JSON  (optional) Google Play service account key; when set the bundle is uploaded to Play automatically
 on:
   workflow_dispatch:
+    inputs:
+      track:
+        description: "Play track to upload to (needs PLAY_SERVICE_ACCOUNT_JSON)"
+        type: choice
+        default: internal
+        options: [internal, alpha, production]
+      release_notes:
+        description: "What's new (English)"
+        default: "Improvements and bug fixes."
 
 permissions:
   contents: read
@@ -15,6 +25,8 @@ permissions:
 jobs:
   bundle:
     runs-on: ubuntu-latest
+    env:
+      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -47,3 +59,21 @@ jobs:
           name: yada-play-bundle
           path: app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
+      - name: Prepare release notes
+        if: env.PLAY_JSON != ''
+        run: |
+          mkdir -p whatsnew
+          printf '%s' "${{ github.event.inputs.release_notes }}" | head -c 480 > whatsnew/whatsnew-en-US
+      - name: Upload to Google Play
+        if: env.PLAY_JSON != ''
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.yadaplus.app
+          releaseFiles: app/build/outputs/bundle/release/app-release.aab
+          track: ${{ github.event.inputs.track }}
+          status: completed
+          whatsNewDirectory: whatsnew
+      - name: Note when Play upload is skipped
+        if: env.PLAY_JSON == ''
+        run: echo "PLAY_SERVICE_ACCOUNT_JSON is not set, so the bundle was only saved as an artifact."
