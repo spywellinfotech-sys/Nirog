@@ -2291,6 +2291,42 @@ function rxShare(bid){
     cloud.rxbusy=null;render();
   }).catch(function(){cloud.rxbusy=null;state.dmsg="Could not prepare the prescription. Try again.";render()});
 }
+/* Medicine suggestions: common medicine names plus the ones this doctor has written before. Only names are suggested; doses are always chosen by the doctor. */
+var RX_MEDS=["Paracetamol 500 mg tablet","Paracetamol 650 mg tablet","Paracetamol syrup 125 mg/5 ml","Ibuprofen 400 mg tablet","Ibuprofen + Paracetamol tablet","Diclofenac 50 mg tablet","Aceclofenac 100 mg tablet","Aceclofenac + Paracetamol tablet","Mefenamic acid 500 mg tablet","Diclofenac gel","Azithromycin 500 mg tablet","Azithromycin 250 mg tablet","Amoxicillin 500 mg capsule","Amoxicillin + Clavulanic acid 625 mg tablet","Cefixime 200 mg tablet","Cefpodoxime 200 mg tablet","Cefuroxime 500 mg tablet","Doxycycline 100 mg capsule","Ciprofloxacin 500 mg tablet","Ofloxacin 200 mg tablet","Levofloxacin 500 mg tablet","Metronidazole 400 mg tablet","Ornidazole 500 mg tablet","Nitrofurantoin 100 mg capsule","Fluconazole 150 mg tablet","Albendazole 400 mg tablet","Ivermectin 12 mg tablet","Cetirizine 10 mg tablet","Levocetirizine 5 mg tablet","Fexofenadine 120 mg tablet","Chlorpheniramine 4 mg tablet","Hydroxyzine 25 mg tablet","Montelukast 10 mg tablet","Montelukast + Levocetirizine tablet","Pantoprazole 40 mg tablet","Pantoprazole + Domperidone capsule","Omeprazole 20 mg capsule","Rabeprazole 20 mg tablet","Esomeprazole 40 mg tablet","Ranitidine 150 mg tablet","Domperidone 10 mg tablet","Ondansetron 4 mg tablet","Antacid syrup","ORS powder","Zinc 20 mg tablet","Loperamide 2 mg capsule","Racecadotril 100 mg capsule","Lactulose syrup","Isabgol (psyllium husk)","Bisacodyl 5 mg tablet","Drotaverine 40 mg tablet","Dicyclomine tablet","Metformin 500 mg tablet","Metformin 1000 mg tablet","Glimepiride 1 mg tablet","Glimepiride 2 mg tablet","Gliclazide 80 mg tablet","Sitagliptin 100 mg tablet","Amlodipine 5 mg tablet","Telmisartan 40 mg tablet","Losartan 50 mg tablet","Atenolol 50 mg tablet","Metoprolol 50 mg tablet","Hydrochlorothiazide 12.5 mg tablet","Atorvastatin 10 mg tablet","Atorvastatin 20 mg tablet","Rosuvastatin 10 mg tablet","Aspirin 75 mg tablet","Clopidogrel 75 mg tablet","Levothyroxine 25 mcg tablet","Levothyroxine 50 mcg tablet","Levothyroxine 100 mcg tablet","Prednisolone 10 mg tablet","Prednisolone 5 mg tablet","Deflazacort 6 mg tablet","Salbutamol inhaler","Budesonide inhaler","Salbutamol tablet 2 mg","Ambroxol syrup","Dextromethorphan cough syrup","Levosalbutamol + Ambroxol syrup","Vitamin D3 60000 IU sachet","Vitamin D3 1000 IU tablet","Vitamin B12 (methylcobalamin) 1500 mcg tablet","Vitamin C 500 mg tablet","Calcium + Vitamin D3 tablet","Iron + Folic acid tablet","Folic acid 5 mg tablet","Multivitamin tablet","Pregabalin 75 mg capsule","Gabapentin 300 mg capsule","Clotrimazole cream","Mupirocin ointment","Betamethasone cream","Povidone iodine ointment","Calamine lotion","Silver sulfadiazine cream","Moxifloxacin eye drops","Ciprofloxacin eye drops","Carboxymethylcellulose eye drops","Ear drops","Xylometazoline nasal drops","Saline nasal drops"];
+var RX_DOSES=["1 tablet","1/2 tablet","2 tablets","1 capsule","5 ml","10 ml","1 sachet","2 drops","2 puffs","Apply thin layer"];
+var RX_FREQS=["1-0-1","1-1-1","1-0-0","0-0-1","0-1-0","SOS (if needed)","Once a day","Every 8 hours"];
+var RX_DAYS=["3","5","7","10","15","30"];
+function rxNames(){
+  var seen={},out=[];
+  function add(n){n=(n||"").trim();if(!n)return;var k=n.toLowerCase();if(seen[k])return;seen[k]=1;out.push(n)}
+  Object.keys(cloud.rx||{}).forEach(function(b){((cloud.rx[b]||{}).medicines||[]).forEach(function(m){add(m.name)})});
+  RX_MEDS.forEach(add);
+  return out;
+}
+function rxHistory(name){
+  var k=(name||"").trim().toLowerCase(),best=null,bt=0;if(!k)return null;
+  Object.keys(cloud.rx||{}).forEach(function(b){var r=cloud.rx[b]||{},t=Date.parse(r.updated_at||r.created_at||0)||0;(r.medicines||[]).forEach(function(m){if((m.name||"").trim().toLowerCase()===k&&(m.dose||m.freq||m.days)&&t>=bt){best=m;bt=t}})});
+  return best;
+}
+function rxChips(i,field,vals){
+  return '<div class="rxchips" style="display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 10px">'+vals.map(function(x){return '<button type="button" class="btn sm ghost" data-a="rxchip" data-v="'+i+'|'+field+'|'+esc(x)+'" style="padding:4px 10px;font-size:12px;min-height:0">'+esc(x)+'</button>'}).join("")+'</div>';
+}
+function rxChip(i,field,val){
+  var m=cloud.rxf&&cloud.rxf.meds[i];if(!m)return;
+  if(field==="freq"&&(val==="After food"||val==="Before food")){
+    var base=(m.freq||"").replace(/,?\s*(after|before) food/i,"").trim();
+    m.freq=(base?base+", ":"")+val.toLowerCase();
+  }else if(field==="freq"){
+    var food=/(after|before) food/i.exec(m.freq||"");
+    m.freq=val+(food?", "+food[0].toLowerCase():"");
+  }else m[field]=val;
+  render();
+}
+function rxPrefill(i){
+  var m=cloud.rxf&&cloud.rxf.meds[i];if(!m||m.dose||m.freq||m.days)return;
+  var h=rxHistory(m.name);if(!h)return;
+  m.dose=h.dose||"";m.freq=h.freq||"";m.days=h.days||"";render();
+}
 function rxEmptyMed(){return {name:"",dose:"",freq:"",days:""}}
 function rxStart(a){
   var r=rxMine(a);
@@ -2299,12 +2335,13 @@ function rxStart(a){
 }
 function rxForm(a){
   var f=cloud.rxf,today=dkey(new Date());
-  var meds=f.meds.map(function(m,i){var id="rx-m-"+i+"-";return '<div class="card" style="padding:10px;margin:0 0 8px"><div class="field"><label for="'+id+'name">Medicine '+(i+1)+'</label><input id="'+id+'name" maxlength="80" value="'+esc(m.name)+'" placeholder="e.g. Paracetamol 500 mg"></div>'+
-    '<div class="two"><div class="field"><label for="'+id+'dose">Dose</label><input id="'+id+'dose" maxlength="40" value="'+esc(m.dose)+'" placeholder="1 tablet"></div><div class="field"><label for="'+id+'freq">How often</label><input id="'+id+'freq" maxlength="60" value="'+esc(m.freq)+'" placeholder="Twice a day, after food"></div></div>'+
-    '<div class="two"><div class="field"><label for="'+id+'days">Days</label><input id="'+id+'days" inputmode="numeric" maxlength="3" value="'+esc(m.days)+'" placeholder="5"></div><div style="align-self:end;padding-bottom:12px"><button type="button" class="btn sm ghost" data-a="rxdel" data-v="'+i+'" style="color:var(--bad)">Remove</button></div></div></div>'}).join("");
+  var meds=f.meds.map(function(m,i){var id="rx-m-"+i+"-";return '<div class="card" style="padding:10px;margin:0 0 8px"><div class="field"><label for="'+id+'name">Medicine '+(i+1)+'</label><input id="'+id+'name" maxlength="80" list="rx-medlist" autocomplete="off" value="'+esc(m.name)+'" placeholder="Start typing, e.g. Paracetamol"></div>'+
+    '<div class="two"><div class="field"><label for="'+id+'dose">Dose</label><input id="'+id+'dose" maxlength="40" value="'+esc(m.dose)+'" placeholder="1 tablet"></div><div class="field"><label for="'+id+'freq">How often</label><input id="'+id+'freq" maxlength="60" value="'+esc(m.freq)+'" placeholder="1-0-1, after food"></div></div>'+
+    '<div class="tiny" style="margin:-4px 0 4px">Dose: tap to fill</div>'+rxChips(i,"dose",RX_DOSES)+'<div class="tiny" style="margin:-4px 0 4px">Morning-Afternoon-Night: tap to fill</div>'+rxChips(i,"freq",RX_FREQS.concat(["After food","Before food"]))+
+    '<div class="two"><div class="field"><label for="'+id+'days">Days</label><input id="'+id+'days" inputmode="numeric" maxlength="3" value="'+esc(m.days)+'" placeholder="5">'+rxChips(i,"days",RX_DAYS)+'</div><div style="align-self:end;padding-bottom:12px"><button type="button" class="btn sm ghost" data-a="rxdel" data-v="'+i+'" style="color:var(--bad)">Remove</button></div></div></div>'}).join("");
   var total=f.files.length+f.newp.length;
   var thumbs=(total?'<div class="thumbs" style="margin:6px 0">'+f.files.map(function(x,i){return '<div class="thumb">Saved '+(i+1)+'<button type="button" class="x" data-a="rxfrm" data-v="e'+i+'" aria-label="Remove saved photo '+(i+1)+'">×</button></div>'}).join("")+f.newp.map(function(x,i){return '<div class="thumb"><img src="'+esc(x)+'" alt="New photo '+(i+1)+'"><button type="button" class="x" data-a="rxfrm" data-v="n'+i+'" aria-label="Remove new photo '+(i+1)+'">×</button></div>'}).join("")+'</div>':'');
-  return '<div class="confirm" style="margin-top:8px"><div><b>Prescription for '+esc(a.name)+'</b></div>'+
+  return '<div class="confirm" style="margin-top:8px"><datalist id="rx-medlist">'+rxNames().map(function(n){return '<option value="'+esc(n)+'">'}).join("")+'</datalist><div><b>Prescription for '+esc(a.name)+'</b></div>'+
    '<div class="field"><label for="rx-diagnosis">Diagnosis or complaint (optional)</label><input id="rx-diagnosis" maxlength="300" value="'+esc(f.diagnosis)+'"></div>'+meds+
    (f.meds.length<15?'<div class="acts" style="margin-bottom:10px"><button type="button" class="btn sm ghost" data-a="rxadd">+ Add medicine</button></div>':'')+
    '<div class="field"><label for="rx-advice">Advice (optional)</label><textarea id="rx-advice" rows="3" maxlength="1000" placeholder="Rest, fluids, tests to get done">'+esc(f.advice)+'</textarea></div>'+
@@ -3576,6 +3613,7 @@ app.addEventListener("click",function(ev){
     case "rxphoto":BE.signedUrl("prescriptions",v).then(function(u){state.lb=u;render()},function(e){state.dmsg=e.message;render()});break;
     case "rxstart":(function(){var a=null;appts.forEach(function(x){if(x.id===v)a=x});if(a)rxStart(a)})();break;
     case "rxcancel":cloud.rxf=null;render();break;
+    case "rxchip":(function(){var p=v.split("|");rxChip(+p[0],p[1],p.slice(2).join("|"))})();break;
     case "rxadd":if(cloud.rxf&&cloud.rxf.meds.length<15){cloud.rxf.meds.push(rxEmptyMed());render()}break;
     case "rxdel":if(cloud.rxf){cloud.rxf.meds.splice(+v,1);if(!cloud.rxf.meds.length)cloud.rxf.meds.push(rxEmptyMed());render()}break;
     case "rxfrm":if(cloud.rxf){if(v.charAt(0)==="e")cloud.rxf.files.splice(+v.slice(1),1);else cloud.rxf.newp.splice(+v.slice(1),1);render()}break;
@@ -3805,6 +3843,7 @@ app.addEventListener("input",function(ev){
 });
 app.addEventListener("change",function(ev){
   var t=ev.target;
+  if(t&&t.id&&cloud.rxf){var pm=/^rx-m-(\d+)-name$/.exec(t.id);if(pm)rxPrefill(+pm[1])}
   if(t&&t.id==="cl-city"&&cloud.lf){cloud.lf.city=t.value;cloud.lf.doc="";render()}
   if(t&&t.id&&t.id.indexOf("at-")===0){state.atime[t.id.slice(3)]=t.value}
   if(t&&t.type==="file"&&t.id&&t.id.indexOf("up-")===0){onUpload(t.id,t.files)}

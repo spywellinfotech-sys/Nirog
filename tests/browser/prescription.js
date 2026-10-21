@@ -37,6 +37,12 @@ async function run(role) {
   // Doctor
   let t = await run("doctor"), pg = t.pg;
   await pg.getByRole("button", { name: "Write prescription" }).click({ timeout: 8000 });
+  check("medicine name has a suggestion list with common medicines", (await pg.locator("#rx-medlist option").count()) > 50 && (await pg.locator('#rx-m-0-name').getAttribute("list")) === "rx-medlist" && (await pg.locator('#rx-medlist option[value="Azithromycin 500 mg tablet"]').count()) === 1);
+  await pg.fill("#rx-m-0-name", "Cetirizine 10 mg tablet");
+  await pg.locator('[data-a="rxchip"][data-v="0|dose|1 tablet"]').click(); await pg.locator('[data-a="rxchip"][data-v="0|freq|1-0-1"]').click(); await pg.locator('[data-a="rxchip"][data-v="0|freq|After food"]').click(); await pg.locator('[data-a="rxchip"][data-v="0|days|5"]').click();
+  check("tap buttons fill dose, morning-afternoon-night, food timing and days", (await pg.inputValue("#rx-m-0-dose")) === "1 tablet" && (await pg.inputValue("#rx-m-0-freq")) === "1-0-1, after food" && (await pg.inputValue("#rx-m-0-days")) === "5" && (await pg.inputValue("#rx-m-0-name")) === "Cetirizine 10 mg tablet");
+  await pg.locator('[data-a="rxchip"][data-v="0|freq|1-1-1"]').click();
+  check("changing the pattern keeps the food timing", (await pg.inputValue("#rx-m-0-freq")) === "1-1-1, after food");
   await pg.fill("#rx-diagnosis", "Viral fever");
   await pg.fill("#rx-m-0-name", "Paracetamol 500 mg"); await pg.fill("#rx-m-0-dose", "1 tablet"); await pg.fill("#rx-m-0-freq", "Twice a day"); await pg.fill("#rx-m-0-days", "3x");
   await pg.getByRole("button", { name: "+ Add medicine" }).click();
@@ -49,6 +55,11 @@ async function run(role) {
   check("typed fields sent", p && p.diagnosis === "Viral fever" && p.advice === "Rest and fluids" && p.medicines.length === 2 && p.medicines[0].days === "3");
   check("photo uploaded under the booking folder and listed", g.uploaded.length === 1 && /^b-1\/rx\d+-0\.jpg$/.test(g.uploaded[0]) && p.files[0] === g.uploaded[0]);
   check("button now offers Edit", await pg.getByRole("button", { name: "Edit prescription" }).count() === 1);
+  await pg.getByRole("button", { name: "Edit prescription" }).click(); await pg.waitForTimeout(300);
+  await pg.getByRole("button", { name: "+ Add medicine" }).click();
+  const nm = pg.locator("#rx-m-2-name"); await nm.fill("Paracetamol 500 mg"); await nm.dispatchEvent("change"); await pg.waitForTimeout(300);
+  check("a medicine the doctor used before fills the doctor's own dose, pattern and days", (await pg.inputValue("#rx-m-2-dose")) === "1 tablet" && (await pg.inputValue("#rx-m-2-freq")) === "Twice a day" && (await pg.inputValue("#rx-m-2-days")) === "3");
+  await pg.getByRole("button", { name: "Cancel" }).first().click(); await pg.waitForTimeout(300);
   // WhatsApp share, web path: a wa.me message for the patient's number with a text summary
   await pg.evaluate(() => { window.__opened = []; window.open = (u) => { window.__opened.push(u); return null; }; });
   await pg.getByRole("button", { name: "Share on WhatsApp" }).click(); await pg.waitForTimeout(1500);
