@@ -19,6 +19,7 @@ async function open(role) {
     if (p.endsWith("/rpc/cancel_facility_request")) { st.cancelled = body; st.reqs[0].status = "cancelled"; return j(200, null); }
     if (p.endsWith("/rpc/my_facility_id")) return j(200, 61);
     if (p.endsWith("/rpc/admin_request_stats")) return j(200, { "61": { total: 4, pending: 1, confirmed: 2, rejected: 1, last30: 4 } });
+    if (p === "/rest/v1/platform_settings") return j(200, [{ id: 1, fee_on: true, fee_type: "flat", fee_value: 49, support_email: "", support_whatsapp: "", promo_until: null, min_build: 0, update_url: "", test_fee_on: true, test_fee_pct: 10 }]);
     if (p === "/rest/v1/facility_requests") return j(200, st.reqs);
     if (p === "/rest/v1/facilities") return j(200, [FAC]);
     if (p === "/rest/v1/profiles") return j(200, [{ id: "x", role: role, full_name: "Asha", phone: "+919876500001", email: "u@x.in" }]);
@@ -38,6 +39,7 @@ async function open(role) {
   await pg.locator('button[data-a="frqsend"]').click(); await pg.waitForTimeout(300);
   check("an empty form is refused", /Choose or type the test/.test(await txt()) && !t.st.created);
   await pg.fill("#frq-item", "CBC blood test"); await pg.dispatchEvent("#frq-item", "input");
+  check("the form shows the listed test price and the platform fee on it", /Price listed: .*300/.test(await pg.locator("#frq-fee").innerText()) && /Platform fee \(10%\): .*30/.test(await pg.locator("#frq-fee").innerText()));
   const d = new Date(); d.setDate(d.getDate() + 2); const dk = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   await pg.fill("#frq-date", dk); await pg.dispatchEvent("#frq-date", "input");
   await pg.fill("#frq-name", "Asha"); await pg.dispatchEvent("#frq-name", "input");

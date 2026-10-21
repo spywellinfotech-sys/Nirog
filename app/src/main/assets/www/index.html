@@ -634,7 +634,7 @@ if(!appts){
   while(!k){var c=dkey(addDays(new Date(),i));if(works(d1,c))k=c;i++}
   appts=[{id:"s1",ref:"NR-4K7Q2",docId:1,dateKey:k,time:"10:00",mode:"clinic",name:"Example patient",phone:"9876543210",reason:"Seasonal fever and cough",status:"upcoming",sample:true}];
 }
-var state={tab:"find",view:"list",city:loadCity(),spec:"All",q:"",docId:null,dateKey:null,time:null,mode:"clinic",resched:null,form:{name:"",phone:"",reason:"",age:"",sex:""},errors:{},last:null,ask:null,
+var state={tab:"find",view:"list",city:loadCity(),spec:"All",q:"",docId:null,dateKey:null,time:null,mode:"clinic",resched:null,form:{name:"",phone:"",reason:"",age:"",sex:"",weight:""},errors:{},last:null,ask:null,
   reg:null,regDone:null,sched:null,schedFor:null,sdate:null,offDate:"",
   staff:null,stab:"ov",lf:"all",showTable:false,addLead:false,
   login:{email:"",pass:"",err:""},
@@ -659,7 +659,7 @@ var PLAT={on:true,type:"flat",value:49};
     if(o&&(o.type==="flat"||o.type==="percent")&&isFinite(+o.value)&&+o.value>=0&&+o.value<=(o.type==="flat"?5000:50)){PLAT={on:o.on!==false,type:o.type,value:+o.value}}}}catch(e){}
 })();
 function savePlat(){try{localStorage.setItem(PFKEY,JSON.stringify(PLAT))}catch(e){}}
-var PROMO=0,MINB=0,UPDURL="";
+var PROMO=0,MINB=0,UPDURL="",TFEE={on:false,pct:0};
 var APPB=(function(){try{var m=/NirogApp\/(\d+)/.exec(navigator.userAgent||"");return m?+m[1]:0}catch(e){return 0}})();
 function promoOn(){return PROMO>Date.now()}
 function platFee(docFee){
@@ -1881,6 +1881,7 @@ function facPending(){
 var SEXES=["Female","Male","Other","Prefer not to say"];
 function getProf(ph){try{var r=localStorage.getItem("nirog-profiles-v1");if(r){var m=JSON.parse(r);if(m&&m[ph])return m[ph]}}catch(e){}return null}
 function putProf(ph,o){try{var r=localStorage.getItem("nirog-profiles-v1"),m=r?JSON.parse(r):{};m[ph]=o;localStorage.setItem("nirog-profiles-v1",JSON.stringify(m));return true}catch(e){return false}}
+function validWeight(v){v=String(v||"").trim();return v===""||(/^\d{1,3}(\.\d)?$/.test(v)&&+v>=1&&+v<=400)}
 function validAge(v){return /^\d{1,3}$/.test(String(v))&&+v>=0&&+v<=120}
 function patAvatar(sz){
   var pr=state.pat&&getProf(state.pat.phone),ph=pr&&pr.photo,nm=state.pat?state.pat.name:"";
@@ -1942,9 +1943,10 @@ function prefillForm(){
   if(pr&&f.name.trim().toLowerCase()===String(pr.name||state.pat.name).toLowerCase()){
     if(f.age===""&&pr.age!=null)f.age=String(pr.age);
     if(!f.sex&&pr.sex)f.sex=pr.sex;
+    if(!f.weight&&pr.weight!=null)f.weight=String(pr.weight);
   }
 }
-function who(a){return a.age!=null?' · '+a.age+' yrs'+(a.sex&&a.sex!=="Prefer not to say"?', '+esc(a.sex):''):''}
+function who(a){return a.age!=null?' · '+a.age+' yrs'+(a.sex&&a.sex!=="Prefer not to say"?', '+esc(a.sex):'')+(a.weight!=null?', '+esc(a.weight)+' kg':''):''}
 /* ---------- sign in with mobile number and one-time code (demo) ----------
    This prototype cannot send SMS, so the code is generated here and shown on screen in a demo note.
    To go live, replace the code generation in otpSend() with a call to your server, which sends the SMS
@@ -2126,6 +2128,7 @@ function vConfirm(){
    '<div class="field"><label for="f-phone">Mobile number</label><input id="f-phone" name="phone" inputmode="numeric" autocomplete="tel" maxlength="10" value="'+esc(f.phone)+'" placeholder="10-digit number"'+(state.pat&&(!CLOUD||state.pat.vph)?' readonly':'')+'>'+(e.phone?'<div class="err">'+e.phone+'</div>':'<div class="hint">'+(state.pat&&(!CLOUD||state.pat.vph)?'Verified with a one-time code. The clinic will use this number to reach you.':'The clinic will use this to reach you about your booking.')+'</div>')+'</div>'+
    '<div class="two"><div class="field"><label for="f-age">Age (years)</label><input id="f-age" inputmode="numeric" maxlength="3" value="'+esc(f.age)+'">'+(e.age?'<div class="err">'+e.age+'</div>':'')+'</div>'+
    '<div class="field"><label for="f-sex">Sex</label><select id="f-sex"><option value="">Select</option>'+SEXES.map(function(x){return '<option'+(f.sex===x?' selected':'')+'>'+x+'</option>'}).join("")+'</select>'+(e.sex?'<div class="err">'+e.sex+'</div>':'')+'</div></div>'+
+   '<div class="field"><label for="f-weight">Weight (kg, optional)</label><input id="f-weight" inputmode="decimal" maxlength="5" value="'+esc(f.weight||"")+'" placeholder="e.g. 62">'+(e.weight?'<div class="err">'+e.weight+'</div>':'<div class="hint">Helps the doctor choose the right dose.</div>')+'</div>'+
    '<div class="field" style="margin-bottom:0"><label for="f-reason">Reason for visit <span class="muted" style="font-weight:400">(optional)</span></label><textarea id="f-reason" name="reason" placeholder="For example: fever for two days">'+esc(f.reason)+'</textarea></div></div>'+
    (state.bookErr?'<div class="err" role="alert" style="margin:12px 16px 0">'+esc(state.bookErr)+'</div>':'')+'<div style="height:16px"></div><div class="stick"><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>'+(cloud.busy?'Please wait...':state.resched?'Confirm new time':'Confirm booking')+'</button></div></form>';
 }
@@ -2218,7 +2221,7 @@ function rxPages(a,r,d,imgs){
   text([d.spec,d.qual].filter(Boolean).join(" · "),14,false,MUT,40,20);
   text([d.clinic,d.city].filter(Boolean).join(", "),14,false,MUT,40,20);
   y+=8;rule();
-  text("Patient: "+a.name+(a.age?" · "+a.age+" yrs":"")+(a.sex?" · "+a.sex:""),15,true,INK,40,22);
+  text("Patient: "+a.name+(a.age?" · "+a.age+" yrs":"")+(a.sex?" · "+a.sex:"")+(a.weight!=null?" · "+a.weight+" kg":""),15,true,INK,40,22);
   text("Visit date: "+longDate(a.dateKey)+" · Ref "+a.ref,14,false,MUT,40,20);
   y+=8;rule();
   if(r.diagnosis){text("Diagnosis",13,true,RED,40,20);text(r.diagnosis,15,false,INK,40,22);y+=10}
@@ -2525,7 +2528,7 @@ function vCloudWait(){
 function cloudApplySettings(){
   var s=BE.settings;if(!s)return;
   PLAT.on=!!s.fee_on;PLAT.type=s.fee_type;PLAT.value=+s.fee_value;
-  PROMO=s.promo_until?Date.parse(s.promo_until)||0:0;MINB=+s.min_build||0;UPDURL=s.update_url||"";
+  PROMO=s.promo_until?Date.parse(s.promo_until)||0:0;MINB=+s.min_build||0;UPDURL=s.update_url||"";TFEE={on:!!s.test_fee_on,pct:+s.test_fee_pct||0};
   SUP.email=s.support_email||"";SUP.wa=s.support_whatsapp||"";
 }
 function cloudLoadDir(){
@@ -2731,11 +2734,11 @@ function cloudBook(){
   var f=state.form,d=byId(state.docId),rs=null;
   if(state.resched)appts.forEach(function(x){if(x.id===state.resched)rs=x});
   cloud.busy=true;state.bookErr="";render();
-  var p=rs?BE.reschedule(rs.id,state.dateKey,state.time):BE.createBooking({docId:d.id,dateKey:state.dateKey,time:state.time,mode:state.mode,name:f.name.trim(),age:+f.age,sex:f.sex,phone:f.phone,reason:f.reason.trim()});
+  var p=rs?BE.reschedule(rs.id,state.dateKey,state.time):BE.createBooking({docId:d.id,dateKey:state.dateKey,time:state.time,mode:state.mode,name:f.name.trim(),age:+f.age,sex:f.sex,phone:f.phone,reason:f.reason.trim(),weight:String(f.weight||"").trim()===""?null:+f.weight});
   p.then(function(a){
     if(rs)a.rebooked=true;
     state.last=a;state.resched=null;state.view="done";
-    var pf=getProf(state.pat.phone)||{};pf.name=state.pat.name;pf.age=+f.age;pf.sex=f.sex;pf.mobile=f.phone;state.pat.mobile=f.phone;putProf(state.pat.phone,pf);
+    var pf=getProf(state.pat.phone)||{};pf.name=state.pat.name;pf.age=+f.age;pf.sex=f.sex;if(String(f.weight||"").trim()!=="")pf.weight=+f.weight;pf.mobile=f.phone;state.pat.mobile=f.phone;putProf(state.pat.phone,pf);
     delete cloud.sc[d.id+"|"+a.dateKey];
     cloud.busy=false;cloudSync(true);render(true);
   },function(e){
@@ -3041,6 +3044,18 @@ function frqOpen(id){
   var ph=state.pat&&/^\d{10}$/.test(String(state.pat.phone||""))?state.pat.phone:"";
   cloud.frq={fid:+id,item:"",date:"",name:(state.pat&&state.pat.name)||"",phone:ph,note:"",err:""};cloud.frqMsg="";render()
 }
+function frqPrice(l,item){
+  var k=String(item||"").trim().toLowerCase();if(!k)return null;
+  var m=(l.tests||[]).filter(function(t){return String(t[0]).trim().toLowerCase()===k&&t[1]!=null})[0];
+  return m?+m[1]:null;
+}
+function frqFee(price){return price!=null&&TFEE.on&&TFEE.pct>0&&!promoOn()?Math.round(price*TFEE.pct/100):0}
+function frqFeeText(l,f){
+  var pr=frqPrice(l,f.item);if(pr==null)return '';
+  var fee=frqFee(pr);
+  return 'Price listed: '+money(pr)+(fee?' · Platform fee ('+TFEE.pct+'%): '+money(fee):'');
+}
+function frqFeeLine(l,f){return '<div class="tiny tnum" id="frq-fee" style="margin:2px 0 8px">'+frqFeeText(l,f)+'</div>'}
 function frqForm(l){
   var f=cloud.frq;if(!f||String(f.fid)!==String(l.fid))return '';
   var t0=dkey(new Date()),d2=new Date();d2.setDate(d2.getDate()+60);
@@ -3051,6 +3066,7 @@ function frqForm(l){
    '<div class="field"><label for="frq-name">Your name</label><input id="frq-name" maxlength="80" value="'+esc(f.name)+'"></div>'+
    '<div class="field"><label for="frq-phone">Mobile number</label><input id="frq-phone" inputmode="numeric" maxlength="10" value="'+esc(f.phone)+'" placeholder="10-digit mobile"></div>'+
    '<div class="field"><label for="frq-note">Note (optional)</label><input id="frq-note" maxlength="300" value="'+esc(f.note)+'" placeholder="e.g. fasting, home collection"></div>'+
+   frqFeeLine(l,f)+
    (f.err?'<div class="err" role="alert">'+esc(f.err)+'</div>':'')+
    '<div class="tiny">The centre will confirm or decline. Your number is shared with this centre only.</div>'+
    '<div class="acts"><button class="btn sm" data-a="frqsend"'+(cloud.busy?' disabled':'')+'>Send request</button><button class="btn sm ghost" data-a="frqclose">Close</button></div></div>';
@@ -3077,6 +3093,7 @@ function frqRow(x,mine){
   var fn=x.facilities&&x.facilities.name?x.facilities.name:"Facility",pc=x.status==="confirmed"?"pill":x.status==="pending"?"pill warn":"pill bad";
   return '<div class="appt"><div class="who"><div style="min-width:0"><div class="doc-name">'+esc(mine?fn:x.patient_name)+'</div><div class="tiny">'+esc(x.item)+' · '+esc(x.preferred_date)+' · '+esc(x.ref)+'</div></div><span class="'+pc+'">'+esc(FRQST[x.status]||x.status)+'</span></div>'+
    (mine?'':'<div class="tiny tnum">Mobile <span class="sel">'+esc(x.patient_phone)+'</span></div>')+
+   (x.item_price!=null?'<div class="tiny tnum">Price listed '+money(x.item_price)+(x.platform_fee>0?' · Platform fee '+money(x.platform_fee):'')+'</div>':'')+
    (x.note?'<div class="tiny">Note: '+esc(x.note)+'</div>':'')+(x.reason?'<div class="tiny">Reason: '+esc(x.reason)+'</div>':'')+
    (mine&&(x.status==="pending"||x.status==="confirmed")?'<div class="acts"><button class="btn sm ghost" data-a="frqcancel" data-v="'+x.id+'" style="color:var(--bad)">Cancel request</button></div>':'')+
    (!mine&&x.status==="pending"?'<div class="acts"><button class="btn sm" data-a="frqyes" data-v="'+x.id+'">Confirm</button><button class="btn sm ghost" data-a="frqno" data-v="'+x.id+'" style="color:var(--bad)">Decline</button></div>':'')+'</div>';
@@ -3357,12 +3374,14 @@ function cloudSaveSettings(){
   if(!(v>=0)||(f.type==="flat"&&v>5000)||(f.type==="percent"&&v>50)){cloud.adminMsg="Fee must be 0 to 5000 rupees, or 0 to 50 percent.";render();return}
   if(f.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)){cloud.adminMsg="Enter a valid support email, or leave it empty.";render();return}
   if(f.wa&&!/^[6-9]\d{9}$/.test(f.wa)){cloud.adminMsg="Enter a valid 10-digit WhatsApp number, or leave it empty.";render();return}
+  var tp=+(f.tpct||0);
+  if(!(tp>=0)||tp>50){cloud.adminMsg="The test fee must be 0 to 50 percent.";render();return}
   var mb=Math.floor(+(f.minb||0));
   if(!(mb>=0)||mb>100000){cloud.adminMsg="Minimum build must be a whole number, or 0.";render();return}
   if(f.promo&&!/^\d{4}-\d{2}-\d{2}$/.test(f.promo)){cloud.adminMsg="Enter a valid promo end date, or leave it empty.";render();return}
   var pu=f.promo?f.promo+"T23:59:59+05:30":null;
   cloud.busy=true;cloud.adminMsg="";render();
-  BE.saveSettings({fee_on:!!f.on,fee_type:f.type,fee_value:v,support_email:f.email||"",support_whatsapp:f.wa||"",promo_until:pu,min_build:mb}).then(function(){cloud.busy=false;cloud.adminMsg="Saved.";PLAT.on=!!f.on;PLAT.type=f.type;PLAT.value=v;PROMO=pu?Date.parse(pu):0;MINB=mb;SUP.email=f.email||"";SUP.wa=f.wa||"";render()},function(e){cloud.busy=false;cloud.adminMsg=e.message;render()});
+  BE.saveSettings({fee_on:!!f.on,fee_type:f.type,fee_value:v,support_email:f.email||"",support_whatsapp:f.wa||"",promo_until:pu,min_build:mb,test_fee_on:!!f.ton,test_fee_pct:tp}).then(function(){cloud.busy=false;cloud.adminMsg="Saved.";PLAT.on=!!f.on;PLAT.type=f.type;PLAT.value=v;PROMO=pu?Date.parse(pu):0;MINB=mb;TFEE={on:!!f.ton,pct:tp};SUP.email=f.email||"";SUP.wa=f.wa||"";render()},function(e){cloud.busy=false;cloud.adminMsg=e.message;render()});
 }
 function vCloudAdmin(){
   var u=getUser(state.staff),admin=u.role==="admin";
@@ -3397,10 +3416,12 @@ function vCloudAdmin(){
   }else if(t==="bc"){
     body=bcCompose()+bcHistory();
   }else{
-    var sf=cloud.sf=cloud.sf||{on:PLAT.on,type:PLAT.type,value:String(PLAT.value),email:SUP.email,wa:SUP.wa,promo:PROMO?new Date(PROMO+19800000).toISOString().slice(0,10):"",minb:String(MINB)};
+    var sf=cloud.sf=cloud.sf||{on:PLAT.on,type:PLAT.type,value:String(PLAT.value),email:SUP.email,wa:SUP.wa,promo:PROMO?new Date(PROMO+19800000).toISOString().slice(0,10):"",minb:String(MINB),ton:TFEE.on,tpct:String(TFEE.pct)};
     body='<form id="csForm" novalidate><div class="sec">Platform fee</div><div class="card"><div class="field"><button type="button" class="chk" data-a="csfee" aria-pressed="'+sf.on+'"><i>'+(sf.on?"✓":"")+'</i><span>Charge a platform fee on bookings</span></button></div>'+
      '<div class="field"><label for="cs-type">Fee type</label><select id="cs-type"><option value="flat"'+(sf.type==="flat"?" selected":"")+'>Flat amount (rupees)</option><option value="percent"'+(sf.type==="percent"?" selected":"")+'>Percent of doctor fee</option></select></div>'+
      '<div class="field" style="margin-bottom:0"><label for="cs-value">Value</label><input id="cs-value" inputmode="decimal" value="'+esc(sf.value)+'"></div></div>'+
+     '<div class="sec">Platform fee on tests and scans</div><div class="card"><div class="hint" style="margin-bottom:10px">Separate from the appointment fee. It is a percent of the test price listed by the lab, centre or hospital, and is shown to the patient when they send a request. It is not collected in the app yet.</div><div class="field"><button type="button" class="chk" data-a="cstfee" aria-pressed="'+sf.ton+'"><i>'+(sf.ton?"✓":"")+'</i><span>Charge a platform fee on tests and scans</span></button></div>'+
+     '<div class="field" style="margin-bottom:0"><label for="cs-tpct">Percent of test price (0 to 50)</label><input id="cs-tpct" inputmode="decimal" value="'+esc(sf.tpct)+'"></div></div>'+
      '<div class="sec">Free booking promo</div><div class="card"><div class="field"><label for="cs-promo">Platform fee is free until (date)</label><input id="cs-promo" type="date" value="'+esc(sf.promo)+'"><div class="tiny">'+(promoOn()?'Promo is running now. Bookings carry no platform fee.':'Leave empty for no promo. The fee is waived through the end of this day.')+'</div></div>'+
      '<div class="field" style="margin-bottom:0"><label for="cs-minb">Minimum app build (force update)</label><input id="cs-minb" inputmode="numeric" value="'+esc(sf.minb)+'"><div class="tiny">Apps with a lower build number are blocked until updated. Latest build is '+(APPB||'shown in the APK file name, v1.0.0.N')+'. Use 0 for no forced update.</div></div></div>'+
      '<div class="sec">Help and support</div><div class="card"><div class="field"><label for="cs-email">Support email</label><input id="cs-email" type="email" value="'+esc(sf.email)+'"></div><div class="field" style="margin-bottom:0"><label for="cs-wa">Support WhatsApp number</label><input id="cs-wa" inputmode="numeric" maxlength="10" value="'+esc(sf.wa)+'"></div></div>'+
@@ -3587,14 +3608,14 @@ function firstDate(d){
 function book(){
   if(CLOUD){cloudBook();return}
   var f=state.form,d=byId(state.docId),a;
-  if(state.pat&&f.name.trim().toLowerCase()===state.pat.name.toLowerCase()){var pr0=getProf(state.pat.phone)||{};pr0.name=state.pat.name;pr0.age=+f.age;pr0.sex=f.sex;putProf(state.pat.phone,pr0)}
+  if(state.pat&&f.name.trim().toLowerCase()===state.pat.name.toLowerCase()){var pr0=getProf(state.pat.phone)||{};pr0.name=state.pat.name;pr0.age=+f.age;pr0.sex=f.sex;if(String(f.weight||"").trim()!=="")pr0.weight=+f.weight;putProf(state.pat.phone,pr0)}
   if(state.resched){
     a=null;appts.forEach(function(x){if(x.id===state.resched)a=x});
     if(a){a.dateKey=state.dateKey;a.time=state.time;a.docId=state.docId;a.mode=state.mode;a.fee=visitFee(d,state.mode);a.pf=platFee(a.fee);a.age=+f.age;a.sex=f.sex;a.name=f.name.trim();a.phone=f.phone;a.reason=f.reason.trim();a.sample=false;a.rebooked=true;a.status=hasLogin(d)?"pending":"upcoming";delete a.rreason;if(a.status==="pending")notify("d:"+d.id,"Rescheduled request from "+a.name+" for "+fmtWhen(a)+". Please approve or reject.");state.last=a;state.resched=null;save();state.view="done";render(true);return}
   }
   var chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",r="";
   for(var i=0;i<5;i++)r+=chars[Math.floor(Math.random()*chars.length)];
-  a={id:"a"+Date.now(),ref:"NR-"+r,docId:d.id,dateKey:state.dateKey,time:state.time,mode:state.mode,age:+f.age,sex:f.sex,fee:visitFee(d,state.mode),pf:platFee(visitFee(d,state.mode)),name:f.name.trim(),phone:f.phone,reason:f.reason.trim(),status:hasLogin(d)?"pending":"upcoming"};
+  a={id:"a"+Date.now(),ref:"NR-"+r,docId:d.id,dateKey:state.dateKey,time:state.time,mode:state.mode,age:+f.age,sex:f.sex,weight:String(f.weight||"").trim()===""?null:+f.weight,fee:visitFee(d,state.mode),pf:platFee(visitFee(d,state.mode)),name:f.name.trim(),phone:f.phone,reason:f.reason.trim(),status:hasLogin(d)?"pending":"upcoming"};
   appts.push(a);state.last=a;save();if(a.status==="pending"){notify("d:"+d.id,"New booking request from "+a.name+" for "+fmtWhen(a)+". Please approve or reject.");notify("p:"+a.phone,"Request sent to "+d.name+" for "+fmtWhen(a)+". Waiting for approval.")}else notify("p:"+a.phone,"Booked with "+d.name+" for "+fmtWhen(a)+". Ref "+a.ref+".");state.view="done";render(true);
 }
 app.addEventListener("click",function(ev){
@@ -3630,6 +3651,7 @@ app.addEventListener("click",function(ev){
     case "bcdelask":cloud.bdel=+v;render();break;
     case "bcdelno":cloud.bdel=null;render();break;
     case "bcdel":bcDelete(+v);break;
+    case "cstfee":if(cloud.sf){cloud.sf.ton=!cloud.sf.ton;render()}break;
     case "csfee":if(cloud.sf){cloud.sf.on=!cloud.sf.on;render()}break;
     case "cdoc":(function(){var p=v.split("|");cloudViewDoc(p.slice(1).join("|"),p[0])})();break;
     case "cprof":(function(){var q=v.split("|");cloudProfOpen(q[0],+q[1],"view")})();break;
@@ -3780,7 +3802,7 @@ app.addEventListener("click",function(ev){
     case "resched":
       var ap=null;appts.forEach(function(x){if(x.id===v)ap=x});
       if(ap){state.resched=ap.id;state.docId=ap.docId;state.mode=ap.mode;state.dateKey=null;state.time=null;
-        state.form={name:ap.name,phone:ap.phone,reason:ap.reason||"",age:ap.age!=null?String(ap.age):"",sex:ap.sex||""};
+        state.form={name:ap.name,phone:ap.phone,reason:ap.reason||"",age:ap.age!=null?String(ap.age):"",sex:ap.sex||"",weight:ap.weight!=null?String(ap.weight):""};
         state.dateKey=firstDate(byId(ap.docId));state.tab="find";state.view="doctor";render(true);if(CLOUD)ensureSlots(byId(ap.docId),week())}
       break;
   }
@@ -3791,6 +3813,7 @@ app.addEventListener("input",function(ev){
   else if(t.id==="f-name")state.form.name=t.value;
   else if(t.id==="f-phone"){t.value=t.value.replace(/\D/g,"").slice(0,10);state.form.phone=t.value}
   else if(t.id==="f-reason")state.form.reason=t.value;
+  else if(t.id==="f-weight"){t.value=t.value.replace(/[^\d.]/g,"").replace(/^(\d*\.?\d?).*$/,"$1").slice(0,5);state.form.weight=t.value}
   else if(t.id==="f-age"){t.value=t.value.replace(/\D/g,"").slice(0,3);state.form.age=t.value}
   else if(t.id==="f-sex")state.form.sex=t.value;
   else if(t.id==="pr-name"&&state.prof){state.prof.name=t.value;state.prof.ok=""}
@@ -3835,7 +3858,7 @@ app.addEventListener("input",function(ev){
   else if(t.id==="o-phone"&&state.otp){t.value=t.value.replace(/\D/g,"").slice(0,10);state.otp.phone=t.value}
   else if(t.id==="o-code"&&state.otp){t.value=t.value.replace(/\D/g,"").slice(0,8);state.otp.code=t.value}
   else if(t.id==="o-email"&&state.otp)state.otp.email=t.value.trim();
-  else if(t.id&&t.id.indexOf("frq-")===0&&cloud.frq){var fk=t.id.slice(4);if(fk==="phone"){t.value=t.value.replace(/\D/g,"").slice(0,10)}cloud.frq[fk]=t.value}
+  else if(t.id&&t.id.indexOf("frq-")===0&&cloud.frq){var fk=t.id.slice(4);if(fk==="phone"){t.value=t.value.replace(/\D/g,"").slice(0,10)}cloud.frq[fk]=t.value;if(fk==="item"){var fl=document.getElementById("frq-fee");if(fl){var lab=null;(typeof LABS!=="undefined"?LABS:[]).forEach(function(x){if(String(x.fid)===String(cloud.frq.fid))lab=x});if(lab)fl.innerHTML=frqFeeText(lab,cloud.frq)}}}
   else if(t.id==="mg-phone"&&state.mg){t.value=t.value.replace(/\D/g,"").slice(0,10);state.mg.phone=t.value}
   else if(t.id==="ad-title"&&cloud.adf)cloud.adf.title=t.value;
   else if(t.id==="ad-adv"&&cloud.adf)cloud.adf.advertiser=t.value;
@@ -3859,6 +3882,7 @@ app.addEventListener("input",function(ev){
   else if(t.id==="bf-aud"&&cloud.bf){cloud.bf.aud=t.value;cloud.bf.ask=false;bcReachSoon()}
   else if(t.id==="bf-city"&&cloud.bf){cloud.bf.city=t.value;cloud.bf.ask=false;bcReachSoon()}
   else if(t.id==="cs-type"&&cloud.sf)cloud.sf.type=t.value;
+  else if(t.id==="cs-tpct"&&cloud.sf){cloud.sf.tpct=t.value.replace(/[^\d.]/g,"").slice(0,5)}
   else if(t.id==="cs-value"&&cloud.sf)cloud.sf.value=t.value.replace(/[^\d.]/g,"").slice(0,6);
   else if(t.id==="cs-promo"&&cloud.sf)cloud.sf.promo=t.value;
   else if(t.id==="cs-minb"&&cloud.sf){t.value=t.value.replace(/\D/g,"").slice(0,6);cloud.sf.minb=t.value}
@@ -3911,8 +3935,9 @@ app.addEventListener("submit",function(ev){
   if(!/^[6-9]\d{9}$/.test(f.phone))e.phone="Enter a valid 10-digit mobile number starting with 6, 7, 8 or 9.";
   if(!validAge(f.age))e.age="Enter the patient's age, 0 to 120.";
   if(SEXES.indexOf(f.sex)<0)e.sex="Select an option.";
+  if(!validWeight(f.weight))e.weight="Enter the weight in kg, 1 to 400, or leave it empty.";
   state.errors=e;
-  if(e.name||e.phone||e.age||e.sex){render();var el=document.getElementById(e.name?"f-name":e.phone?"f-phone":e.age?"f-age":"f-sex");if(el)el.focus();return}
+  if(e.name||e.phone||e.age||e.sex||e.weight){render();var el=document.getElementById(e.name?"f-name":e.phone?"f-phone":e.age?"f-age":e.sex?"f-sex":"f-weight");if(el)el.focus();return}
   book();
 });
 /* Back button support for the Android wrapper. Returns true when it handled the press. */
