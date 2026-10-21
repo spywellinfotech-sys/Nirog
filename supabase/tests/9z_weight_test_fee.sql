@@ -4,13 +4,13 @@
 -- Patient weight on a booking (optional, validated, remembered on the profile)
 update public.bookings set status = 'cancelled' where patient_id = :'A1' and status in ('pending','confirmed');
 select t.login(:'A1');
-select t.denied($$select public.create_booking(1, public.clinic_now()::date + 14, '12:40', 'clinic', 'Asha Rao', 30, 'Female', '9876543210', '', 0)$$, 'invalid_weight', 'weight below 1 kg rejected');
-select t.denied($$select public.create_booking(1, public.clinic_now()::date + 14, '12:40', 'clinic', 'Asha Rao', 30, 'Female', '9876543210', '', 500)$$, 'invalid_weight', 'weight above 400 kg rejected');
-select public.create_booking(1, public.clinic_now()::date + 14, '12:40', 'clinic', 'Asha Rao', 30, 'Female', '9876543210', '', 62.5);
-select t.ok((select patient_weight from public.bookings where patient_id = :'A1' and slot_time = '12:40' and slot_date = public.clinic_now()::date + 14) = 62.5, 'the booking keeps the weight');
+select t.denied($$select public.create_booking(1, public.clinic_now()::date + 20, '12:40', 'clinic', 'Asha Rao', 30, 'Female', '9876543210', '', 0)$$, 'invalid_weight', 'weight below 1 kg rejected');
+select t.denied($$select public.create_booking(1, public.clinic_now()::date + 20, '12:40', 'clinic', 'Asha Rao', 30, 'Female', '9876543210', '', 500)$$, 'invalid_weight', 'weight above 400 kg rejected');
+select public.create_booking(1, public.clinic_now()::date + 20, '12:40', 'clinic', 'Asha Rao', 30, 'Female', '9876543210', '', 62.5);
+select t.ok((select patient_weight from public.bookings where patient_id = :'A1' and slot_time = '12:40' and slot_date = public.clinic_now()::date + 20) = 62.5, 'the booking keeps the weight');
 select t.ok((select weight from public.patients where id = :'A1') = 62.5, 'the weight is remembered on the patient profile');
-select public.create_booking(1, public.clinic_now()::date + 14, '12:20', 'clinic', 'Asha Rao', 30, 'Female', '9876543210', '');
-select t.ok((select patient_weight from public.bookings where patient_id = :'A1' and slot_time = '12:20' and slot_date = public.clinic_now()::date + 14) is null, 'weight is optional');
+select public.create_booking(1, public.clinic_now()::date + 20, '12:20', 'clinic', 'Asha Rao', 30, 'Female', '9876543210', '');
+select t.ok((select patient_weight from public.bookings where patient_id = :'A1' and slot_time = '12:20' and slot_date = public.clinic_now()::date + 20) is null, 'weight is optional');
 select t.ok((select weight from public.patients where id = :'A1') = 62.5, 'a booking without weight keeps the saved weight');
 select t.root();
 
