@@ -1319,19 +1319,7 @@ function docBanner(d){
   if(d.status==="rejected")return '<div class="callout" style="background:var(--bad-soft)"><span>You are not listed right now.'+(d.reason?' Reason: '+esc(d.reason)+'.':'')+' Contact the super admin to be listed again.</span></div>';
   return '';
 }
-/* Video consultation: the call runs inside the app (Jitsi). The doctor can instead add another link (Meet, Zoom, WhatsApp). */
-var JITSI_HOST="meet.jit.si";
-function callRoom(a){return "YadaPlus-"+String(a.id).replace(/[^A-Za-z0-9]/g,"")}
-function callUrl(a,name){return "https://"+JITSI_HOST+"/"+callRoom(a)+"#config.prejoinPageEnabled=false&config.disableDeepLinking=true&config.startWithAudioMuted=false&config.startWithVideoMuted=false&userInfo.displayName="+encodeURIComponent(JSON.stringify(name||"Yada+ user"))}
-function callWho(a){var s=state.staff?getUser(state.staff):null;return s&&s.role==="doctor"?(byId(a.docId)||{}).name||"Doctor":(a.name||"Patient")}
-function vCall(){
-  var a=null;appts.forEach(function(x){if(x.id===state.call)a=x});
-  if(!a)return '<div class="top"><div class="brand">'+LOGO+'<small>Video call</small></div><button class="btn sm ghost" data-a="callend">Close</button></div><div class="empty">This appointment was not found.</div>';
-  var u=callUrl(a,callWho(a));
-  return '<div class="top"><div class="brand">'+LOGO+'<small>Video call</small></div><button class="btn sm danger" data-a="callend">Leave call</button></div>'+
-   '<iframe id="callfr" title="Video call" src="'+esc(u)+'" allow="camera; microphone; display-capture; autoplay; fullscreen" style="display:block;width:100%;height:calc(100vh - 150px);border:0;background:#000"></iframe>'+
-   '<div class="hint" style="padding:8px 16px;text-align:center">Allow camera and microphone when asked. Both of you need to join. <a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" style="color:var(--brand)">Open in browser instead</a></div>';
-}
+/* Video consultation runs on WhatsApp video calling: the doctor taps the button, WhatsApp opens on the patient's number, and the patient is notified. */
 function clBox(a){
   if(!CLOUD||!a.cloud)return '';
   var cur=state.cl&&state.cl[a.id]!==undefined?state.cl[a.id]:a.link;
@@ -1388,18 +1376,17 @@ function markFacAtt(id,yes){
   BE.markFacAttendance(+id,yes).then(function(){cloud.busy=false;frqRefresh(true)},function(e){cloud.busy=false;cloud.frqErr=e.message;render()});
 }
 function waCallHref(a){
-  var t="Hello "+a.name+", this is your doctor from Yada+. The app video call did not connect, so I am calling you on WhatsApp for your appointment "+a.ref+".";
+  var d=docOrGone(a.docId),t="Hello "+a.name+", this is "+d.name+" from Yada+. I am calling you on WhatsApp video for your appointment "+a.ref+".";
   return "https://wa.me/"+waNum(a.phone)+"?text="+encodeURIComponent(t);
 }
 function callBox(a,doc){
   if(a.mode!=="video"||a.status!=="upcoming")return '';
   var w=callWin(a,doc);
-  if(w.s==="early")return '<button class="btn" disabled style="opacity:.55">'+(doc?'Start video call':'Join video call')+'</button><div class="hint">The video call opens at '+callWhen(a)+(doc?'.':' (you can join 10 minutes early).')+'</div>';
   if(w.s==="closed")return '<div class="hint">The video call window for this visit has ended (it stays open for 24 hours after the slot time).</div>';
-  return '<button class="btn" data-a="callin" data-v="'+a.id+'">'+(doc?'Start video call':'Join video call')+'</button>'+
-   '<div class="hint">'+(doc?'The patient joins from My appointments. The call stays open for 24 hours after the slot time.':'The doctor joins from the same booking.')+'</div>'+
-   (doc?'<a class="btn ghost" href="'+waCallHref(a)+'" target="_blank" rel="noopener" style="margin-top:8px;text-align:center;display:block">Call did not connect? Video call on WhatsApp</a><div class="hint">This opens a WhatsApp chat with the patient ('+esc(a.phone)+'). Tap the video icon there to call.</div>'
-    :'<div class="hint">If the call does not connect, the doctor may call you on WhatsApp on '+esc(a.phone)+'. Keep WhatsApp on that number.</div>');
+  if(!doc)return '<div class="hint">'+(w.s==="early"?'Your video call is on WhatsApp. ':'')+'Your doctor will video call you on WhatsApp on '+esc(a.phone)+(w.s==="early"?' at '+callWhen(a):'')+'. Keep WhatsApp open on this number.</div>';
+  if(w.s==="early")return '<button class="btn" disabled style="opacity:.55">Video call on WhatsApp</button><div class="hint">The video call opens at '+callWhen(a)+'.</div>';
+  return '<button class="btn" data-a="wacall" data-v="'+a.id+'">Video call on WhatsApp</button>'+
+   '<div class="hint">This opens WhatsApp with the patient ('+esc(a.phone)+') and tells them you are calling. Tap the video icon in the chat. The call stays available for 24 hours after the slot time.</div>';
 }
 function dApptCard(a,pend){
   var d=docOrGone(a.docId),h='<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">'+(a.mode==="video"?"Video consult":"In-clinic visit")+'</div></div>'+aPill(a,pend)+'</div>'+
@@ -3602,10 +3589,9 @@ function callBanner(){
   if(!el){el=document.createElement("div");el.id="callbn";document.body.appendChild(el)}
   el.style.cssText="position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top,0px));z-index:60;background:#2E7D32;color:#fff;border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.3)";
   el.setAttribute("role","alert");
-  el.innerHTML='<div style="flex:1;font-weight:600">Your doctor is calling<div style="font-weight:400;font-size:13px">'+esc(docOrGone(a.docId).name)+'</div></div><button type="button" class="btn sm" style="background:#fff;color:#2E7D32">Join</button><button type="button" aria-label="Dismiss" style="background:transparent;border:0;color:#fff;font-size:22px;line-height:1;padding:4px 6px">&times;</button>';
+  el.innerHTML='<div style="flex:1;font-weight:600">Your doctor is calling you on WhatsApp<div style="font-weight:400;font-size:13px">'+esc(docOrGone(a.docId).name)+' · open WhatsApp and pick up the video call</div></div><button type="button" aria-label="Dismiss" style="background:transparent;border:0;color:#fff;font-size:22px;line-height:1;padding:4px 6px">&times;</button>';
   var bs=el.querySelectorAll("button");
-  bs[0].onclick=function(){state.call=a.id;state.callNew=true;render(true)};
-  bs[1].onclick=function(){state.dropCall=a.callAt;callBanner()};
+  bs[0].onclick=function(){state.dropCall=a.callAt;callBanner()};
 }
 function vMobileGate(){
   var g=state.mg||(state.mg={phone:"",err:""});
@@ -3628,7 +3614,6 @@ function render(scroll){
   if(state.loAsk){app.innerHTML=vLogoutAsk();if(scroll)window.scrollTo(0,0);return}
   if(CLOUD&&state.pat&&!state.staff&&state.needMobile){app.innerHTML=vMobileGate();if(scroll)window.scrollTo(0,0);return}
   if(state.help){app.innerHTML=vHelp();if(scroll)window.scrollTo(0,0);return}
-  if(state.call){if(!document.getElementById("callfr")||state.callNew){state.callNew=false;app.innerHTML=vCall();window.scrollTo(0,0)}return} /* keep the call alive when background sync redraws */
   if(state.ref){app.innerHTML=vRef();if(scroll)window.scrollTo(0,0);return}
   if(state.amb){ambLoad();app.innerHTML=vAmb();if(scroll)window.scrollTo(0,0);return}
   state.notif=false;
@@ -3711,8 +3696,7 @@ app.addEventListener("click",function(ev){
     case "lask":state.loAsk=true;render(true);break;
     case "lno":state.loAsk=false;render(true);break;
     case "lyes":doLogout();break;
-    case "callin":(function(){var a=null;appts.forEach(function(x){if(x.id===v)a=x});if(a&&callWin(a,!!state.staff).s!=="open"){return}if(CLOUD&&state.staff&&a&&a.cloud)BE.startCall(v).catch(function(){});state.call=v;state.callNew=true;render(true)})();break;
-    case "callend":(function(){var id=state.call,a=null;appts.forEach(function(x){if(x.id===id)a=x});if(CLOUD&&state.staff&&a&&a.cloud)BE.endCall(id).catch(function(){});state.call=null;render(true)})();break;
+    case "wacall":(function(){var a=null;appts.forEach(function(x){if(x.id===v)a=x});if(!a||callWin(a,true).s!=="open")return;if(CLOUD&&a.cloud)BE.startCall(v).catch(function(){});window.open(waCallHref(a),"_blank")})();break;
     case "clsave":(function(){var el=document.getElementById("cl-"+v),val=el?el.value.trim():"";state.cl=state.cl||{};state.clerr=state.clerr||{};state.cl[v]=val;state.clerr[v]="";BE.setCallLink(v,val).then(function(){delete state.cl[v];return cloudSync(true)},function(e){state.clerr[v]=e.message;render()})})();break;
     case "rxview":cloud.rxopen=v;render();break;
     case "rxclose":cloud.rxopen=null;render();break;

@@ -51,7 +51,7 @@ async function run(role) {
   await chip("Cancelled").click(); await pg.waitForTimeout(300);
   check("Cancelled lists cancelled bookings", /Cancelled Cara/.test(await txt()));
   await chip("Upcoming").click(); await pg.waitForTimeout(300);
-  check("a video visit in its call window offers a WhatsApp video call fallback", (await pg.getByRole("link", { name: /Video call on WhatsApp/ }).count()) === 1 && /wa\.me\/919876500011/.test(await pg.getByRole("link", { name: /Video call on WhatsApp/ }).getAttribute("href")));
+  check("a video visit in its call window offers a WhatsApp video call fallback", (await pg.getByRole("button", { name: "Video call on WhatsApp" }).count()) === 1);
   check("no page errors (doctor)", t.errs.length === 0); await t.b.close();
   t = await run("patient"); pg = t.pg;
   await pg.locator('[data-a="tab"][data-v="appts"]').first().click({ timeout: 8000 }).catch(() => {}); await pg.waitForTimeout(700); tx = await txt();

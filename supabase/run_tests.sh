@@ -53,6 +53,7 @@ $P -f migrations/0040_set_my_mobile.sql
 $P -f migrations/0041_call_window.sql
 $P -f migrations/0042_weight_and_test_fee.sql
 $P -f migrations/0043_attendance.sql
+$P -f migrations/0044_whatsapp_call.sql
 for t in tests/[0-9]*.sql; do echo "== $t"; $P -f "$t" ; done
 
 echo "== concurrency: 12 patients race for one slot"
