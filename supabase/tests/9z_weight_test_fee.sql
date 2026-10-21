@@ -1,7 +1,8 @@
 \set A1 '00000000-0000-0000-0000-0000000000a1'
 \set ADM '00000000-0000-0000-0000-0000000000b1'
-\set FO '00000000-0000-0000-0000-0000000c0601'
+\set FO '00000000-0000-0000-0000-0000000c0701'
 -- Patient weight on a booking (optional, validated, remembered on the profile)
+update public.bookings set status = 'cancelled' where patient_id = :'A1' and status in ('pending','confirmed');
 select t.login(:'A1');
 select t.denied($$select public.create_booking(1, public.clinic_now()::date + 14, '12:40', 'clinic', 'Asha Rao', 30, 'Female', '9876543210', '', 0)$$, 'invalid_weight', 'weight below 1 kg rejected');
 select t.denied($$select public.create_booking(1, public.clinic_now()::date + 14, '12:40', 'clinic', 'Asha Rao', 30, 'Female', '9876543210', '', 500)$$, 'invalid_weight', 'weight above 400 kg rejected');
@@ -36,6 +37,7 @@ select t.ok((select item_price from public.facility_requests where ref = :'fr2')
 select public.create_facility_request(:flid, 'Something typed by hand', public.clinic_now()::date + 3, 'Asha', '9876500001', '') as fr3 \gset
 select t.ok((select platform_fee from public.facility_requests where ref = :'fr3') = 0, 'a test that is not on the lab list has no fee');
 select t.root();
+update public.facility_requests set status = 'cancelled' where patient_id = :'A1' and status = 'pending';
 update public.platform_settings set promo_until = now() + interval '1 day' where id = 1;
 select t.login(:'A1');
 select public.create_facility_request(:flid, 'HbA1c', public.clinic_now()::date + 4, 'Asha', '9876500001', '') as fr4 \gset
