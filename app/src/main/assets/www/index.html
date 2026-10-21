@@ -1552,6 +1552,39 @@ function saveLabs(){
   }
 }
 /* one item per line: "Name - price" or just "Name" */
+/* Suggestions for what a lab, centre, hospital or other facility offers: pick from the list (or type) and add, instead of typing every line. */
+var SG_LAB=["Complete blood count (CBC)","Haemoglobin","ESR","Blood group","Blood sugar fasting","Blood sugar post meal","HbA1c","Lipid profile","Liver function test (LFT)","Kidney function test (KFT)","Thyroid profile (T3 T4 TSH)","TSH","Vitamin D (25-OH)","Vitamin B12","Urine routine","Urine culture","Stool routine","Dengue NS1 antigen","Malaria parasite","Typhoid (Widal)","CRP","Uric acid","Serum calcium","Serum creatinine","Electrolytes (sodium, potassium, chloride)","PT / INR","Iron studies","Ferritin","HIV","HBsAg","Hepatitis C","COVID-19 RT-PCR","PSA","Troponin","D-dimer","Urine pregnancy test","Beta hCG","Semen analysis","Full body checkup"];
+var SG_IMG=["X-ray chest","X-ray spine","X-ray limb","Ultrasound whole abdomen","Ultrasound pelvis","Ultrasound KUB","Ultrasound obstetric","Ultrasound thyroid","Colour Doppler","ECG","2D Echo","TMT","CT scan head","CT scan chest","CT scan abdomen","MRI brain","MRI spine","MRI knee","Mammography","Bone density (DEXA)","Pulmonary function test","EEG","Endoscopy"];
+var SG_SPEC=["Cardiology","Orthopaedics","Neurology","Neurosurgery","Oncology","Gynaecology and obstetrics","Paediatrics","Nephrology","Urology","Gastroenterology","Pulmonology","ENT","Ophthalmology","Dermatology","General surgery","General medicine","Psychiatry","Critical care (ICU)","Emergency and trauma","Dental","Physiotherapy","Dialysis"];
+var SG_OTH=["Prescription medicines","Generic medicines","Home delivery","Surgical items","Baby care","Oxygen cylinder","Basic ambulance","ICU ambulance","Ventilator ambulance","24x7 service"];
+function sgList(kind){return kind==="hospital"?SG_SPEC:kind==="centre"?SG_IMG.concat(SG_LAB):kind==="lab"?SG_LAB:SG_OTH}
+function sgBox(pre,kind){
+  var hosp=kind==="hospital",oth=!hosp&&kind!=="lab"&&kind!=="centre",L=sgList(kind),priced=!hosp,id="sg-"+pre;
+  return '<div class="card" style="padding:10px;margin:6px 0 10px"><div class="tiny" style="margin-bottom:6px"><b>Quick add</b>: pick from the list or type your own, then tap Add</div>'+
+   '<datalist id="'+id+'-list">'+L.map(function(n){return '<option value="'+esc(n)+'">'}).join("")+'</datalist>'+
+   '<div class="two"><div class="field"><label for="'+id+'-name">'+(hosp?"Speciality":oth?"Service":"Test")+'</label><input id="'+id+'-name" list="'+id+'-list" autocomplete="off" maxlength="60" placeholder="Start typing"></div>'+
+   (priced?'<div class="field"><label for="'+id+'-price">Price (Rs)'+(oth?', optional':'')+'</label><input id="'+id+'-price" inputmode="numeric" maxlength="6" placeholder="350"></div>':'<div></div>')+'</div>'+
+   '<div class="acts" style="margin:0 0 8px"><button type="button" class="btn sm" data-a="sgadd" data-v="'+pre+'|'+kind+'">Add to list</button></div>'+
+   '<div style="display:flex;flex-wrap:wrap;gap:6px">'+L.slice(0,12).map(function(n){return '<button type="button" class="btn sm ghost" data-a="sgchip" data-v="'+pre+'|'+kind+'|'+esc(n)+'" style="padding:4px 10px;font-size:12px;min-height:0">'+esc(n)+'</button>'}).join("")+'</div></div>';
+}
+function sgTarget(pre){return pre==="nb"?state.nlab:state.fr}
+function sgPut(pre,kind,name,price){
+  var o=sgTarget(pre);if(!o)return;name=String(name||"").trim().slice(0,60);if(!name)return;
+  var cur=String(o.tests||""),have=cur.split(/\n/).some(function(x){return x.replace(/\s*[-:–,]\s*(?:₹|rs\.?\s*)?\d{1,6}$/i,"").trim().toLowerCase()===name.toLowerCase()});
+  if(have)return;
+  var pr=String(price||"").replace(/\D/g,"").slice(0,6);
+  o.tests=(cur.trim()?cur.replace(/\s+$/,"")+"\n":"")+name+(pr&&kind!=="hospital"?" - "+pr:"");
+  render();
+}
+function sgAdd(v){
+  var p=v.split("|"),n=document.getElementById("sg-"+p[0]+"-name"),pr=document.getElementById("sg-"+p[0]+"-price");
+  if(!n||!n.value.trim())return;sgPut(p[0],p[1],n.value,pr?pr.value:"");
+}
+function sgChip(v){
+  var p=v.split("|"),name=p.slice(2).join("|"),n=document.getElementById("sg-"+p[0]+"-name"),pr=document.getElementById("sg-"+p[0]+"-price");
+  if(p[1]==="hospital"||!pr){sgPut(p[0],p[1],name,"");return}
+  if(n)n.value=name;pr.focus();
+}
 function parseTests(t){
   return String(t||"").split(/\n/).map(function(x){
     x=x.trim();if(!x)return null;
@@ -1619,7 +1652,7 @@ function adminLabs(){
    f("hours","Opening hours",'<input id="nb-hours" value="'+esc(n.hours)+'">')+
    (hosp?f("beds","Number of beds (optional)",'<input id="nb-beds" inputmode="numeric" maxlength="5" value="'+esc(n.beds)+'">')+tg("faer",n.er,"Emergency care 24x7")+tg("famb",n.amb,"Ambulance available"):
     tg("labhome",n.home,oth?"Home delivery available":"Home sample collection available"))+
-   f("tests",hosp?"Specialities, one per line":oth?"Services, one per line (price optional)":"Tests and prices, one per line",'<textarea id="nb-tests" placeholder="'+(hosp?"Cardiology and cardiac surgery&#10;Neurosurgery":oth?"Prescription medicines&#10;Home delivery":"Complete blood count - 350&#10;Lipid profile - 600")+'">'+esc(n.tests)+'</textarea>')+
+   f("tests",hosp?"Specialities, one per line":oth?"Services, one per line (price optional)":"Tests and prices, one per line",sgBox("nb",n.kind)+'<textarea id="nb-tests" placeholder="'+(hosp?"Cardiology and cardiac surgery&#10;Neurosurgery":oth?"Prescription medicines&#10;Home delivery":"Complete blood count - 350&#10;Lipid profile - 600")+'">'+esc(n.tests)+'</textarea>')+
    (n.err?'<div class="err" style="margin-bottom:10px">'+esc(n.err)+'</div>':'')+
    '<button class="btn" type="submit">Add listing</button></form></div>'+
    '<div class="sec" style="padding:20px 16px 8px">Listed facilities</div>'+
@@ -1674,7 +1707,7 @@ function vFreg(){
    fld("map","Google Maps link",txt("map",'inputmode="url" placeholder="https://maps.app.goo.gl/..."'),'<span id="fr-map-status" class="status-line">'+esc(mapStatus(r.map))+'</span> Open Google Maps, search your facility, tap Share and paste the link. Or paste coordinates like 12.9352, 77.6245.')+
    fld("hours","Opening hours",txt("hours"),'For example 7:00 AM to 9:00 PM, or Open 24 hours.')+
    (hosp?fld("beds","Number of beds (optional)",txt("beds",'inputmode="numeric" maxlength="5"'))+tg("er",r.er,"Emergency care 24x7")+tg("amb",r.amb,"Ambulance available"):(r.kind==="ambulance"?tg("er",r.er,"Available 24x7"):tg("home",r.home,oth?"Home delivery available":"Home sample collection available")))+
-   '<div class="field" style="margin-bottom:0"><label for="fr-tests">'+(hosp?"Specialities, one per line":oth?"Services, one per line (price optional)":"Tests and prices, one per line")+'</label><textarea id="fr-tests" placeholder="'+(hosp?"Cardiology and cardiac surgery&#10;Neurosurgery":oth?"Prescription medicines&#10;Home delivery":"Complete blood count - 350&#10;Lipid profile - 600")+'">'+esc(r.tests)+'</textarea>'+(e.tests?'<div class="err">'+e.tests+'</div>':'')+'</div></div>'+
+   '<div class="field" style="margin-bottom:0"><label for="fr-tests">'+(hosp?"Specialities, one per line":oth?"Services, one per line (price optional)":"Tests and prices, one per line")+'</label><textarea id="fr-tests" placeholder="'+(hosp?"Cardiology and cardiac surgery&#10;Neurosurgery":oth?"Prescription medicines&#10;Home delivery":"Complete blood count - 350&#10;Lipid profile - 600")+'">'+esc(r.tests)+'</textarea>'+sgBox("fr",r.kind)+(e.tests?'<div class="err">'+e.tests+'</div>':'')+'</div></div>'+
    '<div class="sec">Verification</div><div class="card">'+
    '<div class="hint" style="margin-bottom:12px">A super admin checks these before your listing goes live. Documents are seen by admins only.</div>'+
    fld("licno","Licence or registration number",txt("licno"),'For example your Clinical Establishments Act registration, state health department licence, or NABL or NABH certificate number.')+
@@ -3613,6 +3646,8 @@ app.addEventListener("click",function(ev){
     case "rxphoto":BE.signedUrl("prescriptions",v).then(function(u){state.lb=u;render()},function(e){state.dmsg=e.message;render()});break;
     case "rxstart":(function(){var a=null;appts.forEach(function(x){if(x.id===v)a=x});if(a)rxStart(a)})();break;
     case "rxcancel":cloud.rxf=null;render();break;
+    case "sgadd":sgAdd(v);break;
+    case "sgchip":sgChip(v);break;
     case "rxchip":(function(){var p=v.split("|");rxChip(+p[0],p[1],p.slice(2).join("|"))})();break;
     case "rxadd":if(cloud.rxf&&cloud.rxf.meds.length<15){cloud.rxf.meds.push(rxEmptyMed());render()}break;
     case "rxdel":if(cloud.rxf){cloud.rxf.meds.splice(+v,1);if(!cloud.rxf.meds.length)cloud.rxf.meds.push(rxEmptyMed());render()}break;
