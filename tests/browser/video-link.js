@@ -83,6 +83,7 @@ async function run(role, link, startedAt, dayOff) {
   check("before the slot the doctor's Start button is disabled and says when it opens", (await dbtn.isDisabled()) && /video call opens at/i.test(await txt()));
   await t.b.close();
   t = await run("doctor", null, null, -2); pg = t.pg; await pg.waitForTimeout(800);
+  await pg.locator('[data-a="aflt"][data-v="d:mark"]').click(); await pg.waitForTimeout(300);
   check("more than 24 hours after the slot the doctor has no Start button", (await pg.getByRole("button", { name: "Start video call" }).count()) === 0 && /window for this visit has ended/.test(await txt()));
   await t.b.close();
   t = await run("patient", null, null, 2); pg = t.pg;

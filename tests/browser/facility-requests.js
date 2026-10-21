@@ -16,6 +16,7 @@ async function open(role) {
     let body = {}; try { body = JSON.parse(r.request().postData() || "{}"); } catch (e) {}
     if (p.endsWith("/rpc/create_facility_request")) { st.created = body; st.reqs = [{ id: 5, ref: "FR-1", facility_id: 61, patient_name: body.p_name, patient_phone: body.p_phone, item: body.p_item, preferred_date: body.p_date, note: body.p_note, status: "pending", reason: "", facilities: { name: "Request Lab", kind: "lab" } }]; return j(200, "FR-1"); }
     if (p.endsWith("/rpc/decide_facility_request")) { st.decided = body; st.reqs[0].status = body.p_status; return j(200, null); }
+    if (p.endsWith("/rpc/mark_facility_attendance")) { st.marked = body; const x = st.reqs.find((q) => q.id === body.p_id); if (x) x.attendance = body.p_attended ? "attended" : "no_show"; return j(200, null); }
     if (p.endsWith("/rpc/cancel_facility_request")) { st.cancelled = body; st.reqs[0].status = "cancelled"; return j(200, null); }
     if (p.endsWith("/rpc/my_facility_id")) return j(200, 61);
     if (p.endsWith("/rpc/admin_request_stats")) return j(200, { "61": { total: 4, pending: 1, confirmed: 2, rejected: 1, last30: 4 } });
@@ -65,6 +66,12 @@ async function open(role) {
   check("the owner has no Request appointment button on their own card", (await pg.locator('button[data-a="frqopen"]').count()) === 0);
   await pg.locator('button[data-a="frqyes"]').click(); await pg.waitForTimeout(900);
   check("the owner can confirm", t.st.decided && t.st.decided.p_status === "confirmed" && /Confirmed/.test(await txt()));
+  t.st.reqs = [{ id: 7, ref: "FR-2", facility_id: 61, patient_name: "Old Visit", patient_phone: "9876500002", item: "CBC blood test", preferred_date: new Date(Date.now() + 19800000 - 3 * 86400000).toISOString().slice(0, 10), note: "", status: "confirmed", reason: "", attendance: null, facilities: { name: "Request Lab", kind: "lab" } }];
+  await pg.reload(); await pg.waitForTimeout(1800);
+  check("a past confirmed request is under To mark, not Upcoming", /To mark \(1\)/.test(await txt()) && /Upcoming \(0\)/.test(await txt()));
+  await pg.locator('button.chip[data-a="aflt"][data-v="f:mark"]').click(); await pg.waitForTimeout(300);
+  await pg.locator('[data-a="fattmark"][data-v="7|1"]').click(); await pg.waitForTimeout(900);
+  check("the lab marks the visit attended", t.st.marked && t.st.marked.p_id === 7 && t.st.marked.p_attended === true && /Attended \(1\)/.test(await txt()));
   check("no page errors (facility)", t.errs.length === 0); await t.b.close();
 
   t = await open("admin"); pg = t.pg;

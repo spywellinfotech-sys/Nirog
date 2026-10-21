@@ -36,6 +36,7 @@ async function run(role) {
   let ok = true; const check = (n, c) => { console.log((c ? "PASS " : "FAIL ") + n); if (!c) ok = false; };
   // Doctor
   let t = await run("doctor"), pg = t.pg;
+  await pg.locator('[data-a="aflt"][data-v="d:mark"]').click({ timeout: 8000 }).catch(() => {}); await pg.waitForTimeout(300);
   await pg.getByRole("button", { name: "Write prescription" }).click({ timeout: 8000 });
   check("medicine name has a suggestion list with common medicines", (await pg.locator("#rx-medlist option").count()) > 50 && (await pg.locator('#rx-m-0-name').getAttribute("list")) === "rx-medlist" && (await pg.locator('#rx-medlist option[value="Azithromycin 500 mg tablet"]').count()) === 1);
   await pg.fill("#rx-m-0-name", "Cetirizine 10 mg tablet");
@@ -59,7 +60,7 @@ async function run(role) {
   await pg.getByRole("button", { name: "+ Add medicine" }).click();
   const nm = pg.locator("#rx-m-2-name"); await nm.fill("Paracetamol 500 mg"); await nm.dispatchEvent("change"); await pg.waitForTimeout(300);
   check("a medicine the doctor used before fills the doctor's own dose, pattern and days", (await pg.inputValue("#rx-m-2-dose")) === "1 tablet" && (await pg.inputValue("#rx-m-2-freq")) === "Twice a day" && (await pg.inputValue("#rx-m-2-days")) === "3");
-  await pg.getByRole("button", { name: "Cancel" }).first().click(); await pg.waitForTimeout(300);
+  await pg.getByRole("button", { name: "Cancel", exact: true }).first().click(); await pg.waitForTimeout(300);
   // WhatsApp share, web path: a wa.me message for the patient's number with a text summary
   await pg.evaluate(() => { window.__opened = []; window.open = (u) => { window.__opened.push(u); return null; }; });
   await pg.getByRole("button", { name: "Share on WhatsApp" }).click(); await pg.waitForTimeout(1500);
@@ -76,6 +77,7 @@ async function run(role) {
   t = await run("patient"); t.setStored(stored); pg = t.pg;
   await pg.reload(); await pg.waitForTimeout(1800);
   await pg.locator('[data-a="tab"][data-v="appts"]').first().click().catch(async () => { await pg.getByText(/Appointments/i).first().click(); });
+  await pg.locator('[data-a="aflt"][data-v="p:mark"]').click({ timeout: 8000 }).catch(() => {}); await pg.waitForTimeout(300);
   await pg.getByRole("button", { name: "View prescription" }).click({ timeout: 8000 });
   const txt = await pg.evaluate(() => document.body.innerText);
   check("patient sees diagnosis, medicines and advice", /Viral fever/.test(txt) && /Paracetamol 500 mg/.test(txt) && /ORS/.test(txt) && /Rest and fluids/.test(txt));

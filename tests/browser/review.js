@@ -28,7 +28,7 @@ const www = path.resolve(__dirname, "../../app/src/main/assets/www/index.html");
   const errs = []; pg.on("pageerror", (e) => errs.push(String(e)));
   await pg.goto("file://" + www); await pg.waitForTimeout(1500);
   await pg.locator('[data-a="tab"][data-v="appts"]').first().click().catch(async () => { await pg.getByText(/Appointments/i).first().click(); });
-  await pg.getByText("Past visits").waitFor({ timeout: 8000 });
+  await pg.locator('[data-a="aflt"][data-v="p:mark"]').click({ timeout: 8000 }); await pg.waitForTimeout(300);
   await pg.getByRole("button", { name: "Rate this visit" }).click();
   await pg.getByRole("button", { name: "4 ★" }).click();
   await pg.fill("#rv-comment", "Great");

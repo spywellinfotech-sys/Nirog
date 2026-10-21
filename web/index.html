@@ -1347,16 +1347,62 @@ function callWin(a,doc){
   return {s:"open",from:from};
 }
 function callWhen(a){var m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],p=a.dateKey.split("-");return t12(a.time)+" on "+(+p[2])+" "+m[+p[1]-1]}
+/* Appointment lists: Upcoming, To mark / Past, Attended, Not attended, Cancelled. The doctor or facility marks a finished visit. */
+function aBucket(a){
+  if(a.status==="pending")return "up";
+  if(a.status!=="upcoming")return "cx";
+  if(a.att==="attended")return "att";
+  if(a.att==="no_show")return "no";
+  var st=callSlotMs(a),now=Date.now();
+  if(a.mode==="video"&&now<=st+86400000)return "up"; /* the call stays open for 24 hours */
+  return st<=now?"mark":"up";
+}
+function fBucket(x){
+  if(x.status==="pending")return "up";
+  if(x.status!=="confirmed")return "cx";
+  if(x.attendance==="attended")return "att";
+  if(x.attendance==="no_show")return "no";
+  return x.preferred_date<dkey(new Date())?"mark":"up";
+}
+function aTabs(who,cur,cnt,markLbl){
+  var T=[["up","Upcoming"],["mark",markLbl],["att","Attended"],["no","Not attended"],["cx","Cancelled"]];
+  return '<div class="chips" role="group" aria-label="Filter appointments">'+T.map(function(t){return '<button class="chip" data-a="aflt" data-v="'+who+':'+t[0]+'" aria-pressed="'+(cur===t[0])+'">'+t[1]+' ('+(cnt[t[0]]||0)+')</button>'}).join("")+'</div>';
+}
+function bCount(list,fn){var c={};list.forEach(function(x){var b=fn(x);c[b]=(c[b]||0)+1});return c}
+function aPill(a,pend){
+  var b=aBucket(a);
+  return pend?'<span class="pill warn">Needs your approval</span>':b==="att"?'<span class="pill">Attended</span>':b==="no"?'<span class="pill bad">Not attended</span>':b==="cx"?'<span class="pill bad">'+(a.status==="rejected"?"Rejected":"Cancelled")+'</span>':b==="mark"?'<span class="pill warn">Visit time passed</span>':'<span class="pill">Confirmed</span>';
+}
+function attBtns(id,b,act){
+  if(b!=="mark"&&b!=="att"&&b!=="no")return '';
+  var q=function(y,l,cls){return '<button class="btn sm'+cls+'" data-a="'+act+'" data-v="'+id+'|'+y+'">'+l+'</button>'};
+  return '<div class="acts">'+(b==="mark"?'<div class="tiny" style="flex-basis:100%">Did the patient come?</div>'+q(1,"Attended","")+q(0,"Not attended"," ghost"):b==="att"?q(0,"Change to not attended"," ghost"):q(1,"Change to attended"," ghost"))+'</div>';
+}
+function markAtt(id,yes){
+  var a=null;appts.forEach(function(x){if(x.id===id)a=x});if(!a)return;
+  if(a.cloud){if(cloud.busy)return;cloud.busy=true;state.dmsg="";BE.markAttendance(id,yes).then(function(){cloud.busy=false;cloudSync(true)},function(e){cloud.busy=false;state.dmsg=e.message;cloudSync(true)});return}
+  a.att=yes?"attended":"no_show";save();render();
+}
+function markFacAtt(id,yes){
+  if(cloud.busy)return;cloud.busy=true;cloud.frqErr="";
+  BE.markFacAttendance(+id,yes).then(function(){cloud.busy=false;frqRefresh(true)},function(e){cloud.busy=false;cloud.frqErr=e.message;render()});
+}
+function waCallHref(a){
+  var t="Hello "+a.name+", this is your doctor from Yada+. The app video call did not connect, so I am calling you on WhatsApp for your appointment "+a.ref+".";
+  return "https://wa.me/"+waNum(a.phone)+"?text="+encodeURIComponent(t);
+}
 function callBox(a,doc){
   if(a.mode!=="video"||a.status!=="upcoming")return '';
   var w=callWin(a,doc);
   if(w.s==="early")return '<button class="btn" disabled style="opacity:.55">'+(doc?'Start video call':'Join video call')+'</button><div class="hint">The video call opens at '+callWhen(a)+(doc?'.':' (you can join 10 minutes early).')+'</div>';
   if(w.s==="closed")return '<div class="hint">The video call window for this visit has ended (it stays open for 24 hours after the slot time).</div>';
   return '<button class="btn" data-a="callin" data-v="'+a.id+'">'+(doc?'Start video call':'Join video call')+'</button>'+
-   '<div class="hint">'+(doc?'The patient joins from My appointments. The call stays open for 24 hours after the slot time.':'The doctor joins from the same booking.')+'</div>';
+   '<div class="hint">'+(doc?'The patient joins from My appointments. The call stays open for 24 hours after the slot time.':'The doctor joins from the same booking.')+'</div>'+
+   (doc?'<a class="btn ghost" href="'+waCallHref(a)+'" target="_blank" rel="noopener" style="margin-top:8px;text-align:center;display:block">Call did not connect? Video call on WhatsApp</a><div class="hint">This opens a WhatsApp chat with the patient ('+esc(a.phone)+'). Tap the video icon there to call.</div>'
+    :'<div class="hint">If the call does not connect, the doctor may call you on WhatsApp on '+esc(a.phone)+'. Keep WhatsApp on that number.</div>');
 }
 function dApptCard(a,pend){
-  var d=docOrGone(a.docId),h='<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">'+(a.mode==="video"?"Video consult":"In-clinic visit")+'</div></div><span class="pill'+(pend?' warn':'')+'">'+(pend?"Needs your approval":"Confirmed")+'</span></div>'+
+  var d=docOrGone(a.docId),h='<div class="appt"><div class="who"><div><div class="doc-name">'+esc(a.name)+'</div><div class="tiny">'+(a.mode==="video"?"Video consult":"In-clinic visit")+'</div></div>'+aPill(a,pend)+'</div>'+
    '<div class="when tnum">'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+(a.retimed?' · time set by you':'')+'</div>'+
    '<div class="tiny tnum">Mobile <span class="sel">'+esc(a.phone)+'</span>'+who(a)+' · Ref '+esc(a.ref)+(a.reason?' · '+esc(a.reason):'')+'</div>';
   if(pend){
@@ -1366,17 +1412,22 @@ function dApptCard(a,pend){
     if(state.rask===a.id)h+='<div class="confirm"><div class="field"><label for="rr-'+a.id+'">Reason for the patient (optional)</label><input id="rr-'+a.id+'" maxlength="140" value="'+esc(state.rrs[a.id]||"")+'" placeholder="e.g. Not available that day"></div><div class="acts"><button class="btn sm danger" data-a="rejgo" data-v="'+a.id+'">Reject request</button><button class="btn sm ghost" data-a="rejno">Back</button></div></div>';
     else h+='<div class="acts"><button class="btn sm" data-a="approve" data-v="'+a.id+'">Approve</button><button class="btn sm ghost" data-a="rejask" data-v="'+a.id+'" style="color:var(--bad)">Reject</button></div>';
   }
-  else h+=(a.mode==="video"?callBox(a,true):'')+rxDocBox(a);
+  else h+=attBtns(a.id,aBucket(a),"attmark")+(a.mode==="video"?callBox(a,true):'')+rxDocBox(a);
   return h+'</div>';
 }
 function docAppts(d){
-  var srt=function(a,b){return (a.dateKey+a.time)<(b.dateKey+b.time)?-1:1};
-  var pend=appts.filter(function(a){return a.docId===d.id&&a.status==="pending"}).sort(srt),
-      conf=appts.filter(function(a){return a.docId===d.id&&a.status==="upcoming"}).sort(srt);
+  var mine=appts.filter(function(a){return a.docId===d.id}),cnt=bCount(mine,aBucket),cur=state.aflt||"up";
   var dm=state.dmsg?'<div class="err" role="alert" style="margin:0 16px 10px">'+esc(state.dmsg)+'</div>':'';
-  if(!pend.length&&!conf.length)return dm+'<div class="empty">No bookings yet. New requests appear here for you to approve or reject.</div>';
-  return dm+'<div class="list" style="padding-top:0">'+(pend.length?'<div class="sec">Waiting for your approval ('+pend.length+')</div>'+pend.map(function(a){return dApptCard(a,true)}).join(""):'')+
-   (conf.length?'<div class="sec">Confirmed</div>'+conf.map(function(a){return dApptCard(a,false)}).join(""):'')+'</div>';
+  var asc=function(a,b){return (a.dateKey+a.time)<(b.dateKey+b.time)?-1:1},desc=function(a,b){return asc(b,a)};
+  var list=mine.filter(function(a){return aBucket(a)===cur}).sort(cur==="up"?asc:desc),h=dm+aTabs("d",cur,cnt,"To mark");
+  if(!mine.length)return h+'<div class="empty">No bookings yet. New requests appear here for you to approve or reject.</div>';
+  if(!list.length)return h+'<div class="empty">'+({up:"No upcoming appointments.",mark:"Nothing waiting to be marked.",att:"No attended visits yet.",no:"No missed visits.",cx:"No cancelled or rejected bookings."})[cur]+'</div>';
+  if(cur==="up"){
+    var pend=list.filter(function(a){return a.status==="pending"}),conf=list.filter(function(a){return a.status!=="pending"});
+    return h+'<div class="list" style="padding-top:0">'+(pend.length?'<div class="sec">Waiting for your approval ('+pend.length+')</div>'+pend.map(function(a){return dApptCard(a,true)}).join(""):'')+
+     (conf.length?'<div class="sec">Confirmed</div>'+conf.map(function(a){return dApptCard(a,false)}).join(""):'')+'</div>';
+  }
+  return h+'<div class="list" style="padding-top:0">'+list.map(function(a){return dApptCard(a,false)}).join("")+'</div>';
 }
 function docSched(d){
   if(state.schedFor!==d.id||!state.sched){state.sched=modelFromDoc(d);state.schedFor=d.id}
@@ -2417,7 +2468,7 @@ function rxSave(){
   }
 }
 function apptCard(a){
-  var d=docOrGone(a.docId),conf=a.status==="upcoming",up=conf||a.status==="pending";
+  var d=docOrGone(a.docId),conf=a.status==="upcoming",up=aBucket(a)==="up";
   var acts="";
   if(up){
     if(state.ask===a.id){
@@ -2427,26 +2478,24 @@ function apptCard(a){
     }
   }
   return '<div class="appt"'+(up?'':' style="opacity:.7"')+'><div class="appt-head">'+avatar(d)+'<div style="min-width:0;flex:1"><div class="doc-name">'+esc(d.name)+'</div><div class="doc-sub">'+esc(d.spec)+'</div></div>'+
-   (conf?'<span class="pill">Confirmed</span>':a.status==="pending"?'<span class="pill warn">Waiting for doctor</span>':'<span class="pill bad">'+(a.status==="rejected"?"Rejected":"Cancelled")+'</span>')+'</div>'+
+   (a.status==="pending"?'<span class="pill warn">Waiting for doctor</span>':conf&&aBucket(a)==="mark"?'<span class="pill">Visit time passed</span>':aPill(a,false))+'</div>'+
    '<div class="when tnum">'+ic.cal.replace('width="22" height="22"','width="18" height="18"')+'<span>'+rel(a.dateKey)+' · '+longDate(a.dateKey)+', '+t12(a.time)+'</span></div>'+
    '<div class="doc-sub">'+(a.mode==="video"?'Video consult':esc(d.clinic)+', '+esc(d.city))+' · For '+esc(a.name)+(a.reason?' · '+esc(a.reason):'')+'</div>'+
    (a.status==="rejected"?'<div class="doc-sub" style="color:var(--bad)">The doctor could not accept this request'+(a.rreason?': '+esc(a.rreason):'.')+' Please book another time.</div>':'')+
    callBox(a)+(a.mode==="clinic"&&conf?'<div class="tiny">Location: '+esc(d.address||d.clinic||"")+(d.city?', '+esc(d.city):'')+'</div><div class="acts" style="margin:6px 0">'+mapLink(siteOpen(d),"Open in Google Maps","btn sm")+mapLink(siteDir(d),"Directions","btn sm ghost")+'</div>':'')+
-   '<div class="row"><span class="hint tnum">Ref '+esc(a.ref)+' · '+money(a.fee!=null?a.fee:visitFee(d,a.mode))+(a.pf?' + '+money(a.pf)+' platform fee':'')+'</span>'+(a.sample?'<span class="pill warn">Example</span>':'')+'</div>'+acts+(CLOUD&&conf&&a.cloud?rxView(a):'')+(CLOUD&&conf&&a.cloud&&visitPast(a)?reviewBox(a):'')+'</div>';
+   '<div class="row"><span class="hint tnum">Ref '+esc(a.ref)+' · '+money(a.fee!=null?a.fee:visitFee(d,a.mode))+(a.pf?' + '+money(a.pf)+' platform fee':'')+'</span>'+(a.sample?'<span class="pill warn">Example</span>':'')+'</div>'+acts+(CLOUD&&conf&&a.cloud?rxView(a):'')+(CLOUD&&conf&&a.cloud&&visitPast(a)&&a.att!=="no_show"?reviewBox(a):'')+'</div>';
 }
 /* The map link is only for patients whose clinic visit with this doctor is confirmed. */
 function hasConfirmedVisit(docId){return myAppts().some(function(a){return a.docId===docId&&a.mode==="clinic"&&a.status==="upcoming"})}
 function vAppts(){
-  var mineA=myAppts();
-  var upAll=mineA.filter(function(a){return a.status==="upcoming"||a.status==="pending"}).sort(function(x,y){return (x.dateKey+x.time)<(y.dateKey+y.time)?-1:1});
-  var done=CLOUD?upAll.filter(function(a){return a.status==="upcoming"&&a.cloud&&visitPast(a)}):[];
-  var up=CLOUD?upAll.filter(function(a){return done.indexOf(a)<0}):upAll;
-  var cx=mineA.filter(function(a){return a.status==="cancelled"||a.status==="rejected"});
+  var mineA=myAppts(),fl=CLOUD&&!state.staff?(cloud.frqList||[]):[],cur=state.pflt||"up";
+  var cnt=bCount(mineA,aBucket),fc=bCount(fl,fBucket);["up","mark","att","no","cx"].forEach(function(k){cnt[k]=(cnt[k]||0)+(fc[k]||0)});
+  var asc=function(x,y){return (x.dateKey+x.time)<(y.dateKey+y.time)?-1:1},list=mineA.filter(function(a){return aBucket(a)===cur}).sort(cur==="up"?asc:function(x,y){return asc(y,x)});
+  var emp={up:"No upcoming appointments. Book a doctor from the first tab and it will show up here.",mark:"No past visits waiting for the doctor to mark.",att:"No attended visits yet.",no:"No missed visits.",cx:"No cancelled or rejected appointments."};
   return '<div class="top"><div class="brand">'+LOGO+'<small>My appointments</small></div>'+profBtn()+'</div>'+
    (state.dmsg?'<div class="err" role="alert" style="margin:0 16px 10px">'+esc(state.dmsg)+'</div>':'')+'<div class="title-block"><h1>Your appointments</h1>'+(state.pat?'<div class="tiny" style="margin-top:8px">'+patLine()+'</div>':'')+'</div>'+
-   (up.length?up.map(apptCard).join(""):'<div class="empty">No upcoming appointments. Book a doctor from the first tab and it will show up here.</div>')+
-   (done.length?'<div class="sec">Past visits</div>'+done.map(apptCard).join(""):'')+
-   (cx.length?'<div class="sec">Cancelled or rejected</div>'+cx.map(apptCard).join(""):'')+frqMine()+
+   aTabs("p",cur,cnt,"Past")+
+   (list.length?list.map(apptCard).join(""):(frqMineList(cur).length?'':'<div class="empty">'+emp[cur]+'</div>'))+frqMine()+
    '<div style="height:16px"></div>';
 }
 
@@ -2580,7 +2629,7 @@ function cloudRestore(){
   if(!BE.signedIn())return Promise.resolve();
   return BE.me().then(function(pf){if(!pf)throw new Error("x");return cloudWho(pf,"")}).then(function(m){if(!m){cloudSync(true)}}).catch(function(e){if(e&&e.status!==0)BE.signOut()}).then(function(){render()});
 }
-function cloudSig(){return JSON.stringify(appts.map(function(a){return [a.id,a.status,a.time,a.dateKey]}))+"|"+Object.keys(cloud.rx||{}).length+"|"+Object.keys(cloud.myrev||{}).length+"|"+NOTIF.length+"|"+NOTIF.filter(function(n){return !n.read}).length}
+function cloudSig(){return JSON.stringify(appts.map(function(a){return [a.id,a.status,a.time,a.dateKey,a.att||""]}))+"|"+Object.keys(cloud.rx||{}).length+"|"+Object.keys(cloud.myrev||{}).length+"|"+NOTIF.length+"|"+NOTIF.filter(function(n){return !n.read}).length}
 /* ---------- broadcast notifications: the super admin sends a title, message, photo and short video; users see a popup once ---------- */
 var BCAUD=[["all","Everyone (patients, doctors, facilities)"],["patients","Patients"],["doctors","Doctors"],["facilities","Labs, hospitals and other facilities"]];
 function bcAudName(a){var n="";BCAUD.forEach(function(x){if(x[0]===a)n=x[1]});return n||a}
@@ -3086,29 +3135,31 @@ function frqRefresh(force){
   if(!CLOUD||!BE.signedIn()||cloud.frqBusy)return;
   var u=state.staff&&getUser(state.staff);if(u&&u.role==="admin")return;
   cloud.frqBusy=true;
-  BE.myFacRequests().then(function(l){cloud.frqBusy=false;var sig=JSON.stringify((l||[]).map(function(x){return x.id+x.status}));var ch=force||cloud.frqSig!==sig;cloud.frqSig=sig;cloud.frqList=l||[];if(ch)render()},function(){cloud.frqBusy=false;if(cloud.frqList===undefined)cloud.frqList=[]});
+  BE.myFacRequests().then(function(l){cloud.frqBusy=false;var sig=JSON.stringify((l||[]).map(function(x){return x.id+x.status+(x.attendance||"")}));var ch=force||cloud.frqSig!==sig;cloud.frqSig=sig;cloud.frqList=l||[];if(ch)render()},function(){cloud.frqBusy=false;if(cloud.frqList===undefined)cloud.frqList=[]});
 }
 var FRQST={pending:"Waiting for reply",confirmed:"Confirmed",rejected:"Declined",cancelled:"Cancelled"};
 function frqRow(x,mine){
-  var fn=x.facilities&&x.facilities.name?x.facilities.name:"Facility",pc=x.status==="confirmed"?"pill":x.status==="pending"?"pill warn":"pill bad";
-  return '<div class="appt"><div class="who"><div style="min-width:0"><div class="doc-name">'+esc(mine?fn:x.patient_name)+'</div><div class="tiny">'+esc(x.item)+' · '+esc(x.preferred_date)+' · '+esc(x.ref)+'</div></div><span class="'+pc+'">'+esc(FRQST[x.status]||x.status)+'</span></div>'+
+  var fn=x.facilities&&x.facilities.name?x.facilities.name:"Facility",b=fBucket(x),pc=b==="att"||(x.status==="confirmed"&&b!=="no"&&b!=="mark")?"pill":x.status==="pending"||b==="mark"?"pill warn":"pill bad";
+  return '<div class="appt"><div class="who"><div style="min-width:0"><div class="doc-name">'+esc(mine?fn:x.patient_name)+'</div><div class="tiny">'+esc(x.item)+' · '+esc(x.preferred_date)+' · '+esc(x.ref)+'</div></div><span class="'+pc+'">'+esc(b==="att"?"Attended":b==="no"?"Not attended":b==="mark"?(mine?"Visit date passed":"Visit date passed"):(FRQST[x.status]||x.status))+'</span></div>'+
    (mine?'':'<div class="tiny tnum">Mobile <span class="sel">'+esc(x.patient_phone)+'</span></div>')+
    (x.item_price!=null?'<div class="tiny tnum">Price listed '+money(x.item_price)+(x.platform_fee>0?' · Platform fee '+money(x.platform_fee):'')+'</div>':'')+
    (x.note?'<div class="tiny">Note: '+esc(x.note)+'</div>':'')+(x.reason?'<div class="tiny">Reason: '+esc(x.reason)+'</div>':'')+
-   (mine&&(x.status==="pending"||x.status==="confirmed")?'<div class="acts"><button class="btn sm ghost" data-a="frqcancel" data-v="'+x.id+'" style="color:var(--bad)">Cancel request</button></div>':'')+
-   (!mine&&x.status==="pending"?'<div class="acts"><button class="btn sm" data-a="frqyes" data-v="'+x.id+'">Confirm</button><button class="btn sm ghost" data-a="frqno" data-v="'+x.id+'" style="color:var(--bad)">Decline</button></div>':'')+'</div>';
+   (mine&&b==="up"?'<div class="acts"><button class="btn sm ghost" data-a="frqcancel" data-v="'+x.id+'" style="color:var(--bad)">Cancel request</button></div>':'')+
+   (!mine?attBtns(x.id,x.status==="confirmed"&&b==="up"&&x.preferred_date<=dkey(new Date())?"mark":b,"fattmark"):'')+(!mine&&x.status==="pending"?'<div class="acts"><button class="btn sm" data-a="frqyes" data-v="'+x.id+'">Confirm</button><button class="btn sm ghost" data-a="frqno" data-v="'+x.id+'" style="color:var(--bad)">Decline</button></div>':'')+'</div>';
 }
+function frqMineList(cur){return (CLOUD&&!state.staff?(cloud.frqList||[]):[]).filter(function(x){return fBucket(x)===cur})}
 function frqMine(){
   if(!CLOUD||state.staff)return '';
   if(cloud.frqList===undefined)frqRefresh();
-  var l=cloud.frqList||[];
+  var l=frqMineList(state.pflt||"up");
   return (cloud.frqMsg?'<div class="hint" style="margin:0 16px 10px">'+esc(cloud.frqMsg)+'</div>':'')+(l.length?'<div class="sec">Lab, centre and hospital requests</div>'+l.map(function(x){return frqRow(x,true)}).join(""):'');
 }
 function frqInbox(){
   if(!CLOUD)return '';
   if(cloud.frqList===undefined)frqRefresh();
-  var l=cloud.frqList||[];
-  return '<div class="sec" style="padding:16px 16px 8px">Appointment requests</div>'+(cloud.frqErr?'<div class="err" role="alert" style="margin:0 16px 8px">'+esc(cloud.frqErr)+'</div>':'')+(l.length?'<div style="padding:0 16px">'+l.map(function(x){return frqRow(x,false)}).join("")+'</div>':'<div class="empty">No requests yet. Patients can send one from your listing.</div>');
+  var all=cloud.frqList||[],cur=state.fflt||"up",cnt=bCount(all,fBucket),l=all.filter(function(x){return fBucket(x)===cur});
+  if(cur!=="up")l=l.slice().sort(function(a,b){return a.preferred_date<b.preferred_date?1:-1});
+  return '<div class="sec" style="padding:16px 16px 0">Appointment requests</div>'+aTabs("f",cur,cnt,"To mark")+(cloud.frqErr?'<div class="err" role="alert" style="margin:0 16px 8px">'+esc(cloud.frqErr)+'</div>':'')+(l.length?'<div style="padding:0 16px">'+l.map(function(x){return frqRow(x,false)}).join("")+'</div>':'<div class="empty">'+(all.length?"Nothing in this list.":"No requests yet. Patients can send one from your listing.")+'</div>');
 }
 function frqDecide(id,st){
   if(cloud.busy)return;cloud.busy=true;cloud.frqErr="";
@@ -3688,6 +3739,9 @@ app.addEventListener("click",function(ev){
     case "capprove":cloudReview(+v,"approve");break;
     case "creject":cloudReview(+v,"reject");break;
     case "nclose":state.notif=false;render(true);break;
+    case "aflt":(function(){var p=v.split(":");state[p[0]==="d"?"aflt":p[0]==="p"?"pflt":"fflt"]=p[1];render()})();break;
+    case "attmark":(function(){var p=v.split("|");markAtt(p[0],p[1]==="1");render()})();break;
+    case "fattmark":(function(){var p=v.split("|");markFacAtt(p[0],p[1]==="1")})();break;
     case "approve":approveAppt(v);render();break;
     case "rejask":state.rask=v;render();break;
     case "rejno":state.rask=null;render();break;
