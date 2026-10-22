@@ -3465,7 +3465,20 @@ function pmAdmin(){
    chips([["today","To contact today"],["new","New"],["interested","Interested"],["enrolled","Enrolled"],["not_interested","Not interested"],["all","All"]],st.stat,"pmstat")+
    chips([["all","All types"]].concat(PM_KINDS),st.kind,"pmkind")+
    (cities.length?'<div class="field" style="margin-top:8px"><label for="pm-city">City</label><select id="pm-city"><option value="">All cities</option>'+cities.map(function(c){return '<option'+(st.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>':'')+'</div>'+
+   (all.length?'<div class="acts" style="padding:8px 16px 0"><button class="btn sm ghost" data-a="pmcsv">Download CSV ('+list.length+')</button><button class="btn sm ghost" data-a="pmcopy">Copy list</button></div><div class="tiny" style="padding:4px 16px 0">Exports the contacts shown under the filters above. Keep this file private.</div>':'')+
    (cloud.pmRows===undefined?'<div class="empty">Loading...</div>':list.length?'<div style="padding:0 16px">'+list.slice(0,st.lim).map(pmRow).join("")+(list.length>st.lim?'<div class="acts"><button class="btn sm ghost" data-a="pmmore">Show more ('+(list.length-st.lim)+' left)</button></div>':'')+'</div>':'<div class="empty">'+(all.length?'Nobody in this list.':'No contacts yet. Add some above.')+'</div>');
+}
+function pmCsv(list){
+  var q=function(v){v=String(v==null?"":v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  return ["Type,Name,Mobile,Email,City,Speciality,Status,Last contacted,Times contacted"].concat(list.map(function(p){return [pmKind(p.kind),p.name,p.phone||"",p.email||"",p.city,p.spec,p.status,p.last_messaged_at?p.last_messaged_at.slice(0,10):"",p.msg_count||0].map(q).join(",")})).join("\r\n");
+}
+function pmExport(copy){
+  var st=pmSt(),list=(cloud.pmRows||[]).filter(function(p){return pmMatch(p,st)});
+  if(!list.length){st.res="Nothing to export in this list.";render();return}
+  var csv=pmCsv(list);
+  if(copy){try{navigator.clipboard.writeText(csv).then(function(){st.res=list.length+" contacts copied. Paste them into Excel or Google Sheets.";render()},function(){st.res="Could not copy. Use Download instead.";render()})}catch(e){st.res="Could not copy. Use Download instead.";render()}return}
+  try{var a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="yada-promotion-contacts.csv";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1500);st.res=list.length+" contacts downloaded as CSV."}catch(e){st.res="Download did not start. Use Copy list instead."}
+  render();
 }
 function pmFind(id){var r=null;(cloud.pmRows||[]).forEach(function(p){if(String(p.id)===String(id))r=p});return r}
 function pmDone(id,p){
@@ -3767,6 +3780,8 @@ app.addEventListener("click",function(ev){
     case "pmkind":pmSt().kind=v;pmSt().lim=40;render();break;
     case "pmmore":pmSt().lim+=40;render();break;
     case "pmimp":pmImport();break;
+    case "pmcsv":pmExport(false);break;
+    case "pmcopy":pmExport(true);break;
     case "pmreset":(function(){var st=pmSt();st.tmpl=PM_DEFTMPL;try{localStorage.removeItem(PM_KEY)}catch(e){}render()})();break;
     case "pmst":(function(){var q=v.split("|"),p=pmFind(q[0]);if(!p)return;BE.setProspect(+q[0],q[1]).then(function(){p.status=q[1];render()},function(e){cloud.adminErr=e.message;render()})})();break;
     case "pmdel":(function(){var p=pmFind(v);if(!p||!confirm("Remove "+p.name+" from the list?"))return;BE.delProspect(+v).then(function(){cloud.pmRows=cloud.pmRows.filter(function(x){return x!==p});render()},function(e){cloud.adminErr=e.message;render()})})();break;

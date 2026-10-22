@@ -52,6 +52,12 @@ async function open(role) {
   await pg.locator('button[data-a="pmstat"][data-v="all"]').click(); await pg.waitForTimeout(300);
   await pg.locator('[data-a="pmst"]', { hasText: "Interested" }).first().click(); await pg.waitForTimeout(600);
   check("status can be changed", t.st.setp && t.st.setp.p_status === "interested");
+  await pg.locator('button[data-a="pmstat"][data-v="all"]').click(); await pg.waitForTimeout(300);
+  const dl = pg.waitForEvent("download", { timeout: 5000 }).catch(() => null);
+  await pg.getByRole("button", { name: /Download CSV/ }).click();
+  const d = await dl; let csv = "";
+  if (d) { const fs = require("fs"); csv = fs.readFileSync(await d.path(), "utf8"); }
+  check("the list downloads as CSV with a header and the contacts", !!d && d.suggestedFilename() === "yada-promotion-contacts.csv" && /^\ufeffType,Name,Mobile,Email,City,Speciality,Status/.test(csv) && /Dr Asha Rao,9876543210,asha@mail.com,Pune,Dentist/.test(csv));
   check("no page errors", t.errs.length === 0); await t.b.close();
   console.log(ok ? "ALL PASSED" : "SOME FAILED"); process.exit(ok ? 0 : 1);
 })();
