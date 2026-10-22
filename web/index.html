@@ -134,7 +134,7 @@ h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;letter-spaci
 .btn.ghost{background:transparent;color:var(--brand);border:1px solid var(--line)}
 .btn.sm{width:auto;padding:9px 14px;font-size:14px;border-radius:10px}
 .btn.danger{background:var(--bad);color:var(--surface)}
-.fab{position:fixed;right:14px;bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:40;display:flex;align-items:center;gap:8px;border:0;border-radius:999px;background:#C62828;color:#fff;font-weight:700;font-size:14px;padding:12px 16px;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.fab{position:fixed;right:14px;bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:40;display:flex;align-items:center;gap:8px;border:0;border-radius:999px;background:#C62828;color:#fff;font-weight:700;font-size:14px;padding:12px 16px;box-shadow:0 4px 14px rgba(0,0,0,.3)}
 .fab svg{flex:none}
 .natamb{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
 .natamb:first-of-type{border-top:0}
@@ -143,6 +143,31 @@ h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;letter-spaci
 .nav{display:grid;grid-template-columns:repeat(3,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
 .nav button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;font-size:12px;font-weight:600;color:var(--muted);position:relative}
 .nav button[aria-current="page"]{color:var(--brand)}
+/* patient home (card layout, speciality grid, floating nav) */
+.hcards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 16px 0}
+.hcard{border:1px solid var(--line);background:var(--soft);border-radius:16px;padding:14px 12px;text-align:left;display:flex;flex-direction:column;gap:6px;min-height:92px;color:var(--ink);font-weight:700;font-size:15px}
+.hcard small{font-weight:500;color:var(--muted);font-size:12px}
+.hcard[aria-pressed="true"]{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand) inset}
+.hcard svg{color:var(--brand)}
+.qrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 16px 0}
+.qrow button{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:10px 2px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink)}
+.qrow svg{color:var(--brand)}
+.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 6px;padding:0 16px}
+.sgrid button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;line-height:1.2;color:var(--ink);font-weight:600;padding:0}
+.sgrid .sc{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;font-size:26px;background:var(--soft);border:2px solid transparent}
+.sgrid button[aria-pressed="true"] .sc{border-color:var(--brand)}
+.sech{display:flex;justify-content:space-between;align-items:center;padding:18px 16px 10px}
+.sech h2{font-size:17px;margin:0}
+.sech button{border:0;background:transparent;color:var(--brand);font-weight:700;font-size:13px}
+.nav.stick{position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));margin:0;border:1px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:0 6px 24px rgba(0,0,0,.18);z-index:45;padding:4px 6px!important}
+.nav{grid-template-columns:repeat(4,1fr)}
+.nav button[aria-current="page"]{background:var(--brand);color:var(--brand-ink);border-radius:16px}
+body{padding-bottom:0}
+.navgap{height:92px}
+.menu{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin:0 16px 12px;overflow:hidden}
+.menu button{width:100%;display:flex;align-items:center;gap:12px;border:0;border-bottom:1px solid var(--line);background:transparent;padding:14px;font-size:15px;font-weight:600;color:var(--ink);text-align:left}
+.menu button:last-child{border-bottom:0}
+.menu svg{color:var(--brand);flex:none}.menu span{flex:1}.menu i{font-style:normal;color:var(--muted)}
 .badge{position:absolute;top:2px;left:calc(50% + 8px);background:var(--accent);color:var(--surface);border-radius:999px;font-size:11px;min-width:18px;height:18px;display:grid;place-items:center;padding:0 5px}
 
 /* form */
@@ -634,7 +659,7 @@ if(!appts){
   while(!k){var c=dkey(addDays(new Date(),i));if(works(d1,c))k=c;i++}
   appts=[{id:"s1",ref:"NR-4K7Q2",docId:1,dateKey:k,time:"10:00",mode:"clinic",name:"Example patient",phone:"9876543210",reason:"Seasonal fever and cough",status:"upcoming",sample:true}];
 }
-var state={tab:"find",view:"list",city:loadCity(),spec:"All",q:"",docId:null,dateKey:null,time:null,mode:"clinic",resched:null,form:{name:"",phone:"",reason:"",age:"",sex:"",weight:""},errors:{},last:null,ask:null,
+var state={tab:"find",view:"list",vonly:false,specAll:false,city:loadCity(),spec:"All",q:"",docId:null,dateKey:null,time:null,mode:"clinic",resched:null,form:{name:"",phone:"",reason:"",age:"",sex:"",weight:""},errors:{},last:null,ask:null,
   reg:null,regDone:null,sched:null,schedFor:null,sdate:null,offDate:"",
   staff:null,stab:"ov",lf:"all",showTable:false,addLead:false,
   login:{email:"",pass:"",err:""},
@@ -1940,13 +1965,18 @@ function openProfile(){
   if(!state.pat){openOtp("patient",null);return}
   var pr=getProf(state.pat.phone)||{};
   state.prof={name:state.pat.name,age:pr.age!=null?String(pr.age):"",sex:pr.sex||"",photo:pr.photo||"",err:"",ok:"",errs:{}};
-  state.view="profile";render(true);
+  state.tab="find";state.view="profile";render(true);
 }
 function vProfile(){
   var r=state.prof,e=r.errs||{};
   function fld(k,label,input,hint){return '<div class="field"><label for="pr-'+k+'">'+label+'</label>'+input+(e[k]?'<div class="err">'+e[k]+'</div>':(hint?'<div class="hint">'+hint+'</div>':''))+'</div>'}
   return '<div class="bar"><button class="back" data-a="pback">'+ic.back+'Back</button></div>'+
    '<div class="title-block" style="padding-top:2px"><h1>My profile</h1><p>Your details are filled in when you book. Doctors you book see your name, age and sex, not your photo.</p></div>'+
+   '<div class="sech" style="padding-top:4px"><h2>My history</h2></div><div class="menu">'+
+    '<button type="button" data-a="tab" data-v="appts"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Appointments</span><i>›</i></button>'+
+    '<button type="button" data-a="tab" data-v="labs"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 002 3h10a2 2 0 002-3l-5-9V3"/></svg><span>Tests and facility requests</span><i>›</i></button>'+
+    (CLOUD&&BE.signedIn()?'<button type="button" data-a="ref"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M12 8c-2-4-6-3-5 0M12 8c2-4 6-3 5 0"/></svg><span>Refer and earn</span><i>›</i></button>':'')+
+    '<button type="button" data-a="help"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="2" y="14" width="4" height="6" rx="2"/><rect x="18" y="14" width="4" height="6" rx="2"/></svg><span>Help and support</span><i>›</i></button></div>'+
    '<form id="profForm" novalidate><div class="card">'+
    '<div class="upl"><b>Profile photo</b><div class="thumbs"><div class="thumb" style="width:96px;height:96px;border-radius:50%">'+(r.photo?'<img src="'+esc(r.photo)+'" alt="Your profile photo">':'<span style="font-family:var(--font-display);font-weight:700;font-size:30px;color:var(--brand)">'+esc(initials(r.name||"?"))+'</span>')+'</div></div>'+
    '<div class="acts"><label class="pick">'+(r.photo?'Change photo':'Add photo')+'<input type="file" id="pu-photo" accept="image/*"></label>'+(r.photo?'<button type="button" class="btn sm ghost" data-a="pphotorm">Remove</button>':'')+'</div>'+(e.photo?'<div class="err">'+e.photo+'</div>':'')+'</div>'+
@@ -2092,21 +2122,34 @@ function docCard(d){
 function docListHtml(){
   var q=state.q.trim().toLowerCase();
   var list=DOCS.filter(function(d){
-    return d.status!=="pending"&&d.status!=="rejected"&&(state.city===ALL_CITIES||d.city===state.city)&&(state.spec==="All"||d.spec===state.spec)&&(!q||(d.name+" "+d.spec+" "+d.clinic).toLowerCase().indexOf(q)>-1);
+    return d.status!=="pending"&&d.status!=="rejected"&&(state.city===ALL_CITIES||d.city===state.city)&&(state.spec==="All"||d.spec===state.spec)&&(!state.vonly||d.video)&&(!q||(d.name+" "+d.spec+" "+d.clinic).toLowerCase().indexOf(q)>-1);
   });
-  if(!list.length)return '<div class="empty">No doctors match. Try another specialty or clear the search.</div>';
+  if(!list.length)return '<div class="empty">No doctors match. Try another specialty'+(state.vonly?', switch to In-clinic':'')+' or clear the search.</div>';
   return '<div class="count">'+list.length+(list.length===1?' doctor':' doctors')+' available'+(state.city===ALL_CITIES?'':' in '+esc(state.city))+'</div><div class="list">'+list.map(docCard).join("")+'</div>';
 }
+var SPEC_ICON={"General Physician":"🩺","Dermatologist":"🧴","Gynecologist":"🤰","Gynaecologist":"🤰","Dentist":"🦷","Pediatrician":"👶","Paediatrician":"👶","ENT":"👂","ENT Specialist":"👂","Orthopedic":"🦴","Orthopaedic":"🦴","Cardiologist":"❤️","Neurologist":"🧠","Psychiatrist":"🧘","Ophthalmologist":"👁️","Urologist":"💧","Gastroenterologist":"🫃","Diabetologist":"🩸","Pulmonologist":"🫁","Physiotherapist":"🏃"};
+function specIcon(sp){return SPEC_ICON[sp]||"⚕️"}
 function vList(){
-  var chips=SPECS.map(function(s){return '<button class="chip" data-a="spec" data-v="'+esc(s)+'" aria-pressed="'+(state.spec===s)+'">'+esc(s)+'</button>'}).join("");
+  var all=SPECS.slice(1),shown=state.specAll?all:all.slice(0,8);
+  var grid=shown.map(function(sp){return '<button data-a="spec" data-v="'+esc(sp)+'" aria-pressed="'+(state.spec===sp)+'"><span class="sc" aria-hidden="true">'+specIcon(sp)+'</span>'+esc(sp)+'</button>'}).join("");
+  var q4=function(a,v,svg,t){return '<button data-a="'+a+'"'+(v?' data-v="'+v+'"':'')+'>'+svg+t+'</button>'};
+  var sv=function(d){return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>'};
   return '<div class="top"><div class="brand">'+LOGO+'<small>Doctor appointments</small></div>'+profBtn()+'</div>'+
-   '<div class="title-block"><h1>Book a doctor in a few taps</h1><p>Pick a specialist, choose a time, and get your booking reference.</p>'+
+   '<div class="title-block" style="padding-bottom:8px"><h1>Find a doctor</h1>'+
    '<div class="tiny" style="margin-top:8px">'+(state.pat?'Signed in as '+patLine():'<button class="link" data-a="psignin" style="padding:0">Sign in with your mobile number</button>')+'</div></div>'+
    '<div class="loc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'+
    '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(browseCities()).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
    '<label class="search">'+ic.search+'<input id="q" type="search" placeholder="Search doctor, specialty or clinic" value="'+esc(state.q)+'" autocomplete="off"></label>'+
-   '<div class="chips" role="group" aria-label="Specialty">'+chips+'</div>'+
-   '<div id="docs">'+docListHtml()+'</div>'+
+   '<div class="hcards" role="group" aria-label="Visit type">'+
+    '<button class="hcard" data-a="vmode" data-v="clinic" aria-pressed="'+(!state.vonly)+'">'+sv('<path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6M12 8v4M10 10h4"/>')+'In-clinic visit<small>Meet the doctor at the clinic</small></button>'+
+    '<button class="hcard" data-a="vmode" data-v="video" aria-pressed="'+(!!state.vonly)+'">'+sv('<rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/>')+'Video consult<small>Talk to a doctor on WhatsApp</small></button></div>'+
+   '<div class="qrow">'+
+    q4('tab','labs',sv('<path d="M9 3h6M10 3v6l-5 9a2 2 0 002 3h10a2 2 0 002-3l-5-9V3"/>'),'Lab tests')+
+    q4('tab','appts',sv('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>'),'My bookings')+
+    q4('help','',sv('<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="2" y="14" width="4" height="6" rx="2"/><rect x="18" y="14" width="4" height="6" rx="2"/>'),'Help')+'</div>'+
+   '<div class="sech"><h2>Find doctors by speciality</h2>'+(state.spec!=="All"?'<button data-a="spec" data-v="All">Clear</button>':(all.length>8?'<button data-a="specall">'+(state.specAll?'Show less':'View all')+'</button>':''))+'</div>'+
+   '<div class="sgrid" role="group" aria-label="Specialty">'+grid+'</div>'+
+   '<div id="docs" style="margin-top:6px">'+docListHtml()+'</div>'+
    proLinks()+
    '<div class="foot">Doctors, clinics and availability shown here are sample data for this prototype.</div>';
 }
@@ -2548,9 +2591,12 @@ function ambLoad(){
 }
 function nav(){
   var n=myAppts().filter(function(a){return a.status==="upcoming"||a.status==="pending"}).length;
-  return '<nav class="nav stick" style="padding-top:6px" aria-label="Main"><button data-a="tab" data-v="find" '+(state.tab==="find"?'aria-current="page"':'')+'>'+ic.plus+'Find doctors</button>'+
-   '<button data-a="tab" data-v="labs" '+(state.tab==="labs"?'aria-current="page"':'')+'>'+ic2.slots+'Facilities</button>'+
-   '<button data-a="tab" data-v="appts" '+(state.tab==="appts"?'aria-current="page"':'')+'>'+ic.cal+'Appointments'+(n?'<span class="badge tnum">'+n+'</span>':'')+'</button></nav>';
+  var cur=function(t){return state.tab===t?' aria-current="page"':''};
+  var sv=function(d){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>'};
+  return '<nav class="nav stick" aria-label="Main"><button data-a="tab" data-v="find"'+cur("find")+'>'+sv('<path d="M3 11l9-8 9 8v10H3z"/><path d="M9 21v-6h6v6"/>')+'Home</button>'+
+   '<button data-a="tab" data-v="labs"'+cur("labs")+'>'+ic2.slots+'Facilities</button>'+
+   '<button data-a="tab" data-v="appts"'+cur("appts")+'>'+ic.cal+'Bookings'+(n?'<span class="badge tnum">'+n+'</span>':'')+'</button>'+
+   '<button data-a="profile">'+sv('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/>')+'Account</button></nav>';
 }
 /* ---------- cloud mode (Supabase backend) ----------
    Active only when config.js holds a project URL and publishable key. Otherwise the app runs on local demo data as before.
@@ -3724,7 +3770,7 @@ function render(scroll){
   else if(state.view==="confirm")h=vConfirm();
   else h=vDone();
   if(showNav&&!state.staff&&(state.tab==="find"||state.tab==="labs")){adsLoad();var ab=adBanner();if(ab){var ti=h.indexOf('<div class="title-block"');h=ti>=0?h.slice(0,ti)+ab+h.slice(ti):ab+h}if(ab)setTimeout(function(){adSeeSlide(document.querySelector("#adshow .adslide"))},0)}
-  app.innerHTML=nbHtml()+h+(showNav?nav()+fabHtml():"")+lbHtml();
+  app.innerHTML=nbHtml()+h+(showNav?'<div class="navgap"></div>'+nav()+fabHtml():"")+lbHtml();
   if(scroll)window.scrollTo(0,0);
 }
 
@@ -3916,6 +3962,8 @@ app.addEventListener("click",function(ev){
     case "ttable":state.showTable=!state.showTable;render();break;
     case "toggle":sToggle(v);break;
     case "spec":state.spec=v;render();break;
+    case "vmode":state.vonly=(v==="video");render();break;
+    case "specall":state.specAll=!state.specAll;render();break;
     case "open":
       state.docId=+v;resetPick();var d=byId(state.docId);state.dateKey=firstDate(d);state.view="doctor";state.tab="find";state.bookErr="";render(true);if(CLOUD){ensureSlots(d,week());cloudLoadReviews(d.id)}break;
     case "back":state.view="list";state.resched=null;render(true);break;
@@ -3937,7 +3985,7 @@ app.addEventListener("click",function(ev){
     case "backdoc":state.view="doctor";render(true);break;
     case "tab":
       if(v==="appts"&&!state.pat){openOtp("patient","appts");break}
-      state.tab=v;if(v==="find"&&state.view!=="list"&&state.view!=="doctor"){state.view="list"}state.ask=null;render(true);break;
+      state.tab=v;if(state.view==="profile")state.view="list";if(v==="find"&&state.view!=="list"&&state.view!=="doctor"){state.view="list"}state.ask=null;render(true);break;
     case "home":state.view="list";state.tab="find";state.resched=null;state.form.reason="";state.form.age="";state.form.sex="";render(true);break;
     case "mine":state.tab="appts";state.view="list";render(true);break;
     case "ask":state.ask=v;render();break;

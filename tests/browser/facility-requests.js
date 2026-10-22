@@ -34,7 +34,7 @@ async function open(role) {
 (async () => {
   let ok = true; const check = (n, c) => { console.log((c ? "PASS " : "FAIL ") + n); if (!c) ok = false; };
   let t = await open("patient"), pg = t.pg; const txt = () => pg.evaluate(() => document.body.innerText);
-  await pg.locator('button[data-a="tab"][data-v="labs"]').click(); await pg.waitForTimeout(600);
+  await pg.locator('nav.nav button[data-a="tab"][data-v="labs"]').click(); await pg.waitForTimeout(600);
   check("a lab card has a Request appointment button", (await pg.locator('button[data-a="frqopen"]').count()) === 1);
   await pg.locator('button[data-a="frqopen"]').click(); await pg.waitForTimeout(300);
   await pg.locator('button[data-a="frqsend"]').click(); await pg.waitForTimeout(300);

@@ -1,0 +1,54 @@
+// Real-Chromium check of the patient home (cards, speciality grid, floating nav) and account menu, against a mocked Supabase.
+const { chromium } = require("playwright");
+const path = require("path");
+const www = path.resolve(__dirname, "../../app/src/main/assets/www/index.html");
+function day(off) { return new Date(Date.now() + 19800000 + off * 86400000).toISOString().slice(0, 10); }
+
+const SHOT = process.env.SHOT || "";
+async function run() {
+  const b = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript(() => { try { localStorage.setItem("nirog-sb-session-v1", JSON.stringify({ access_token: "tok", refresh_token: "r", expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: "u1", email: "u@x.in" } })); } catch (e) {} });
+  const pg = await ctx.newPage();
+  const mkd = (id, name, spec, video) => ({ id, name, spec, qual: "MBBS", exp_years: 8, fee_inr: 500, video_fee_inr: video ? 300 : 0, video, languages: "Hindi", about: "Hello", clinic: "Clinic " + id, city: "Pune", address: "Road", pin: "411001", status: "approved", rating: 4.5, reviews_count: 3, user_id: "d" + id, verified: false });
+  const docs = [mkd(1, "Dr. Clinic Only", "General Physician", false), mkd(2, "Dr. Video Ok", "Dermatologist", true), mkd(3, "Dr. Teeth", "Dentist", false)];
+  await pg.route(/supabase\.co/, (r) => {
+    const u = new URL(r.request().url()), m = r.request().method(), p = u.pathname;
+    const j = (s, o) => r.fulfill({ status: s, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(o) });
+    if (m === "OPTIONS") return r.fulfill({ status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*" } });
+    if (p === "/rest/v1/profiles") return j(200, [{ id: "u1", role: "patient", full_name: "Asha Verma", phone: "+919876500001", email: "u@x.in" }]);
+    if (p === "/rest/v1/doctors") return j(200, docs);
+    if (m === "GET") return j(200, []);
+    return j(200, {});
+  });
+  const errs = []; pg.on("pageerror", (e) => errs.push(String(e)));
+  await pg.goto("file://" + www); await pg.waitForTimeout(1800);
+  return { b, pg, errs };
+}
+(async () => {
+  let ok = true; const check = (n, c) => { console.log((c ? "PASS " : "FAIL ") + n); if (!c) ok = false; };
+  const t = await run(), pg = t.pg; const txt = () => pg.evaluate(() => document.body.innerText);
+  await pg.locator(".hcard").first().waitFor({ timeout: 8000 }).catch(async () => console.log((await txt()).slice(0, 500)));
+  check("two visit cards (In-clinic, Video)", (await pg.locator(".hcard").count()) === 2);
+  check("speciality grid shows icons", (await pg.locator(".sgrid .sc").count()) >= 3);
+  check("floating nav has 4 buttons", (await pg.locator("nav.nav button").count()) === 4);
+  check("all 3 doctors listed", /3 doctors/.test(await txt()));
+  if (SHOT) await pg.screenshot({ path: SHOT + "-home.png" });
+  await pg.locator('.hcard[data-v="video"]').click(); await pg.waitForTimeout(300);
+  check("Video consult shows only video doctors", /1 doctor /.test(await txt()) && /Dr\. Video Ok/.test(await txt()) && !/Dr\. Clinic Only/.test(await txt()));
+  await pg.locator('.hcard[data-v="clinic"]').click(); await pg.waitForTimeout(300);
+  await pg.locator('.sgrid button', { hasText: "Dentist" }).click(); await pg.waitForTimeout(300);
+  check("tapping a speciality filters the list", /1 doctor /.test(await txt()) && /Dr\. Teeth/.test(await txt()));
+  await pg.locator('.sech button[data-v="All"]').click(); await pg.waitForTimeout(300);
+  check("Clear brings every doctor back", /3 doctors/.test(await txt()));
+  await pg.locator('nav.nav button[data-v="appts"]').click(); await pg.waitForTimeout(500);
+  await pg.locator('nav.nav button[data-a="profile"]').click(); await pg.waitForTimeout(500);
+  const tx = await txt();
+  check("Account opens the profile from another tab", /My profile/.test(tx) && /My history/.test(tx));
+  check("account menu has Appointments, Tests and Help", /Appointments/.test(tx) && /Tests and facility requests/.test(tx) && /Help and support/.test(tx));
+  if (SHOT) await pg.screenshot({ path: SHOT + "-account.png" });
+  await pg.locator('.menu button[data-v="appts"]').click(); await pg.waitForTimeout(500);
+  check("menu item opens the appointments tab", (await pg.locator('nav.nav button[data-v="appts"][aria-current="page"]').count()) === 1);
+  check("no page errors", t.errs.length === 0); if (t.errs.length) console.log(t.errs);
+  await t.b.close(); console.log(ok ? "ALL PASSED" : "SOME FAILED"); process.exit(ok ? 0 : 1);
+})();
