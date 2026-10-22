@@ -82,6 +82,16 @@ async function run() {
   await pg.locator('nav.nav button[data-a="profile"]').click(); await pg.waitForTimeout(400);
   await pg.locator('.menu button[data-v="appts"]').click(); await pg.waitForTimeout(500);
   check("menu item opens the appointments tab", (await pg.locator('nav.nav button[data-v="appts"][aria-current="page"]').count()) === 1);
+  await pg.locator('nav.nav button[data-v="find"]').click(); await pg.waitForTimeout(400);
+  check("next appointment card shows the nearest upcoming visit", /Your next appointment/.test(await txt()) && /Dr\. Teeth/.test(await txt()));
+  await pg.locator('[data-a="sort"][data-v="fee"]').click(); await pg.waitForTimeout(300);
+  check("sort chip is selected", (await pg.locator('[data-a="sort"][data-v="fee"][aria-pressed="true"]').count()) === 1);
+  await pg.locator('.heart').nth(1).click(); await pg.waitForTimeout(300);
+  check("saving a doctor fills the heart", (await pg.locator('.heart[aria-pressed="true"]').count()) === 1);
+  await pg.locator('[data-a="onlyfav"]').click(); await pg.waitForTimeout(300);
+  check("Saved filter lists only saved doctors", /1 doctor /.test(await txt()));
+  await pg.reload(); await pg.waitForTimeout(1800);
+  check("saved doctors persist after reload", (await pg.evaluate(() => localStorage.getItem("yada-favs-v1"))).length > 2);
   check("no page errors", t.errs.length === 0); if (t.errs.length) console.log(t.errs);
   await t.b.close(); console.log(ok ? "ALL PASSED" : "SOME FAILED"); process.exit(ok ? 0 : 1);
 })();

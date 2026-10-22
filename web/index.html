@@ -168,6 +168,13 @@ body{padding-bottom:0}
 .menu button{width:100%;display:flex;align-items:center;gap:12px;border:0;border-bottom:1px solid var(--line);background:transparent;padding:14px;font-size:15px;font-weight:600;color:var(--ink);text-align:left}
 .menu button:last-child{border-bottom:0}
 .menu svg{color:var(--brand);flex:none}.menu span{flex:1}.menu i{font-style:normal;color:var(--muted)}
+.docw{position:relative}
+.heart{position:absolute;top:8px;right:8px;width:36px;height:36px;border-radius:50%;border:0;background:transparent;font-size:20px;line-height:1;color:var(--muted);display:grid;place-items:center}
+.heart[aria-pressed="true"]{color:#D32F2F}
+.nextcard{margin:14px 16px 0;border:1px solid var(--line);background:var(--accent-soft);border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px}
+.nextcard>div{flex:1;min-width:0;font-size:13px}.nextcard b{display:block;font-size:15px}
+.sortrow{display:flex;gap:8px;overflow-x:auto;padding:4px 16px 0;scrollbar-width:none}
+.sortrow::-webkit-scrollbar{display:none}
 .badge{position:absolute;top:2px;left:calc(50% + 8px);background:var(--accent);color:var(--surface);border-radius:999px;font-size:11px;min-width:18px;height:18px;display:grid;place-items:center;padding:0 5px}
 
 /* form */
@@ -659,7 +666,7 @@ if(!appts){
   while(!k){var c=dkey(addDays(new Date(),i));if(works(d1,c))k=c;i++}
   appts=[{id:"s1",ref:"NR-4K7Q2",docId:1,dateKey:k,time:"10:00",mode:"clinic",name:"Example patient",phone:"9876543210",reason:"Seasonal fever and cough",status:"upcoming",sample:true}];
 }
-var state={tab:"find",view:"list",vonly:false,vsel:"",sub:"",prob:"",specAll:false,city:loadCity(),spec:"All",q:"",docId:null,dateKey:null,time:null,mode:"clinic",resched:null,form:{name:"",phone:"",reason:"",age:"",sex:"",weight:""},errors:{},last:null,ask:null,
+var state={tab:"find",view:"list",vonly:false,vsel:"",favs:loadFavs(),sort:"rel",onlyFav:false,sub:"",prob:"",specAll:false,city:loadCity(),spec:"All",q:"",docId:null,dateKey:null,time:null,mode:"clinic",resched:null,form:{name:"",phone:"",reason:"",age:"",sex:"",weight:""},errors:{},last:null,ask:null,
   reg:null,regDone:null,sched:null,schedFor:null,sdate:null,offDate:"",
   staff:null,stab:"ov",lf:"all",showTable:false,addLead:false,
   login:{email:"",pass:"",err:""},
@@ -890,11 +897,24 @@ function vLogin(){
    '<div class="who sumrow"><div><b>Doctor</b><div class="tiny tnum sel">anjali@nirog.demo<br>Doctor@123<br>Mobile 9000000005</div></div><button class="btn sm ghost" data-a="fill" data-v="doctor">Use</button></div></div>'+
    '<div class="foot" style="text-align:left">Demo only. Accounts and passwords are stored in this browser, not on a server, so this sign-in does not protect real data. A live version needs server-side authentication and a real SMS service for one-time codes.</div>');
 }
+function docProfileText(dd){return dd.name+" ("+dd.spec+")"+(dd.clinic?" at "+dd.clinic:"")+(dd.city?", "+dd.city:"")+".\nBook an appointment online on Yada+:\n"+WEB_URL}
+function docShare(dd){
+  var r=state.rf||(state.rf={});if(CLOUD&&BE.signedIn())refLoad();
+  var code=r.data&&r.data.code,invite=code?refShareText(code):"Install Yada+ to book doctors, labs and hospitals near you.\n"+WEB_URL;
+  var wa=function(t){return 'https://wa.me/?text='+encodeURIComponent(t)};
+  return '<div class="card"><div style="font-weight:700;margin-bottom:4px">Invite your patients and contacts</div><div class="tiny" style="margin-bottom:10px">Send your own profile so patients can book you on Yada+.</div>'+
+   '<div class="confirm" style="margin-bottom:10px;white-space:pre-wrap">'+esc(docProfileText(dd))+'</div>'+
+   '<div style="display:flex;gap:10px"><a class="btn" style="text-decoration:none;display:flex;justify-content:center;flex:1" data-share="profile" href="'+wa(docProfileText(dd))+'" target="_blank" rel="noopener">Share on WhatsApp</a><button class="btn ghost" data-a="cptext" data-v="profile">'+(state.cpd==="profile"?'Copied':'Copy')+'</button></div></div>'+
+   '<div class="card"><div style="font-weight:700;margin-bottom:4px">Invite other doctors and clinics</div><div class="tiny" style="margin-bottom:10px">'+(code?'Your referral code is <b class="tnum">'+esc(code)+'</b>. You earn when a doctor, facility or patient you invite joins.':'Share Yada+ with colleagues, labs and pharmacies.')+'</div>'+
+   '<div class="confirm" style="margin-bottom:10px;white-space:pre-wrap">'+esc(invite)+'</div>'+
+   '<div style="display:flex;gap:10px"><a class="btn" style="text-decoration:none;display:flex;justify-content:center;flex:1" data-share="invite" href="'+wa(invite)+'" target="_blank" rel="noopener">Share on WhatsApp</a><button class="btn ghost" data-a="cptext" data-v="invite">'+(state.cpd==="invite"?'Copied':'Copy')+'</button></div>'+
+   (CLOUD&&BE.signedIn()?'<div class="acts" style="margin-top:10px"><button class="btn sm ghost" data-a="ref">Referral wallet</button></div>':'')+'</div>';
+}
 function vStaff(){
   var u=getUser(state.staff),admin=u.role==="admin",isDoc=u.role==="doctor",isFac=u.role==="facility",tabs=admin?
    [["ov","Overview",ic2.chart],["team","Team",ic2.users],["doc","Doctors",ic2.pin],["labs","Facilities",ic2.slots],["book","Bookings",ic.cal]]:
    isFac?[["st","My listing",ic2.slots]]:
-   isDoc?[["appt","Bookings",ic.cal],["sched","Schedule",ic2.clock],["slots","Slots",ic2.slots]]:
+   isDoc?[["appt","Bookings",ic.cal],["sched","Schedule",ic2.clock],["slots","Slots",ic2.slots],["share","Share",ic2.users]]:
    [["ov","Dashboard",ic2.chart],["leads","Leads",ic2.users]];
   if(!tabs.some(function(t){return t[0]===state.stab}))state.stab=tabs[0][0];
   var body,title;
@@ -903,6 +923,7 @@ function vStaff(){
     var dd=byId(u.docId);
     if(state.stab==="appt"){title="My bookings";body=docBanner(dd)+docAppts(dd)}
     else if(state.stab==="sched"){title="My schedule";body=docBanner(dd)+docSched(dd)}
+    else if(state.stab==="share"){title="Share Yada+";body=docShare(dd)}
     else{title="Manage slots";body=docBanner(dd)+docSlots(dd)}
   }else if(admin){
     if(state.stab==="ov"){title="Business overview";body=adminOv()}
@@ -1983,12 +2004,15 @@ function vSub(){
     ap.filter(function(a){return a.status!=="rejected"&&a.status!=="cancelled"}).forEach(function(a){
       var r=seen[a.docId];if(!r){r=seen[a.docId]={docId:a.docId,last:a,n:0};rows.push(r)}r.n++;
     });
-    h=subBar("My doctors","Doctors you have booked.")+(rows.length?rows.map(function(r){
+    var favRows=state.favs.map(byId).filter(function(d){return d&&!seen[d.id]});
+    h=subBar("My doctors","Doctors you have booked or saved.")+favRows.map(function(d){
+      return '<div class="card" style="margin:0 16px 12px"><div style="font-weight:700">♥ '+esc(d.name)+'</div><div class="tiny">'+esc(d.spec)+(d.clinic?' · '+esc(d.clinic):'')+'</div><div class="acts" style="margin-top:10px"><button class="btn sm" data-a="open" data-v="'+d.id+'">Book</button><button class="btn sm ghost" data-a="fav" data-v="'+d.id+'">Remove</button></div></div>';
+    }).join("")+(rows.length?rows.map(function(r){
       var d=byId(r.docId);if(!d)return "";
       return '<div class="card" style="margin:0 16px 12px"><div style="font-weight:700">'+esc(d.name)+'</div><div class="tiny">'+esc(d.spec)+(d.clinic?' · '+esc(d.clinic):'')+'</div>'+
        '<div class="tiny" style="margin:6px 0 10px">'+r.n+(r.n===1?' booking':' bookings')+' · last on '+esc(longDate(r.last.dateKey))+'</div>'+
        '<div class="acts"><button class="btn sm" data-a="open" data-v="'+d.id+'">Book again</button></div></div>';
-    }).join(""):'<div class="empty">You have not booked a doctor yet.</div>');
+    }).join(""):(favRows.length?'':'<div class="empty">You have not booked or saved a doctor yet.</div>'));
   }else if(s==="rec"){
     var recs=ap.filter(function(a){return visitDone(a)||(rxMine(a)&&a.status!=="cancelled")});
     h=subBar("Medical records","Your past visits and prescriptions.")+(recs.length?recs.map(function(a){
@@ -2156,9 +2180,38 @@ function vOtp(){
 }
 
 /* ---------- views ---------- */
+var FAV_KEY="yada-favs-v1";
+function loadFavs(){try{var a=JSON.parse(localStorage.getItem(FAV_KEY)||"[]");return Array.isArray(a)?a.filter(function(x){return typeof x==="number"}).slice(0,200):[]}catch(e){return []}}
+function saveFavs(){try{localStorage.setItem(FAV_KEY,JSON.stringify(state.favs))}catch(e){}}
+function isFav(id){return state.favs.indexOf(id)>-1}
+function toggleFav(id){var i=state.favs.indexOf(id);if(i>-1)state.favs.splice(i,1);else state.favs.push(id);saveFavs()}
+var SORTS=[["rel","Best match"],["rate","Top rated"],["fee","Lowest fee"],["exp","Most experienced"],["soon","Earliest slot"]];
+function sortDocs(list){
+  var m=state.sort;if(!m||m==="rel")return list;
+  var soon=function(d){var n=nextFree(d);return n?n.k+" "+n.t:"9999"};
+  return list.slice().sort(function(a,b){
+    if(m==="rate")return (b.rating||0)-(a.rating||0)||(b.reviews||0)-(a.reviews||0);
+    if(m==="fee")return a.fee-b.fee;
+    if(m==="exp")return (b.exp||0)-(a.exp||0);
+    if(m==="soon")return soon(a)<soon(b)?-1:soon(a)>soon(b)?1:0;
+    return 0;
+  });
+}
+function nextApptCard(){
+  if(!state.pat)return "";
+  var now=Date.now(),best=null;
+  myAppts().forEach(function(a){
+    if(a.status!=="upcoming"||!a.dateKey||!a.time)return;
+    var p=a.dateKey.split("-"),t=a.time.split(":"),ts=new Date(+p[0],+p[1]-1,+p[2],+t[0],+t[1]).getTime();
+    if(ts>=now-3600000&&(!best||ts<best.ts))best={a:a,ts:ts};
+  });
+  if(!best)return "";
+  var a=best.a,d=byId(a.docId)||{};
+  return '<div class="nextcard"><div>Your next appointment<b>'+esc(d.name||"Your doctor")+'</b>'+esc(longDate(a.dateKey))+', '+esc(t12(a.time))+' · '+(a.mode==="video"?'Video consult':'In-clinic')+'</div><button class="btn sm" data-a="tab" data-v="appts">View</button></div>';
+}
 function docCard(d){
   var n=nextFree(d);
-  return '<button class="doc" data-a="open" data-v="'+d.id+'" aria-label="'+esc(d.name)+', '+esc(d.spec)+'">'+
+  return '<div class="docw"><button class="heart" data-a="fav" data-v="'+d.id+'" aria-pressed="'+isFav(d.id)+'" aria-label="'+(isFav(d.id)?'Remove '+esc(d.name)+' from saved doctors':'Save '+esc(d.name))+'">'+(isFav(d.id)?'♥':'♡')+'</button><button class="doc" data-a="open" data-v="'+d.id+'" aria-label="'+esc(d.name)+', '+esc(d.spec)+'">'+
    avatar(d)+
    '<div class="doc-main">'+
     '<div class="doc-name">'+esc(d.name)+'</div>'+(d.verified?'<div style="margin:2px 0">'+vtag(d)+'</div>':'')+
@@ -2166,15 +2219,15 @@ function docCard(d){
     '<div class="doc-sub">'+esc(d.clinic)+', '+esc(d.city)+'</div>'+
     (d.reviews?'<div class="row"><span class="rate">'+ic.star+d.rating.toFixed(1)+'</span><span class="muted" style="font-size:13px">'+d.reviews.toLocaleString("en-IN")+' reviews</span></div>':'<div class="row"><span class="pill">New on Yada+</span></div>')+
     '<div class="next"><span>'+(n?'Next: <b>'+rel(n.k)+', '+t12(n.t)+'</b>':'No slots in 14 days')+'</span><span class="fee tnum">'+money(d.fee)+(platFee(d.fee)?'<small class="muted" style="font-weight:500;font-size:11.5px"> + '+money(platFee(d.fee))+' fee</small>':'')+'</span></div>'+
-   '</div></button>';
+   '</div></button></div>';
 }
 function docListHtml(){
   var q=state.q.trim().toLowerCase();
   var list=DOCS.filter(function(d){
-    return d.status!=="pending"&&d.status!=="rejected"&&(state.city===ALL_CITIES||d.city===state.city)&&(state.spec==="All"||d.spec===state.spec)&&(!state.vonly||d.video)&&(!q||(d.name+" "+d.spec+" "+d.clinic).toLowerCase().indexOf(q)>-1);
+    return d.status!=="pending"&&d.status!=="rejected"&&(state.city===ALL_CITIES||d.city===state.city)&&(state.spec==="All"||d.spec===state.spec)&&(!state.vonly||d.video)&&(!state.onlyFav||isFav(d.id))&&(!q||(d.name+" "+d.spec+" "+d.clinic).toLowerCase().indexOf(q)>-1);
   });
   if(!list.length)return '<div class="empty">No doctors match. Try another specialty'+(state.vonly?', switch to In-clinic':'')+' or clear the search.</div>';
-  return '<div class="count">'+list.length+(list.length===1?' doctor':' doctors')+' available'+(state.prob?' for '+esc(state.prob.toLowerCase()):'')+(state.vonly?' for video consult':state.vsel==="clinic"?' for in-clinic visit':'')+(state.city===ALL_CITIES?'':' in '+esc(state.city))+'</div><div class="list">'+list.map(docCard).join("")+'</div>';
+  return '<div class="count">'+list.length+(list.length===1?' doctor':' doctors')+' available'+(state.prob?' for '+esc(state.prob.toLowerCase()):'')+(state.vonly?' for video consult':state.vsel==="clinic"?' for in-clinic visit':'')+(state.city===ALL_CITIES?'':' in '+esc(state.city))+'</div><div class="list">'+sortDocs(list).map(docCard).join("")+'</div>';
 }
 var SPEC_ICON={"General Physician":"🩺","Dermatologist":"🧴","Gynecologist":"🤰","Gynaecologist":"🤰","Dentist":"🦷","Pediatrician":"👶","Paediatrician":"👶","ENT":"👂","ENT Specialist":"👂","Orthopedic":"🦴","Orthopaedic":"🦴","Cardiologist":"❤️","Neurologist":"🧠","Psychiatrist":"🧘","Ophthalmologist":"👁️","Urologist":"💧","Gastroenterologist":"🫃","Diabetologist":"🩸","Pulmonologist":"🫁","Physiotherapist":"🏃"};
 function specIcon(sp){return SPEC_ICON[sp]||"⚕️"}
@@ -2198,7 +2251,7 @@ function vList(){
    '<div class="loc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'+
    '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(browseCities()).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
    '<label class="search">'+ic.search+'<input id="q" type="search" placeholder="Search doctor, specialty or clinic" value="'+esc(state.q)+'" autocomplete="off"></label>'+
-   '<div class="hcards" role="group" aria-label="Visit type">'+
+   nextApptCard()+'<div class="hcards" role="group" aria-label="Visit type">'+
     '<button class="hcard" data-a="vmode" data-v="clinic" aria-pressed="'+(state.vsel==="clinic")+'">'+sv('<path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6M12 8v4M10 10h4"/>')+'In-clinic visit<small>Meet the doctor at the clinic</small></button>'+
     '<button class="hcard" data-a="vmode" data-v="video" aria-pressed="'+(state.vsel==="video")+'">'+sv('<rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/>')+'Video consult<small>Talk to a doctor on WhatsApp</small></button></div>'+
    '<div class="qrow">'+
@@ -2208,6 +2261,7 @@ function vList(){
    '<div class="sech"><h2>Find doctors by speciality</h2>'+(state.spec!=="All"?'<button data-a="spec" data-v="All">Clear</button>':(all.length>8?'<button data-a="specall">'+(state.specAll?'Show less':'View all')+'</button>':''))+'</div>'+
    '<div class="sgrid" role="group" aria-label="Specialty">'+grid+'</div>'+
    (function(){var pl=probList();if(!pl.length)return '';return '<div class="sech"><h2>Common problems</h2></div><div class="sgrid" role="group" aria-label="Common problems">'+pl.map(function(x){return '<button data-a="prob" data-v="'+esc(x.spec)+'" data-t="'+esc(x.t)+'" aria-pressed="'+(state.prob===x.t)+'"><span class="sc" aria-hidden="true">'+x.e+'</span>'+esc(x.t)+'</button>'}).join("")+'</div>'})()+
+   '<div class="sortrow" role="group" aria-label="Sort doctors">'+SORTS.map(function(x){return '<button class="chip" data-a="sort" data-v="'+x[0]+'" aria-pressed="'+((state.sort||"rel")===x[0])+'">'+x[1]+'</button>'}).join("")+'<button class="chip" data-a="onlyfav" aria-pressed="'+state.onlyFav+'">♥ Saved</button></div>'+
    '<div id="docs" style="margin-top:6px">'+docListHtml()+'</div>'+
    proLinks()+
    '<div class="foot">Doctors, clinics and availability shown here are sample data for this prototype.</div>';
@@ -2234,7 +2288,7 @@ function vDoctor(){
     (d.video?'<button data-a="mode" data-v="video" aria-pressed="'+(state.mode==="video")+'">Video consult<small class="tnum">'+money(d.vfee)+'</small></button>':
              '<button disabled style="opacity:.5;cursor:not-allowed">Video consult<small>Not offered</small></button>')+'</div>';
   var ready=state.dateKey&&state.time;
-  return '<div class="bar"><button class="back" data-a="back">'+ic.back+'Doctors</button></div>'+
+  return '<div class="bar" style="display:flex;align-items:center;gap:8px"><button class="back" data-a="back">'+ic.back+'Doctors</button><span style="margin-left:auto;display:flex;gap:8px;padding-right:16px"><button class="btn sm ghost" data-a="fav" data-v="'+d.id+'" aria-pressed="'+isFav(d.id)+'">'+(isFav(d.id)?'♥ Saved':'♡ Save')+'</button><button class="btn sm ghost" data-a="share" data-v="'+d.id+'">Share</button></span></div>'+
    (state.bookErr?'<div class="err" role="alert" style="margin:0 16px 10px">'+esc(state.bookErr)+'</div>':'')+
    (state.resched?'<div class="card" style="margin-bottom:10px;background:var(--accent-soft);border-color:transparent;font-size:14px">Rescheduling your appointment. Choose a new date and time.</div>':'')+
    '<div class="profile">'+avatar(d,"lg")+'<div style="min-width:0"><h1>'+esc(d.name)+'</h1><div style="margin:2px 0">'+vtag(d)+'</div><div class="doc-sub">'+esc(d.spec)+'</div><div class="doc-sub">'+esc(d.qual)+'</div></div></div>'+
@@ -3945,6 +3999,7 @@ app.addEventListener("click",function(ev){
     case "ref":state.ref=true;state.rf=state.rf||{};state.rf.data=undefined;state.rf.err="";state.rf.msg="";render(true);break;
     case "refclose":state.ref=false;render(true);break;
     case "refretry":state.rf.data=undefined;state.rf.err="";render();break;
+    case "cptext":(function(){var dd=byId((getUser(state.staff)||{}).docId)||{},r=state.rf||(state.rf={}),t=v==="profile"?docProfileText(dd):(r.data&&r.data.code?refShareText(r.data.code):"Install Yada+ to book doctors, labs and hospitals near you.\n"+WEB_URL);try{navigator.clipboard.writeText(t).then(function(){state.cpd=v;render()},function(){})}catch(e){}})();break;
     case "refcopy":(function(){var c=v,r=state.rf;try{navigator.clipboard.writeText(c).then(function(){r.msg="Code copied.";render()},function(){r.msg="Your code is "+c;render()})}catch(e){r.msg="Your code is "+c;render()}})();break;
     case "refapply":(function(){var r=state.rf,c=((document.getElementById("rf-code")||{}).value||"").trim();r.code=c;if(c.length<4){r.err="Enter the code your friend gave you.";r.msg="";render();return}refRun(BE.applyReferral(c),"Code added. Your friend will get the reward.")})();break;
     case "refwd":(function(){var r=state.rf,u=((document.getElementById("rf-upi")||{}).value||"").trim(),a=((document.getElementById("rf-amt")||{}).value||"").trim(),mb=((document.getElementById("rf-mob")||{}).value||"").replace(/\s/g,"");r.upi=u;r.amt=a;r.mob=mb;if(!/^[A-Za-z0-9._-]{2,64}@[A-Za-z0-9]{2,32}$/.test(u)){r.err="Enter a valid UPI id, like name@bank.";r.msg="";render();return}if(!/^[6-9]\d{9}$/.test(mb)){r.err="Enter your 10-digit mobile number.";r.msg="";render();return}if(!/^\d{1,6}$/.test(a)||+a<1){r.err="Enter the amount in whole rupees.";r.msg="";render();return}refRun(BE.requestWithdrawal(+a,u,mb),"Withdrawal requested. We will pay it to your UPI id.")})();break;
@@ -4026,6 +4081,10 @@ app.addEventListener("click",function(ev){
     case "sub":state.sub=v;render(true);break;
     case "subback":state.sub="";render(true);break;
     case "pharm":state.fk="pharmacy";state.sub="";state.view="list";state.tab="labs";render(true);break;
+    case "fav":toggleFav(+v);render();break;
+    case "sort":state.sort=v;render();break;
+    case "onlyfav":state.onlyFav=!state.onlyFav;render();break;
+    case "share":(function(){var d=byId(+v);if(!d)return;var link=/^https?:$/.test(location.protocol)?" "+location.origin+location.pathname:"";window.open("https://wa.me/?text="+encodeURIComponent(d.name+" ("+d.spec+") at "+d.clinic+", "+d.city+". Book on Yada+."+link),"_blank")})();break;
     case "vmode":state.vsel=(state.vsel===v?"":v);state.vonly=(state.vsel==="video");render();(function(){var e=document.getElementById("docs");if(e&&state.vsel)e.scrollIntoView({behavior:"smooth",block:"start"})})();break;
     case "specall":state.specAll=!state.specAll;render();break;
     case "open":
