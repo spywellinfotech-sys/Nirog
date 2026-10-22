@@ -21,7 +21,7 @@ async function run() {
     if (m === "GET") return j(200, []);
     return j(200, {});
   });
-  const errs = []; pg.on("pageerror", (e) => errs.push(String(e)));
+  const errs = []; pg.on("pageerror", (e) => errs.push(String(e) + (e.stack||"").split("\n").slice(1,4).join("|")));
   await pg.goto("file://" + www); await pg.waitForTimeout(1800);
   return { b, pg, errs };
 }
@@ -34,8 +34,21 @@ async function run() {
   check("floating nav has 4 buttons", (await pg.locator("nav.nav button").count()) === 4);
   check("all 3 doctors listed", /3 doctors/.test(await txt()));
   if (SHOT) await pg.screenshot({ path: SHOT + "-home.png" });
+  check("no card is preselected", (await pg.locator('.hcard[aria-pressed="true"]').count()) === 0);
+  await pg.locator('.hcard[data-v="video"]').click(); await pg.waitForTimeout(500);
+  check("Video consult shows only video doctors", /1 doctor /.test(await txt()) && /for video consult/.test(await txt()) && /Dr\. Video Ok/.test(await txt()) && !/Dr\. Clinic Only/.test(await txt()));
+  check("the video card shows as selected", (await pg.locator('.hcard[data-v="video"][aria-pressed="true"]').count()) === 1);
+  await pg.locator('#docs [data-a="open"]').first().click(); await pg.waitForTimeout(500);
+
+  check("opening a doctor from Video consult starts on Video", (await pg.locator('.seg button[data-v="video"][aria-pressed="true"]').count()) === 1);
+  await pg.locator('button.back').click(); await pg.waitForTimeout(400);
   await pg.locator('.hcard[data-v="video"]').click(); await pg.waitForTimeout(300);
-  check("Video consult shows only video doctors", /1 doctor /.test(await txt()) && /Dr\. Video Ok/.test(await txt()) && !/Dr\. Clinic Only/.test(await txt()));
+  check("tapping the card again clears the filter", /3 doctors/.test(await txt()));
+  await pg.locator('.hcard[data-v="clinic"]').click(); await pg.waitForTimeout(300);
+  check("In-clinic shows clinic doctors", /for in-clinic visit/.test(await txt()) && /Dr\. Clinic Only/.test(await txt()));
+  await pg.locator('#docs [data-a="open"]').first().click(); await pg.waitForTimeout(500);
+  check("opening a doctor from In-clinic starts on In-clinic", (await pg.locator('.seg button[data-v="clinic"][aria-pressed="true"]').count()) === 1);
+  await pg.locator('button.back').click(); await pg.waitForTimeout(400);
   await pg.locator('.hcard[data-v="clinic"]').click(); await pg.waitForTimeout(300);
   await pg.locator('.sgrid button', { hasText: "Dentist" }).click(); await pg.waitForTimeout(300);
   check("tapping a speciality filters the list", /1 doctor /.test(await txt()) && /Dr\. Teeth/.test(await txt()));

@@ -513,7 +513,7 @@ function allTimes(doc){
   return out;
 }
 function isOff(doc,k){return (doc.off||[]).indexOf(k)>-1}
-function worksDay(doc,k){return doc.days.indexOf(fromKey(k).getDay())>-1}
+function worksDay(doc,k){return !!k&&doc.days.indexOf(fromKey(k).getDay())>-1}
 function works(doc,k){return worksDay(doc,k)&&!isOff(doc,k)}
 function bookedKey(id,k,t){return id+"|"+k+"|"+t}
 /* ---------- help and support ---------- */
@@ -659,7 +659,7 @@ if(!appts){
   while(!k){var c=dkey(addDays(new Date(),i));if(works(d1,c))k=c;i++}
   appts=[{id:"s1",ref:"NR-4K7Q2",docId:1,dateKey:k,time:"10:00",mode:"clinic",name:"Example patient",phone:"9876543210",reason:"Seasonal fever and cough",status:"upcoming",sample:true}];
 }
-var state={tab:"find",view:"list",vonly:false,specAll:false,city:loadCity(),spec:"All",q:"",docId:null,dateKey:null,time:null,mode:"clinic",resched:null,form:{name:"",phone:"",reason:"",age:"",sex:"",weight:""},errors:{},last:null,ask:null,
+var state={tab:"find",view:"list",vonly:false,vsel:"",specAll:false,city:loadCity(),spec:"All",q:"",docId:null,dateKey:null,time:null,mode:"clinic",resched:null,form:{name:"",phone:"",reason:"",age:"",sex:"",weight:""},errors:{},last:null,ask:null,
   reg:null,regDone:null,sched:null,schedFor:null,sdate:null,offDate:"",
   staff:null,stab:"ov",lf:"all",showTable:false,addLead:false,
   login:{email:"",pass:"",err:""},
@@ -2125,7 +2125,7 @@ function docListHtml(){
     return d.status!=="pending"&&d.status!=="rejected"&&(state.city===ALL_CITIES||d.city===state.city)&&(state.spec==="All"||d.spec===state.spec)&&(!state.vonly||d.video)&&(!q||(d.name+" "+d.spec+" "+d.clinic).toLowerCase().indexOf(q)>-1);
   });
   if(!list.length)return '<div class="empty">No doctors match. Try another specialty'+(state.vonly?', switch to In-clinic':'')+' or clear the search.</div>';
-  return '<div class="count">'+list.length+(list.length===1?' doctor':' doctors')+' available'+(state.city===ALL_CITIES?'':' in '+esc(state.city))+'</div><div class="list">'+list.map(docCard).join("")+'</div>';
+  return '<div class="count">'+list.length+(list.length===1?' doctor':' doctors')+' available'+(state.vonly?' for video consult':state.vsel==="clinic"?' for in-clinic visit':'')+(state.city===ALL_CITIES?'':' in '+esc(state.city))+'</div><div class="list">'+list.map(docCard).join("")+'</div>';
 }
 var SPEC_ICON={"General Physician":"🩺","Dermatologist":"🧴","Gynecologist":"🤰","Gynaecologist":"🤰","Dentist":"🦷","Pediatrician":"👶","Paediatrician":"👶","ENT":"👂","ENT Specialist":"👂","Orthopedic":"🦴","Orthopaedic":"🦴","Cardiologist":"❤️","Neurologist":"🧠","Psychiatrist":"🧘","Ophthalmologist":"👁️","Urologist":"💧","Gastroenterologist":"🫃","Diabetologist":"🩸","Pulmonologist":"🫁","Physiotherapist":"🏃"};
 function specIcon(sp){return SPEC_ICON[sp]||"⚕️"}
@@ -2141,8 +2141,8 @@ function vList(){
    '<label for="city">Location</label><select id="city">'+[ALL_CITIES].concat(browseCities()).map(function(c){return '<option'+(state.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>'+
    '<label class="search">'+ic.search+'<input id="q" type="search" placeholder="Search doctor, specialty or clinic" value="'+esc(state.q)+'" autocomplete="off"></label>'+
    '<div class="hcards" role="group" aria-label="Visit type">'+
-    '<button class="hcard" data-a="vmode" data-v="clinic" aria-pressed="'+(!state.vonly)+'">'+sv('<path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6M12 8v4M10 10h4"/>')+'In-clinic visit<small>Meet the doctor at the clinic</small></button>'+
-    '<button class="hcard" data-a="vmode" data-v="video" aria-pressed="'+(!!state.vonly)+'">'+sv('<rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/>')+'Video consult<small>Talk to a doctor on WhatsApp</small></button></div>'+
+    '<button class="hcard" data-a="vmode" data-v="clinic" aria-pressed="'+(state.vsel==="clinic")+'">'+sv('<path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6M12 8v4M10 10h4"/>')+'In-clinic visit<small>Meet the doctor at the clinic</small></button>'+
+    '<button class="hcard" data-a="vmode" data-v="video" aria-pressed="'+(state.vsel==="video")+'">'+sv('<rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/>')+'Video consult<small>Talk to a doctor on WhatsApp</small></button></div>'+
    '<div class="qrow">'+
     q4('tab','labs',sv('<path d="M9 3h6M10 3v6l-5 9a2 2 0 002 3h10a2 2 0 002-3l-5-9V3"/>'),'Lab tests')+
     q4('tab','appts',sv('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>'),'My bookings')+
@@ -3775,11 +3775,11 @@ function render(scroll){
 }
 
 /* ---------- actions ---------- */
-function resetPick(){state.dateKey=null;state.time=null;state.mode="clinic"}
+function resetPick(){state.dateKey=null;state.time=null;state.mode=state.vonly?"video":"clinic"}
 function firstDate(d){
   var t=new Date();
   for(var i=0;i<7;i++){var k=dkey(addDays(t,i));if(freeCount(d,k)>0)return k}
-  return null;
+  return dkey(t);
 }
 function book(){
   if(CLOUD){cloudBook();return}
@@ -3962,7 +3962,7 @@ app.addEventListener("click",function(ev){
     case "ttable":state.showTable=!state.showTable;render();break;
     case "toggle":sToggle(v);break;
     case "spec":state.spec=v;render();break;
-    case "vmode":state.vonly=(v==="video");render();break;
+    case "vmode":state.vsel=(state.vsel===v?"":v);state.vonly=(state.vsel==="video");render();(function(){var e=document.getElementById("docs");if(e&&state.vsel)e.scrollIntoView({behavior:"smooth",block:"start"})})();break;
     case "specall":state.specAll=!state.specAll;render();break;
     case "open":
       state.docId=+v;resetPick();var d=byId(state.docId);state.dateKey=firstDate(d);state.view="doctor";state.tab="find";state.bookErr="";render(true);if(CLOUD){ensureSlots(d,week());cloudLoadReviews(d.id)}break;
