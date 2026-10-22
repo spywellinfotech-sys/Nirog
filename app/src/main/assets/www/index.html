@@ -659,7 +659,7 @@ if(!appts){
   while(!k){var c=dkey(addDays(new Date(),i));if(works(d1,c))k=c;i++}
   appts=[{id:"s1",ref:"NR-4K7Q2",docId:1,dateKey:k,time:"10:00",mode:"clinic",name:"Example patient",phone:"9876543210",reason:"Seasonal fever and cough",status:"upcoming",sample:true}];
 }
-var state={tab:"find",view:"list",vonly:false,vsel:"",specAll:false,city:loadCity(),spec:"All",q:"",docId:null,dateKey:null,time:null,mode:"clinic",resched:null,form:{name:"",phone:"",reason:"",age:"",sex:"",weight:""},errors:{},last:null,ask:null,
+var state={tab:"find",view:"list",vonly:false,vsel:"",sub:"",prob:"",specAll:false,city:loadCity(),spec:"All",q:"",docId:null,dateKey:null,time:null,mode:"clinic",resched:null,form:{name:"",phone:"",reason:"",age:"",sex:"",weight:""},errors:{},last:null,ask:null,
   reg:null,regDone:null,sched:null,schedFor:null,sdate:null,offDate:"",
   staff:null,stab:"ov",lf:"all",showTable:false,addLead:false,
   login:{email:"",pass:"",err:""},
@@ -1965,7 +1965,52 @@ function openProfile(){
   if(!state.pat){openOtp("patient",null);return}
   var pr=getProf(state.pat.phone)||{};
   state.prof={name:state.pat.name,age:pr.age!=null?String(pr.age):"",sex:pr.sex||"",photo:pr.photo||"",err:"",ok:"",errs:{}};
-  state.tab="find";state.view="profile";render(true);
+  state.sub="";state.tab="find";state.view="profile";render(true);
+}
+/* ---------- account sub-pages: my doctors, medical records, payments (built from the patient's own bookings) ---------- */
+function subBar(t,sub){return '<div class="bar"><button class="back" data-a="subback">'+ic.back+'Account</button></div><div class="title-block" style="padding-top:2px"><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div>'}
+function apptStamp(a){return a.dateKey+" "+a.time}
+function visitDone(a){
+  if(a.status!=="upcoming")return false;
+  if(a.att==="attended")return true;
+  var n=new Date(),p=a.dateKey.split("-"),t=a.time.split(":");
+  return new Date(+p[0],+p[1]-1,+p[2],+t[0],+t[1]).getTime()<n.getTime();
+}
+function vSub(){
+  var s=state.sub,ap=myAppts().slice().sort(function(x,y){return apptStamp(y)<apptStamp(x)?-1:1}),h="",live=ap.filter(function(a){return a.status==="upcoming"||a.status==="pending"});
+  if(s==="docs"){
+    var seen={},rows=[];
+    ap.filter(function(a){return a.status!=="rejected"&&a.status!=="cancelled"}).forEach(function(a){
+      var r=seen[a.docId];if(!r){r=seen[a.docId]={docId:a.docId,last:a,n:0};rows.push(r)}r.n++;
+    });
+    h=subBar("My doctors","Doctors you have booked.")+(rows.length?rows.map(function(r){
+      var d=byId(r.docId);if(!d)return "";
+      return '<div class="card" style="margin:0 16px 12px"><div style="font-weight:700">'+esc(d.name)+'</div><div class="tiny">'+esc(d.spec)+(d.clinic?' · '+esc(d.clinic):'')+'</div>'+
+       '<div class="tiny" style="margin:6px 0 10px">'+r.n+(r.n===1?' booking':' bookings')+' · last on '+esc(longDate(r.last.dateKey))+'</div>'+
+       '<div class="acts"><button class="btn sm" data-a="open" data-v="'+d.id+'">Book again</button></div></div>';
+    }).join(""):'<div class="empty">You have not booked a doctor yet.</div>');
+  }else if(s==="rec"){
+    var recs=ap.filter(function(a){return visitDone(a)||(rxMine(a)&&a.status!=="cancelled")});
+    h=subBar("Medical records","Your past visits and prescriptions.")+(recs.length?recs.map(function(a){
+      var d=byId(a.docId)||{};
+      return '<div class="card" style="margin:0 16px 12px"><div style="font-weight:700">'+esc(d.name||"Doctor")+'</div><div class="tiny">'+esc(d.spec||"")+' · '+esc(longDate(a.dateKey))+', '+esc(t12(a.time))+' · '+(a.mode==="video"?'Video consult':'In-clinic')+'</div>'+
+       '<div class="tiny" style="margin-top:2px">Ref '+esc(a.ref)+(a.att==="attended"?' · Attended':'')+(a.reason?' · '+esc(a.reason):'')+'</div>'+
+       (rxMine(a)?rxView(a):'<div class="hint" style="margin-top:8px">No prescription was added for this visit.</div>')+'</div>';
+    }).join(""):'<div class="empty">No past visits yet. Your visits and prescriptions will appear here.</div>');
+  }else if(s==="pay"){
+    var pr=ap.filter(function(a){return a.status==="upcoming"||a.status==="pending"}),tot=0;
+    pr.forEach(function(a){tot+=(a.fee||0)+(a.pf||0)});
+    h=subBar("Payments","Fees recorded on your bookings.")+
+     (pr.length?'<div class="card" style="margin:0 16px 12px"><div class="sumrow"><span>Bookings</span><span>'+pr.length+'</span></div><div class="sumrow"><span>Total fees</span><b class="tnum">'+money(tot)+'</b></div></div>'+
+      pr.map(function(a){
+        var d=byId(a.docId)||{},f=a.fee||0,pf=a.pf||0;
+        return '<div class="card" style="margin:0 16px 12px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(d.name||"Doctor")+'</b><span class="pill">'+(a.status==="pending"?'Awaiting approval':visitDone(a)?'Completed':'Confirmed')+'</span></div>'+
+         '<div class="tiny">'+esc(longDate(a.dateKey))+', '+esc(t12(a.time))+' · Ref '+esc(a.ref)+'</div>'+
+         '<div class="sumrow"><span>Doctor fee</span><span class="tnum">'+money(f)+'</span></div>'+(pf?'<div class="sumrow"><span>Platform fee</span><span class="tnum">'+money(pf)+'</span></div>':'')+
+         '<div class="sumrow"><span><b>Total</b></span><b class="tnum">'+money(f+pf)+'</b></div></div>';
+      }).join(""):'<div class="empty">No active bookings. Fees for your bookings will show here.</div>');
+  }
+  return h+'<div style="height:24px"></div>';
 }
 function vProfile(){
   var r=state.prof,e=r.errs||{};
@@ -1974,6 +2019,10 @@ function vProfile(){
    '<div class="title-block" style="padding-top:2px"><h1>My profile</h1><p>Your details are filled in when you book. Doctors you book see your name, age and sex, not your photo.</p></div>'+
    '<div class="sech" style="padding-top:4px"><h2>My history</h2></div><div class="menu">'+
     '<button type="button" data-a="tab" data-v="appts"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Appointments</span><i>›</i></button>'+
+    '<button type="button" data-a="sub" data-v="docs"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17a4 4 0 017 0M15 9h4M15 13h4"/></svg><span>My doctors</span><i>›</i></button>'+
+    '<button type="button" data-a="sub" data-v="rec"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/></svg><span>Medical records</span><i>›</i></button>'+
+    '<button type="button" data-a="sub" data-v="pay"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20M6 15h4"/></svg><span>Payments</span><i>›</i></button>'+
+    '<button type="button" data-a="pharm"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3h4v4h-4zM8 7h8v14H8z"/><path d="M12 11v6M9 14h6"/></svg><span>Medicine orders (pharmacies)</span><i>›</i></button>'+
     '<button type="button" data-a="tab" data-v="labs"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 002 3h10a2 2 0 002-3l-5-9V3"/></svg><span>Tests and facility requests</span><i>›</i></button>'+
     (CLOUD&&BE.signedIn()?'<button type="button" data-a="ref"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M12 8c-2-4-6-3-5 0M12 8c2-4 6-3 5 0"/></svg><span>Refer and earn</span><i>›</i></button>':'')+
     '<button type="button" data-a="help"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="2" y="14" width="4" height="6" rx="2"/><rect x="18" y="14" width="4" height="6" rx="2"/></svg><span>Help and support</span><i>›</i></button></div>'+
@@ -2125,10 +2174,19 @@ function docListHtml(){
     return d.status!=="pending"&&d.status!=="rejected"&&(state.city===ALL_CITIES||d.city===state.city)&&(state.spec==="All"||d.spec===state.spec)&&(!state.vonly||d.video)&&(!q||(d.name+" "+d.spec+" "+d.clinic).toLowerCase().indexOf(q)>-1);
   });
   if(!list.length)return '<div class="empty">No doctors match. Try another specialty'+(state.vonly?', switch to In-clinic':'')+' or clear the search.</div>';
-  return '<div class="count">'+list.length+(list.length===1?' doctor':' doctors')+' available'+(state.vonly?' for video consult':state.vsel==="clinic"?' for in-clinic visit':'')+(state.city===ALL_CITIES?'':' in '+esc(state.city))+'</div><div class="list">'+list.map(docCard).join("")+'</div>';
+  return '<div class="count">'+list.length+(list.length===1?' doctor':' doctors')+' available'+(state.prob?' for '+esc(state.prob.toLowerCase()):'')+(state.vonly?' for video consult':state.vsel==="clinic"?' for in-clinic visit':'')+(state.city===ALL_CITIES?'':' in '+esc(state.city))+'</div><div class="list">'+list.map(docCard).join("")+'</div>';
 }
 var SPEC_ICON={"General Physician":"🩺","Dermatologist":"🧴","Gynecologist":"🤰","Gynaecologist":"🤰","Dentist":"🦷","Pediatrician":"👶","Paediatrician":"👶","ENT":"👂","ENT Specialist":"👂","Orthopedic":"🦴","Orthopaedic":"🦴","Cardiologist":"❤️","Neurologist":"🧠","Psychiatrist":"🧘","Ophthalmologist":"👁️","Urologist":"💧","Gastroenterologist":"🫃","Diabetologist":"🩸","Pulmonologist":"🫁","Physiotherapist":"🏃"};
 function specIcon(sp){return SPEC_ICON[sp]||"⚕️"}
+var PROBS=[["Fever and cold","🤒",/general/i],["Stomach pain","🤢",/gastro|general/i],["Skin and acne","🧴",/derma/i],["Joint and back pain","🦴",/ortho/i],["Tooth pain","🦷",/dent/i],["Pregnancy and periods","🤰",/gyn/i],["Child health","👶",/p(a)?ediatric/i],["Ear, nose, throat","👂",/\bent\b/i],["Chest pain and BP","❤️",/cardio/i],["Eye problems","👁️",/ophthal/i],["Diabetes and sugar","🩸",/diabet|general/i],["Stress and anxiety","🧘",/psychi/i]];
+function probList(){
+  var out=[];
+  PROBS.forEach(function(p){
+    var sp=SPECS.slice(1).filter(function(x){return p[2].test(x)})[0];
+    if(sp)out.push({t:p[0],e:p[1],spec:sp});
+  });
+  return out;
+}
 function vList(){
   var all=SPECS.slice(1),shown=state.specAll?all:all.slice(0,8);
   var grid=shown.map(function(sp){return '<button data-a="spec" data-v="'+esc(sp)+'" aria-pressed="'+(state.spec===sp)+'"><span class="sc" aria-hidden="true">'+specIcon(sp)+'</span>'+esc(sp)+'</button>'}).join("");
@@ -2149,6 +2207,7 @@ function vList(){
     q4('help','',sv('<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="2" y="14" width="4" height="6" rx="2"/><rect x="18" y="14" width="4" height="6" rx="2"/>'),'Help')+'</div>'+
    '<div class="sech"><h2>Find doctors by speciality</h2>'+(state.spec!=="All"?'<button data-a="spec" data-v="All">Clear</button>':(all.length>8?'<button data-a="specall">'+(state.specAll?'Show less':'View all')+'</button>':''))+'</div>'+
    '<div class="sgrid" role="group" aria-label="Specialty">'+grid+'</div>'+
+   (function(){var pl=probList();if(!pl.length)return '';return '<div class="sech"><h2>Common problems</h2></div><div class="sgrid" role="group" aria-label="Common problems">'+pl.map(function(x){return '<button data-a="prob" data-v="'+esc(x.spec)+'" data-t="'+esc(x.t)+'" aria-pressed="'+(state.prob===x.t)+'"><span class="sc" aria-hidden="true">'+x.e+'</span>'+esc(x.t)+'</button>'}).join("")+'</div>'})()+
    '<div id="docs" style="margin-top:6px">'+docListHtml()+'</div>'+
    proLinks()+
    '<div class="foot">Doctors, clinics and availability shown here are sample data for this prototype.</div>';
@@ -3759,6 +3818,7 @@ function render(scroll){
   state.notif=false;
   if(state.staff){var _su=getUser(state.staff);app.innerHTML=nbHtml()+(CLOUD&&_su&&(_su.role==="admin"||_su.role==="sales")?vCloudAdmin():vStaff())+lbHtml();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="login"){app.innerHTML=vLogin();if(scroll)window.scrollTo(0,0);return}
+  if(state.view==="profile"&&state.pat&&state.sub){app.innerHTML=vSub();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="profile"&&state.pat&&state.prof){app.innerHTML=vProfile();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="freg"){app.innerHTML=vFreg();if(scroll)window.scrollTo(0,0);return}
   if(state.view==="register"){app.innerHTML=vRegister();if(scroll)window.scrollTo(0,0);return}
@@ -3961,7 +4021,11 @@ app.addEventListener("click",function(ev){
     case "addlead":state.addLead=!state.addLead;render();break;
     case "ttable":state.showTable=!state.showTable;render();break;
     case "toggle":sToggle(v);break;
-    case "spec":state.spec=v;render();break;
+    case "spec":state.spec=v;state.prob="";render();break;
+    case "prob":(function(){var t=b.getAttribute("data-t");state.prob=(state.prob===t&&state.spec===v)?"":t;state.spec=state.prob?v:"All";render();var e=document.getElementById("docs");if(e&&state.prob)e.scrollIntoView({behavior:"smooth",block:"start"})})();break;
+    case "sub":state.sub=v;render(true);break;
+    case "subback":state.sub="";render(true);break;
+    case "pharm":state.fk="pharmacy";state.sub="";state.view="list";state.tab="labs";render(true);break;
     case "vmode":state.vsel=(state.vsel===v?"":v);state.vonly=(state.vsel==="video");render();(function(){var e=document.getElementById("docs");if(e&&state.vsel)e.scrollIntoView({behavior:"smooth",block:"start"})})();break;
     case "specall":state.specAll=!state.specAll;render();break;
     case "open":
