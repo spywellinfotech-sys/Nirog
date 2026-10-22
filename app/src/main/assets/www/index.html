@@ -3388,6 +3388,7 @@ function cloudTabLoad(){
   if(t==="fac"&&cloud.facs===null)BE.adminFacilities().then(function(l){cloud.facs=l;render()},function(e){cloud.facs=[];cloud.adminErr=e.message;render()});
   if(t==="bc"&&cloud.bf&&!cloud.bf.reachTried){cloud.bf.reachTried=true;bcReachSoon()}
   if(t==="bc"&&!cloud.bcs&&!cloud.bcLoading){cloud.bcLoading=true;BE.broadcasts().then(function(l){cloud.bcLoading=false;cloud.bcs=l;render()})}
+  if(t==="pm"&&cloud.pmRows===undefined&&!cloud.pmBusy){cloud.pmBusy=true;BE.prospects().then(function(l){cloud.pmBusy=false;cloud.pmRows=l||[];render()},function(e){cloud.pmBusy=false;cloud.pmRows=[];cloud.adminErr=e.message;render()})}
   if(t==="lead"&&cloud.leads===null)BE.sel("leads","select=*&order=created_at.desc&limit=300").then(function(l){cloud.leads=l;render()},function(e){cloud.leads=[];cloud.adminErr=e.message;render()});
 }
 function cloudReviewF(id,decision){
@@ -3407,6 +3408,84 @@ function cloudLeadStatus(v){
   var p=v.split("|");
   BE.setLeadStatus(+p[0],p[1]).then(function(){cloud.leads=null;render()},function(e){cloud.adminMsg=e.message;render()});
 }
+/* ---------- Promote: a contact list of doctors, hospitals, labs and pharmacies to invite by WhatsApp, email or call (not app users) ---------- */
+var PM_KINDS=[["doctor","Doctor"],["hospital","Hospital"],["lab","Lab"],["centre","Diagnostic centre"],["pharmacy","Pharmacy"],["other","Other"]];
+var PM_STAT=[["new","New"],["messaged","Messaged"],["interested","Interested"],["enrolled","Enrolled"],["not_interested","Not interested"]];
+var PM_DEFTMPL="Namaste {name} ji, main Yada+ se hoon. Yada+ ek free doctor appointment app hai jahan patients online booking aur video consult karte hain. Apna {type} free mein list karein, naye patients aap tak pahunchenge. Register karein: {link}";
+var PM_KEY="yada-promo-template-v1";
+function pmKind(k){var n=k;PM_KINDS.forEach(function(x){if(x[0]===k)n=x[1]});return n}
+function pmSt(){return cloud.pm||(cloud.pm=(function(){var t=PM_DEFTMPL;try{var r=localStorage.getItem(PM_KEY);if(r)t=r}catch(e){}return {kind:"all",stat:"today",city:"",tmpl:t,imp:"",lim:40,res:""}})())}
+function pmText(p){var st=pmSt();return st.tmpl.replace(/\{name\}/g,p.name).replace(/\{type\}/g,pmKind(p.kind).toLowerCase()).replace(/\{link\}/g,WEB_URL)}
+function pmToday(p){return !!p.last_messaged_at&&dkey(new Date(p.last_messaged_at))===dkey(new Date())}
+function pmMatch(p,st){
+  if(st.kind!=="all"&&p.kind!==st.kind)return false;
+  if(st.city&&p.city!==st.city)return false;
+  if(st.stat==="today")return p.status!=="enrolled"&&p.status!=="not_interested"&&!pmToday(p);
+  return st.stat==="all"||p.status===st.stat;
+}
+function pmParse(txt){
+  var rows=[],bad=0;
+  String(txt||"").split(/\r?\n/).forEach(function(line){
+    if(!line.trim())return;
+    var c=line.split(/\t|,|;/).map(function(x){return x.trim()});
+    if(/^(type|kind)$/i.test(c[0]))return;
+    var k=(c[0]||"").toLowerCase(),kind=/^dr|doctor|clinic/.test(k)?"doctor":/hosp/.test(k)?"hospital":/lab|path/.test(k)?"lab":/cent|diag|scan|imag/.test(k)?"centre":/pharm|medic|chem/.test(k)?"pharmacy":"other";
+    if(!c[1]){bad++;return}
+    rows.push({kind:kind,name:c[1],phone:c[2]||"",email:c[3]||"",city:c[4]||"",spec:c[5]||""});
+  });
+  return {rows:rows,bad:bad};
+}
+function pmRow(p){
+  var ago=pmToday(p)?"today":p.last_messaged_at?Math.max(1,Math.round((Date.now()-Date.parse(p.last_messaged_at))/86400000))+" days ago":"not yet";
+  var b='';
+  if(p.phone)b+='<button class="btn sm" data-a="pmwa" data-v="'+p.id+'">WhatsApp</button><button class="btn sm ghost" data-a="pmcall" data-v="'+p.id+'">Call</button>';
+  if(p.email)b+='<button class="btn sm ghost" data-a="pmmail" data-v="'+p.id+'">Email</button>';
+  var sts=PM_STAT.filter(function(x){return x[0]!==p.status&&x[0]!=="messaged"}).map(function(x){return '<button class="btn sm ghost" data-a="pmst" data-v="'+p.id+'|'+x[0]+'">'+x[1]+'</button>'}).join("");
+  return '<div class="appt"><div class="who"><div style="min-width:0"><div class="doc-name">'+esc(p.name)+'</div><div class="tiny">'+esc(pmKind(p.kind))+(p.spec?' · '+esc(p.spec):'')+(p.city?' · '+esc(p.city):'')+'</div></div><span class="pill'+(p.status==="enrolled"?'':p.status==="not_interested"?' bad':p.status==="interested"?'':' warn')+'">'+esc((PM_STAT.filter(function(x){return x[0]===p.status})[0]||[0,p.status])[1])+'</span></div>'+
+   '<div class="tiny tnum">'+(p.phone?'<span class="sel">'+esc(p.phone)+'</span>':'')+(p.phone&&p.email?' · ':'')+(p.email?esc(p.email):'')+'</div>'+
+   '<div class="tiny">Last contacted: '+ago+(p.msg_count?' · '+p.msg_count+' time'+(p.msg_count===1?'':'s'):'')+'</div>'+
+   '<div class="acts">'+b+'</div><div class="acts">'+sts+'<button class="btn sm ghost" data-a="pmdel" data-v="'+p.id+'" style="color:var(--bad)">Remove</button></div></div>';
+}
+function pmAdmin(){
+  var st=pmSt(),all=cloud.pmRows||[],cities=[];
+  all.forEach(function(p){if(p.city&&cities.indexOf(p.city)<0)cities.push(p.city)});cities.sort();
+  var list=all.filter(function(p){return pmMatch(p,st)}),todayN=all.filter(function(p){return pmMatch(p,{kind:st.kind,city:st.city,stat:"today"})}).length;
+  var chips=function(items,cur,act){return '<div class="chips" style="padding:8px 0 0" role="group">'+items.map(function(x){return '<button class="chip" data-a="'+act+'" data-v="'+x[0]+'" aria-pressed="'+(cur===x[0])+'">'+x[1]+'</button>'}).join("")+'</div>'};
+  var sample=all.find?all.find(function(p){return p.phone||p.email}):null;
+  return '<div class="sec">Message to send</div><div class="card"><div class="field" style="margin-bottom:6px"><label for="pm-tmpl">Promotion message</label><textarea id="pm-tmpl" rows="5" maxlength="600">'+esc(st.tmpl)+'</textarea></div>'+
+   '<div class="tiny">{name} is replaced with the contact\'s name, {type} with doctor, hospital, lab or pharmacy, and {link} with the Yada+ web link.</div>'+
+   '<div class="acts"><button class="btn sm ghost" data-a="pmreset">Use the default message</button></div></div>'+
+   '<div class="sec">Add contacts</div><div class="card"><div class="field" style="margin-bottom:6px"><label for="pm-imp">One contact per line: Type, Name, Mobile, Email, City, Speciality</label>'+
+   '<textarea id="pm-imp" rows="5" placeholder="Doctor, Dr Asha Rao, 9876543210, asha@mail.com, Pune, Dentist&#10;Lab, City Path Lab, 9811122233, , Delhi&#10;Pharmacy, Shree Medical, , shree@mail.com, Jaipur">'+esc(st.imp)+'</textarea></div>'+
+   '<div class="tiny">Mobile or email is needed. Mobile can have +91 or spaces. Numbers already in the list are skipped. Up to 500 lines at a time. Paste straight from Excel or Google Sheets too.</div>'+
+   (st.res?'<div class="status-line" role="status" style="margin-top:8px">'+esc(st.res)+'</div>':'')+
+   '<div class="acts"><button class="btn sm" data-a="pmimp"'+(cloud.busy?' disabled':'')+'>Add to list</button></div></div>'+
+   '<div class="sec">Contact list ('+all.length+')</div>'+
+   '<div style="padding:0 16px"><div class="callout"><span><b>'+todayN+'</b> to contact today. Tap WhatsApp, Call or Email, and the contact moves out of today\'s list.</span></div>'+
+   chips([["today","To contact today"],["new","New"],["interested","Interested"],["enrolled","Enrolled"],["not_interested","Not interested"],["all","All"]],st.stat,"pmstat")+
+   chips([["all","All types"]].concat(PM_KINDS),st.kind,"pmkind")+
+   (cities.length?'<div class="field" style="margin-top:8px"><label for="pm-city">City</label><select id="pm-city"><option value="">All cities</option>'+cities.map(function(c){return '<option'+(st.city===c?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select></div>':'')+'</div>'+
+   (cloud.pmRows===undefined?'<div class="empty">Loading...</div>':list.length?'<div style="padding:0 16px">'+list.slice(0,st.lim).map(pmRow).join("")+(list.length>st.lim?'<div class="acts"><button class="btn sm ghost" data-a="pmmore">Show more ('+(list.length-st.lim)+' left)</button></div>':'')+'</div>':'<div class="empty">'+(all.length?'Nobody in this list.':'No contacts yet. Add some above.')+'</div>');
+}
+function pmFind(id){var r=null;(cloud.pmRows||[]).forEach(function(p){if(String(p.id)===String(id))r=p});return r}
+function pmDone(id,p){
+  BE.prospectMessaged(+id).then(function(){p.last_messaged_at=new Date().toISOString();p.msg_count=(p.msg_count||0)+1;if(p.status==="new")p.status="messaged";render()},function(e){cloud.adminErr=e.message;render()});
+}
+function pmAct(kind,id){
+  var p=pmFind(id);if(!p)return;
+  var msg=pmText(p);
+  if(kind==="wa")window.open("https://wa.me/91"+p.phone+"?text="+encodeURIComponent(msg),"_blank");
+  else if(kind==="mail")window.open("mailto:"+encodeURIComponent(p.email).replace(/%40/g,"@")+"?subject="+encodeURIComponent("Apna practice Yada+ par free mein list karein")+"&body="+encodeURIComponent(msg),"_self");
+  else window.location.href="tel:+91"+p.phone;
+  pmDone(id,p);
+}
+function pmImport(){
+  var st=pmSt(),r=pmParse(st.imp);
+  if(!r.rows.length){st.res="Nothing to add. Write one contact per line, for example: Doctor, Dr Asha Rao, 9876543210, , Pune.";render();return}
+  if(r.rows.length>500){st.res="Add at most 500 lines at a time.";render();return}
+  cloud.busy=true;st.res="";render();
+  BE.importProspects(r.rows).then(function(x){cloud.busy=false;st.res=x.added+" added, "+x.duplicates+" already in the list, "+(x.invalid+r.bad)+" skipped (no valid mobile or email).";if(x.added)st.imp="";cloud.pmRows=undefined;render()},function(e){cloud.busy=false;st.res=e.message;render()});
+}
 function cloudSaveSettings(){
   var f=cloud.sf,v=+f.value;
   if(!(v>=0)||(f.type==="flat"&&v>5000)||(f.type==="percent"&&v>50)){cloud.adminMsg="Fee must be 0 to 5000 rupees, or 0 to 50 percent.";render();return}
@@ -3423,7 +3502,7 @@ function cloudSaveSettings(){
 }
 function vCloudAdmin(){
   var u=getUser(state.staff),admin=u.role==="admin";
-  var tabs=admin?[["ov","Overview"],["doc","Doctors"],["fac","Facilities"],["lead","Leads"],["bc","Notify"],["amb","Ambulance"],["pt","Patients"],["ad","Ads"],["acc","Accounts"],["pay","Payouts"],["set","Settings"]]:[["lead","Leads"]];
+  var tabs=admin?[["ov","Overview"],["doc","Doctors"],["fac","Facilities"],["lead","Leads"],["pm","Promote"],["bc","Notify"],["amb","Ambulance"],["pt","Patients"],["ad","Ads"],["acc","Accounts"],["pay","Payouts"],["set","Settings"]]:[["lead","Leads"]];
   if(!tabs.some(function(t){return t[0]===cloud.tab}))cloud.tab=tabs[0][0];
   cloudTabLoad();
   var t=cloud.tab,body="";
@@ -3451,6 +3530,8 @@ function vCloudAdmin(){
      '<div class="field"><label for="cl-spec">Speciality</label><select id="cl-spec">'+SPECS.map(function(x){return '<option'+(f.spec===x?' selected':'')+'>'+esc(x)+'</option>'}).join("")+'</select></div><div class="field"><label for="cl-city">City / location</label>'+cityIn("cl-city",f.city)+'</div><div class="field"><label for="cl-doc">Doctor (optional)</label><select id="cl-doc"><option value="">Any doctor</option>'+leadDocs(f.spec,f.city).map(function(d){return '<option value="'+d.id+'"'+(String(f.doc)===String(d.id)?' selected':'')+'>'+esc(d.name)+'</option>'}).join("")+'</select></div><button class="btn" type="submit"'+(cloud.busy?' disabled':'')+'>Add lead</button></div></form>'+
      '<div class="sec">Leads ('+Ls.length+')</div>'+(Ls.length?Ls.map(function(l){return '<div class="appt"><div class="who"><div><div class="doc-name">'+esc(l.name)+'</div><div class="tiny tnum">'+esc(l.phone)+' · '+esc(l.spec)+(l.city?' · '+esc(l.city):'')+(l.doctor_id?' · '+esc(leadDocName(l.doctor_id)):'')+'</div></div><span class="pill">'+esc(STATUS[l.status]||l.status)+'</span></div><div class="acts" style="flex-wrap:wrap">'+
        ["new","contacted","booked","lost"].filter(function(x){return x!==l.status}).map(function(x){return '<button class="btn sm ghost" data-a="clstat" data-v="'+l.id+'|'+x+'">'+esc(STATUS[x])+'</button>'}).join("")+'</div></div>'}).join(""):'<div class="empty">No leads yet.</div>');
+  }else if(t==="pm"){
+    body=pmAdmin();
   }else if(t==="bc"){
     body=bcCompose()+bcHistory();
   }else{
@@ -3679,6 +3760,16 @@ app.addEventListener("click",function(ev){
     case "cfapprove":cloudReviewF(+v,"approve");break;
     case "cfreject":cloudReviewF(+v,"reject");break;
     case "clstat":cloudLeadStatus(v);break;
+    case "pmwa":pmAct("wa",v);break;
+    case "pmcall":pmAct("call",v);break;
+    case "pmmail":pmAct("mail",v);break;
+    case "pmstat":pmSt().stat=v;pmSt().lim=40;render();break;
+    case "pmkind":pmSt().kind=v;pmSt().lim=40;render();break;
+    case "pmmore":pmSt().lim+=40;render();break;
+    case "pmimp":pmImport();break;
+    case "pmreset":(function(){var st=pmSt();st.tmpl=PM_DEFTMPL;try{localStorage.removeItem(PM_KEY)}catch(e){}render()})();break;
+    case "pmst":(function(){var q=v.split("|"),p=pmFind(q[0]);if(!p)return;BE.setProspect(+q[0],q[1]).then(function(){p.status=q[1];render()},function(e){cloud.adminErr=e.message;render()})})();break;
+    case "pmdel":(function(){var p=pmFind(v);if(!p||!confirm("Remove "+p.name+" from the list?"))return;BE.delProspect(+v).then(function(){cloud.pmRows=cloud.pmRows.filter(function(x){return x!==p});render()},function(e){cloud.adminErr=e.message;render()})})();break;
     case "bcask":if(cloud.bf){if(!cloud.bf.title.trim()){cloud.bf.err="Enter a title."}else{cloud.bf.err="";cloud.bf.ask=true}render()}break;
     case "bcno":if(cloud.bf){cloud.bf.ask=false;render()}break;
     case "bcsend":bcSend();break;
@@ -3910,6 +4001,9 @@ app.addEventListener("input",function(ev){
   else if(t.id==="ca-city"&&cloud.af)cloud.af.city=t.value;
   else if(t.id==="ca-kind"&&cloud.af)cloud.af.kind=t.value;
   else if(t.id==="ca-note"&&cloud.af)cloud.af.note=t.value;
+  else if(t.id==="pm-imp"){pmSt().imp=t.value}
+  else if(t.id==="pm-tmpl"){pmSt().tmpl=t.value;try{localStorage.setItem(PM_KEY,t.value)}catch(e){}}
+  else if(t.id==="pm-city"){pmSt().city=t.value;pmSt().lim=40;render()}
   else if(t.id==="cl-name"&&cloud.lf)cloud.lf.name=t.value;
   else if(t.id==="cl-phone"&&cloud.lf){t.value=t.value.replace(/\D/g,"").slice(0,10);cloud.lf.phone=t.value}
   else if(t.id==="cl-spec"&&cloud.lf){cloud.lf.spec=t.value;cloud.lf.doc="";render()}

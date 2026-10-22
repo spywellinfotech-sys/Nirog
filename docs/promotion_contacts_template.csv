@@ -1,0 +1,5 @@
+Type,Name,Mobile,Email,City,Speciality
+Doctor,Dr Example Sharma,9876500000,example@mail.com,Pune,General Physician
+Lab,Example Path Lab,9811100000,,Delhi,Pathology
+Pharmacy,Example Medical Store,,store@mail.com,Jaipur,
+Hospital,Example Care Hospital,9822200000,info@example.com,Saharanpur,Multi speciality
