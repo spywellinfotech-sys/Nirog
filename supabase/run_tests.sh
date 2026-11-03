@@ -55,6 +55,7 @@ $P -f migrations/0042_weight_and_test_fee.sql
 $P -f migrations/0043_attendance.sql
 $P -f migrations/0044_whatsapp_call.sql
 $P -f migrations/0045_prospects.sql
+$P -f migrations/0046_referral_fee_adjust.sql
 for t in tests/[0-9]*.sql; do echo "== $t"; $P -f "$t" ; done
 
 echo "== concurrency: 12 patients race for one slot"

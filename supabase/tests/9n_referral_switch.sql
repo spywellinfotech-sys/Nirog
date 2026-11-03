@@ -18,4 +18,4 @@ select t.login(:'N2');
 select t.ok(public.apply_referral(:'acode'), 'codes work again when switched on');
 select t.root();
 select t.login(:'A1');
-select t.ok((public.my_referral() ->> 'balance')::int = :bal0::int + 1, 'reward is paid again after switching on');
+select t.ok((public.my_referral() ->> 'balance')::int = :bal0::int + 2, 'reward is paid again after switching on');

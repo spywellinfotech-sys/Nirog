@@ -6,6 +6,8 @@
 \set N1 '00000000-0000-0000-0000-0000000c0301'
 \set N2 '00000000-0000-0000-0000-0000000c0302'
 \set N3 '00000000-0000-0000-0000-0000000c0303'
+-- These checks use the old amounts (patient 1, doctor 10, facility 10) and no fee reservation; the new defaults are tested in 9zzzz_referral_fee_adjust.sql.
+update public.referral_settings set patient_inr = 1, doctor_inr = 10, facility_inr = 10, fee_adjust_inr = 0;
 insert into auth.users (id, email) values (:'N1', 'ref-n1@example.com'), (:'N2', 'ref-n2@example.com'), (:'N3', 'ref-n3@example.com');
 
 select t.denied($$select public.my_referral()$$, 'not_authenticated', 'anonymous cannot read a wallet');
@@ -100,3 +102,6 @@ select t.denied($$update public.wallet_ledger set amount_inr = 999$$, 'permissio
 
 select t.root();
 update public.doctors set status = 'approved', verified = true where id = :did;
+
+-- Back to the shipped defaults for the tests that follow.
+update public.referral_settings set patient_inr = 2, doctor_inr = 2, facility_inr = 2, fee_adjust_inr = 100;

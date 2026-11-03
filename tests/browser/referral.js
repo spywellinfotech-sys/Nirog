@@ -14,12 +14,12 @@ async function open(role, url) {
     const j = (s, o) => r.fulfill({ status: s, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(o) });
     if (m === "OPTIONS") return r.fulfill({ status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*" } });
     let body = {}; try { body = JSON.parse(r.request().postData() || "{}"); } catch (e) {}
-    if (p.endsWith("/rpc/my_referral")) return j(200, { code: "YDK4M7QP", balance: st.balance, rates: { doctor: 10, facility: 10, patient: 1 }, min_withdraw: 50, applied: st.appliedFlag, counts: { patient: 3, doctor: 1, facility: 0 }, history: [{ amount: 10, kind: "referral", note: "Doctor joined through your invite", at: new Date().toISOString() }], withdrawals: st.wd ? [st.wd] : [] });
+    if (p.endsWith("/rpc/my_referral")) return j(200, { code: "YDK4M7QP", balance: st.balance, fee_adjust: 100, fee_credit: 10, withdrawable: st.balance - 10, rates: { doctor: 10, facility: 10, patient: 1 }, min_withdraw: 50, applied: st.appliedFlag, counts: { patient: 3, doctor: 1, facility: 0 }, history: [{ amount: 10, kind: "referral", note: "Doctor joined through your invite", at: new Date().toISOString() }], withdrawals: st.wd ? [st.wd] : [] });
     if (p.endsWith("/rpc/apply_referral")) { st.applied.push(body.p_code); if (body.p_code === "BADCODE") return j(400, { code: "P0001", message: "invalid_code" }); st.appliedFlag = true; return j(200, true); }
     if (p.endsWith("/rpc/request_withdrawal")) { st.wd = { id: 1, amount: body.p_amount, upi: body.p_upi, status: "pending", at: new Date().toISOString() }; st.balance -= body.p_amount; return j(200, 1); }
     if (p.endsWith("/rpc/admin_withdrawals")) return j(200, st.decided ? [] : st.pend);
     if (p.endsWith("/rpc/admin_decide_withdrawal")) { st.decided = body; return j(200, true); }
-    if (p.endsWith("/rpc/admin_referral_settings")) { if (body.p) st.settings = Object.assign(st.settings || {}, body.p); return j(200, { enabled: st.settings && st.settings.enabled === false ? false : true, doctor_inr: 10, facility_inr: 10, patient_inr: 1, min_withdraw: 50, patient_daily_cap: 50 }); }
+    if (p.endsWith("/rpc/admin_referral_settings")) { if (body.p) st.settings = Object.assign(st.settings || {}, body.p); return j(200, { enabled: st.settings && st.settings.enabled === false ? false : true, doctor_inr: 10, facility_inr: 10, patient_inr: 1, min_withdraw: 50, fee_adjust_inr: 100, patient_daily_cap: 50 }); }
     if (p.endsWith("/rpc/admin_dashboard_counts")) return j(200, { patients: 1, doctors: { listed: 0, pending: 0 }, facilities: {} });
     if (p === "/rest/v1/profiles") return j(200, [{ id: role === "admin" ? "a1" : "p1", role: role, full_name: "X", phone: "+919876500001", email: "u@x.in" }]);
     if (m === "GET") return j(200, []);
@@ -39,6 +39,8 @@ async function open(role, url) {
   await pg.locator('[data-a="ref"]').first().click(); await pg.waitForTimeout(800);
   let tx = await txt();
   check("wallet balance and code are shown", /₹25/.test(tx) && /YDK4M7QP/.test(tx));
+  check("wallet shows the part kept for platform fees and what can be withdrawn", /₹10 is kept for platform fees/.test(tx) && /₹15 can be withdrawn/.test(tx));
+  check("the earn text explains the fee adjustment", /first ₹100 you earn is used automatically/.test(tx));
   check("rewards use the configured rates", /₹10 when a doctor/.test(tx) && /₹1 for every new patient/.test(tx));
   check("counts are shown", /1 doctors, 0 facilities, 3 patients/.test(tx));
   const href = await pg.locator('a:has-text("Share on WhatsApp")').getAttribute("href");
@@ -67,8 +69,10 @@ async function open(role, url) {
   check("admin can pause the programme", t.st.settings && t.st.settings.enabled === false && /paused/i.test(await txt()));
   await pg.locator('[data-a="rson"]').click(); await pg.waitForTimeout(700);
   check("admin can switch it back on", t.st.settings.enabled === true && /Referral programme is on/.test(await txt()));
+  check("admin sees the platform-fee reservation field", (await pg.locator("#rs-fee").inputValue()) === "100");
+  await pg.fill("#rs-fee", "50");
   await pg.fill("#rs-doc", "15"); await pg.fill("#rs-pat", "2"); await pg.locator('[data-a="rssave"]').click(); await pg.waitForTimeout(700);
-  check("reward rates are saved", t.st.settings && t.st.settings.doctor_inr === 15 && t.st.settings.patient_inr === 2 && /Saved/.test(await txt()));
+  check("reward rates are saved", t.st.settings && t.st.settings.doctor_inr === 15 && t.st.settings.patient_inr === 2 && t.st.settings.fee_adjust_inr === 50 && /Saved/.test(await txt()));
   await pg.fill("#rs-doc", "x"); await pg.locator('[data-a="rssave"]').click(); await pg.waitForTimeout(300);
   check("rates must be whole rupees", /whole rupee amounts/.test(await txt()));
   check("no page errors (admin)", t.errs.length === 0); await t.b.close();
